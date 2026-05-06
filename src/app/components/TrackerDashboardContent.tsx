@@ -1,0 +1,872 @@
+'use client';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  loadState,
+  saveState,
+  getTodayString,
+  getWeekDates,
+  getFieldTotal,
+  generateId,
+  AppState,
+  TrackingField,
+  DailyEntry,
+  EntryValue,
+} from '@/lib/store';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Plus,
+  Edit2,
+  Trash2,
+  Clock,
+  Flame,
+  Target,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  Calendar,
+  PlusCircle,
+} from 'lucide-react';
+import Badge from '@/components/ui/Badge';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import { showToast } from '@/components/ui/Toast';
+import Link from 'next/link';
+import EntryFormModal from './EntryFormModal';
+
+export default function TrackerDashboardContent() {
+  const [state, setState] = useState<AppState | null>(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerElapsed, setTimerElapsed] = useState(0);
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const [addToFieldId, setAddToFieldId] = useState<string>('');
+  const [entryModalOpen, setEntryModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Load state
+  useEffect(() => {
+    const s = loadState();
+    setState(s);
+    if (s.fields.length > 0) {
+      const numField = s.fields.find((f) => f.type === 'number');
+      if (numField) setAddToFieldId(numField.id);
+    }
+    // Restore timer from sessionStorage
+    try {
+      const timerRaw = sessionStorage.getItem('ct_timer');
+      if (timerRaw) {
+        const t = JSON.parse(timerRaw);
+        setTimerElapsed(t.elapsed ?? 0);
+        setTimerRunning(t.running ?? false);
+        setTimerStartedAt(t.startedAt ?? null);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Timer tick
+  useEffect(() => {
+    if (timerRunning && timerStartedAt !== null) {
+      intervalRef.current = setInterval(() => {
+        const now = Date.now();
+        const base = timerElapsed;
+        setTimerElapsed(base + Math.floor((now - timerStartedAt) / 1000));
+        setTimerStartedAt(now);
+      }, 1000);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [timerRunning, timerStartedAt]);
+
+  // Persist timer to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        'ct_timer',
+        JSON.stringify({ elapsed: timerElapsed, running: timerRunning, startedAt: timerStartedAt })
+      );
+    } catch {
+      // ignore
+    }
+  }, [timerElapsed, timerRunning, timerStartedAt]);
+
+  const handleTimerToggle = useCallback(() => {
+    if (!timerRunning) {
+      setTimerStartedAt(Date.now());
+      setTimerRunning(true);
+    } else {
+      setTimerRunning(false);
+      setTimerStartedAt(null);
+    }
+  }, [timerRunning]);
+
+  const handleTimerReset = useCallback(() => {
+    setTimerRunning(false);
+    setTimerElapsed(0);
+    setTimerStartedAt(null);
+  }, []);
+
+  const handleAddTimerToField = useCallback(() => {
+    if (!state || !addToFieldId || timerElapsed === 0) return;
+    const hours = timerElapsed / 3600;
+    const roundedHours = Math.round(hours * 100) / 100;
+    const today = getTodayString();
+    const newState = { ...state, entries: [...state.entries] };
+    const existingIdx = newState.entries.findIndex((e) => e.date === today);
+
+    if (existingIdx >= 0) {
+      const entry = { ...newState.entries[existingIdx] };
+      const vals = [...entry.values];
+      const valIdx = vals.findIndex((v) => v.fieldId === addToFieldId);
+      if (valIdx >= 0) {
+        const existing = parseFloat(vals[valIdx].value) || 0;
+        vals[valIdx] = {
+          ...vals[valIdx],
+          value: String(Math.round((existing + roundedHours) * 100) / 100),
+        };
+      } else {
+        vals.push({ fieldId: addToFieldId, value: String(roundedHours) });
+      }
+      newState.entries[existingIdx] = { ...entry, values: vals };
+    } else {
+      const values: EntryValue[] = state.fields.map((f) => ({
+        fieldId: f.id,
+        value: f.id === addToFieldId ? String(roundedHours) : f.defaultValue,
+      }));
+      newState.entries.push({
+        id: generateId('entry'),
+        date: today,
+        values,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    saveState(newState);
+    setState(newState);
+    handleTimerReset();
+    showToast({
+      type: 'success',
+      title: 'Time logged',
+      description: `Added ${roundedHours}h to ${state.fields.find((f) => f.id === addToFieldId)?.name}`,
+    });
+  }, [state, addToFieldId, timerElapsed, handleTimerReset]);
+
+  const handleDeleteEntry = useCallback((entryId: string) => {
+    setState((prev) => {
+      if (!prev) return prev;
+      const newState = {
+        ...prev,
+        entries: prev.entries.filter((e) => e.id !== entryId),
+      };
+      saveState(newState);
+      return newState;
+    });
+    setDeleteConfirm(null);
+    showToast({ type: 'success', title: 'Entry deleted' });
+  }, []);
+
+  const handleSaveEntry = useCallback(
+    (entry: DailyEntry) => {
+      setState((prev) => {
+        if (!prev) return prev;
+        const existing = prev.entries.findIndex((e) => e.id === entry.id);
+        let newEntries: DailyEntry[];
+        if (existing >= 0) {
+          newEntries = prev.entries.map((e) => (e.id === entry.id ? entry : e));
+        } else {
+          newEntries = [...prev.entries, entry];
+        }
+        const newState = { ...prev, entries: newEntries };
+        saveState(newState);
+        return newState;
+      });
+      setEntryModalOpen(false);
+      setEditingEntry(null);
+      showToast({ type: 'success', title: editingEntry ? 'Entry updated' : 'Entry logged' });
+    },
+    [editingEntry]
+  );
+
+  if (!state) {
+    return <DashboardSkeleton />;
+  }
+
+  const today = getTodayString();
+  const weekDates = getWeekDates();
+  const todayEntry = state.entries.find((e) => e.date === today);
+  const recentEntries = [...state.entries]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 8);
+
+  // Streak
+  let streak = computeStreak(state.entries);
+
+  // Daily completion rate
+  const numFields = state.fields.filter((f) => f.type === 'number');
+  const targetsToday = state.targets.filter((t) => t.type === 'daily');
+  const metTargets = targetsToday.filter((t) => {
+    const val = getFieldValueForEntry(todayEntry, t.fieldId);
+    return val >= t.targetValue;
+  });
+  const completionRate =
+    targetsToday.length > 0
+      ? Math.round((metTargets.length / targetsToday.length) * 100)
+      : null;
+
+  // Weekly totals
+  const weeklyTotals: Record<string, number> = {};
+  numFields.forEach((f) => {
+    weeklyTotals[f.id] = getFieldTotal(state.entries, f.id, weekDates);
+  });
+
+  const formattedTime = formatSeconds(timerElapsed);
+
+  return (
+    <div className="space-y-6 fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>
+            Daily Tracker
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+            {formatDisplayDate(today)}
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setEditingEntry(null);
+            setEntryModalOpen(true);
+          }}
+          className="btn-primary"
+        >
+          <Plus size={16} />
+          Log Entry
+        </button>
+      </div>
+
+      {/* No fields state */}
+      {state.fields.length === 0 && (
+        <div
+          className="card p-12 text-center"
+          style={{ borderStyle: 'dashed' }}
+        >
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4"
+            style={{ backgroundColor: 'rgba(37,99,235,0.08)' }}
+          >
+            <PlusCircle size={24} style={{ color: 'var(--primary)' }} />
+          </div>
+          <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+            No tracking fields yet
+          </h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
+            Define what you want to track — hours worked, tasks completed, revenue earned — then log daily entries here.
+          </p>
+          <Link href="/settings-screen" className="btn-primary inline-flex">
+            <Plus size={16} />
+            Create Your First Field
+          </Link>
+        </div>
+      )}
+
+      {state.fields.length > 0 && (
+        <>
+          {/* Bento grid: 4 stat cards */}
+          {/* Grid plan: 4 cards → grid-cols-2 lg:grid-cols-4, all equal */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Streak */}
+            <StatCard
+              label="Current Streak"
+              value={String(streak)}
+              unit="days"
+              icon={<Flame size={18} style={{ color: '#D97706' }} />}
+              color="#D97706"
+              bg="var(--warning-bg)"
+              trend={streak >= 7 ? 'up' : undefined}
+            />
+            {/* Today completion */}
+            <StatCard
+              label="Today's Targets"
+              value={completionRate !== null ? `${completionRate}%` : '—'}
+              unit={completionRate !== null ? `${metTargets.length}/${targetsToday.length} met` : 'no targets set'}
+              icon={<Target size={18} style={{ color: completionRate === 100 ? 'var(--success)' : completionRate !== null && completionRate < 50 ? 'var(--danger)' : 'var(--primary)' }} />}
+              color={completionRate === 100 ? 'var(--success)' : completionRate !== null && completionRate < 50 ? 'var(--danger)' : 'var(--primary)'}
+              bg={completionRate === 100 ? 'var(--success-bg)' : completionRate !== null && completionRate < 50 ? 'var(--danger-bg)' : 'rgba(37,99,235,0.06)'}
+            />
+            {/* Weekly total for top number field */}
+            {numFields.length > 0 && (
+              <StatCard
+                label={`This Week — ${numFields[0].name}`}
+                value={String(Math.round(weeklyTotals[numFields[0].id] * 10) / 10)}
+                unit={numFields[0].unit}
+                icon={<TrendingUp size={18} style={{ color: 'var(--accent)' }} />}
+                color="var(--accent)"
+                bg="rgba(14,165,233,0.08)"
+              />
+            )}
+            {/* Total entries */}
+            <StatCard
+              label="Total Entries"
+              value={String(state.entries.length)}
+              unit="logged"
+              icon={<Calendar size={18} style={{ color: 'var(--muted-foreground)' }} />}
+              color="var(--muted-foreground)"
+              bg="var(--muted)"
+            />
+          </div>
+
+          {/* Timer + Target Progress */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Timer widget */}
+            <div className="card p-5 shadow-card">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock size={16} style={{ color: 'var(--muted-foreground)' }} />
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                  Focus Timer
+                </h2>
+              </div>
+
+              <div
+                className="text-4xl font-bold tabular-nums text-center py-4 mb-4 rounded-lg"
+                style={{
+                  color: timerRunning ? 'var(--primary)' : 'var(--foreground)',
+                  backgroundColor: timerRunning ? 'rgba(37,99,235,0.06)' : 'var(--muted)',
+                  transition: 'all 200ms ease',
+                }}
+              >
+                {formattedTime}
+              </div>
+
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={handleTimerToggle}
+                  className={timerRunning ? 'btn-secondary flex-1' : 'btn-primary flex-1'}
+                >
+                  {timerRunning ? <Pause size={15} /> : <Play size={15} />}
+                  {timerRunning ? 'Pause' : 'Start'}
+                </button>
+                <button
+                  onClick={handleTimerReset}
+                  className="btn-ghost px-3 py-2"
+                  aria-label="Reset timer"
+                >
+                  <RotateCcw size={15} />
+                </button>
+              </div>
+
+              {timerElapsed > 0 && numFields.length > 0 && (
+                <div
+                  className="border rounded-lg p-3 space-y-2"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                    Add {formatSeconds(timerElapsed)} to field
+                  </p>
+                  <select
+                    value={addToFieldId}
+                    onChange={(e) => setAddToFieldId(e.target.value)}
+                    className="input-field text-xs py-1.5"
+                  >
+                    {numFields.map((f) => (
+                      <option key={`timer-field-${f.id}`} value={f.id}>
+                        {f.name} ({f.unit})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleAddTimerToField}
+                    className="btn-primary w-full text-xs py-1.5"
+                  >
+                    <Plus size={13} />
+                    Add to Entry
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Target progress cards */}
+            <div className="lg:col-span-2 card p-5 shadow-card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Target size={16} style={{ color: 'var(--muted-foreground)' }} />
+                  <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                    Target Progress
+                  </h2>
+                </div>
+                <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                  Today
+                </span>
+              </div>
+
+              {state.targets.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm mb-3" style={{ color: 'var(--muted-foreground)' }}>
+                    No targets configured yet
+                  </p>
+                  <Link href="/settings-screen" className="btn-secondary text-xs">
+                    Set Targets
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {state.targets.map((target) => {
+                    const field = state.fields.find((f) => f.id === target.fieldId);
+                    if (!field) return null;
+                    const current =
+                      target.type === 'weekly'
+                        ? getFieldTotal(state.entries, field.id, weekDates)
+                        : getFieldValueForEntry(todayEntry, field.id);
+                    const pct = Math.min(
+                      100,
+                      Math.round((current / target.targetValue) * 100)
+                    );
+                    const met = current >= target.targetValue;
+                    return (
+                      <TargetProgressRow
+                        key={`target-${target.fieldId}`}
+                        field={field}
+                        target={target}
+                        current={current}
+                        pct={pct}
+                        met={met}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Entries Table */}
+          <div className="card shadow-card overflow-hidden">
+            <div
+              className="flex items-center justify-between px-5 py-4 border-b"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                Recent Entries
+              </h2>
+              <button
+                onClick={() => {
+                  setEditingEntry(null);
+                  setEntryModalOpen(true);
+                }}
+                className="btn-ghost text-xs px-2 py-1.5"
+              >
+                <Plus size={13} />
+                New Entry
+              </button>
+            </div>
+
+            {recentEntries.length === 0 ? (
+              <div className="text-center py-12">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
+                  style={{ backgroundColor: 'var(--muted)' }}
+                >
+                  <Calendar size={20} style={{ color: 'var(--muted-foreground)' }} />
+                </div>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+                  No entries logged yet
+                </p>
+                <p className="text-xs mb-4" style={{ color: 'var(--muted-foreground)' }}>
+                  Start tracking your daily work by logging your first entry.
+                </p>
+                <button
+                  onClick={() => setEntryModalOpen(true)}
+                  className="btn-primary text-sm"
+                >
+                  <Plus size={14} />
+                  Log Your First Entry
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th
+                        className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: 'var(--muted-foreground)' }}
+                      >
+                        Date
+                      </th>
+                      {state.fields.map((f) => (
+                        <th
+                          key={`th-${f.id}`}
+                          className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide"
+                          style={{ color: 'var(--muted-foreground)' }}
+                        >
+                          {f.name}
+                          {f.unit && (
+                            <span className="ml-1 normal-case font-normal">
+                              ({f.unit})
+                            </span>
+                          )}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 w-20" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentEntries.map((entry) => (
+                      <EntryRow
+                        key={entry.id}
+                        entry={entry}
+                        fields={state.fields}
+                        targets={state.targets}
+                        isToday={entry.date === today}
+                        onEdit={() => {
+                          setEditingEntry(entry);
+                          setEntryModalOpen(true);
+                        }}
+                        onDelete={() => setDeleteConfirm(entry.id)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Entry Modal */}
+      {entryModalOpen && (
+        <EntryFormModal
+          fields={state.fields}
+          existingEntry={editingEntry}
+          existingEntryForDate={
+            !editingEntry
+              ? state.entries.find((e) => e.date === today) || null
+              : null
+          }
+          onSave={handleSaveEntry}
+          onClose={() => {
+            setEntryModalOpen(false);
+            setEditingEntry(null);
+          }}
+        />
+      )}
+
+      {/* Delete confirm */}
+      <ConfirmModal
+        open={deleteConfirm !== null}
+        title="Delete this entry?"
+        description="This entry and all its logged values will be permanently removed. This cannot be undone."
+        confirmLabel="Delete Entry"
+        variant="danger"
+        onConfirm={() => deleteConfirm && handleDeleteEntry(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+    </div>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  unit,
+  icon,
+  color,
+  bg,
+  trend,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  icon: React.ReactNode;
+  color: string;
+  bg: string;
+  trend?: 'up' | 'down';
+}) {
+  return (
+    <div className="card p-4 shadow-card">
+      <div className="flex items-center justify-between mb-3">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: bg }}
+        >
+          {icon}
+        </div>
+        {trend === 'up' && (
+          <TrendingUp size={14} style={{ color: 'var(--success)' }} />
+        )}
+      </div>
+      <div
+        className="text-2xl font-bold tabular-nums mb-0.5"
+        style={{ color: 'var(--foreground)' }}
+      >
+        {value}
+      </div>
+      <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+        {unit}
+      </p>
+      <p
+        className="text-xs font-medium mt-1 truncate"
+        style={{ color: 'var(--muted-foreground)' }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function TargetProgressRow({
+  field,
+  target,
+  current,
+  pct,
+  met,
+}: {
+  field: TrackingField;
+  target: { targetValue: number; type: string };
+  current: number;
+  pct: number;
+  met: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: field.color }}
+          />
+          <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+            {field.name}
+          </span>
+          <Badge variant="neutral" className="text-xs">
+            {target.type}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          {met ? (
+            <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />
+          ) : pct < 40 ? (
+            <AlertCircle size={14} style={{ color: 'var(--danger)' }} />
+          ) : null}
+          <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--foreground)' }}>
+            {Math.round(current * 10) / 10} / {target.targetValue} {field.unit}
+          </span>
+        </div>
+      </div>
+      <div
+        className="h-2 rounded-full overflow-hidden"
+        style={{ backgroundColor: 'var(--muted)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: met
+              ? 'var(--success)'
+              : pct < 40
+              ? 'var(--danger)'
+              : field.color,
+          }}
+        />
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+          {pct}% complete
+        </span>
+        {met && (
+          <span className="text-xs font-medium" style={{ color: 'var(--success)' }}>
+            Target met!
+          </span>
+        )}
+        {!met && pct < 40 && (
+          <span className="text-xs font-medium" style={{ color: 'var(--danger)' }}>
+            Behind target
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EntryRow({
+  entry,
+  fields,
+  targets,
+  isToday,
+  onEdit,
+  onDelete,
+}: {
+  entry: DailyEntry;
+  fields: TrackingField[];
+  targets: { fieldId: string; targetValue: number; type: string }[];
+  isToday: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <tr
+      className="group transition-colors duration-100"
+      style={{ borderBottom: '1px solid var(--border)' }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--muted)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'transparent';
+      }}
+    >
+      <td className="px-5 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+            {formatDisplayDate(entry.date)}
+          </span>
+          {isToday && (
+            <Badge variant="default">Today</Badge>
+          )}
+        </div>
+      </td>
+      {fields.map((field) => {
+        const val = entry.values.find((v) => v.fieldId === field.id);
+        const displayVal = val?.value || (field.type === 'number' ? '0' : '—');
+        const numVal = field.type === 'number' ? parseFloat(displayVal) : null;
+        const target = targets.find(
+          (t) => t.fieldId === field.id && t.type === 'daily'
+        );
+        const metTarget =
+          target && numVal !== null ? numVal >= target.targetValue : false;
+        return (
+          <td key={`cell-${entry.id}-${field.id}`} className="px-4 py-3">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-sm tabular-nums"
+                style={{
+                  color: metTarget
+                    ? 'var(--success)'
+                    : 'var(--foreground)',
+                  fontWeight: metTarget ? 600 : 400,
+                }}
+              >
+                {displayVal}
+              </span>
+              {field.unit && field.type === 'number' && (
+                <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                  {field.unit}
+                </span>
+              )}
+              {metTarget && (
+                <CheckCircle2 size={12} style={{ color: 'var(--success)' }} />
+              )}
+            </div>
+          </td>
+        );
+      })}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <button
+            onClick={onEdit}
+            className="btn-ghost p-1.5"
+            aria-label="Edit entry"
+            title="Edit this entry"
+          >
+            <Edit2 size={13} />
+          </button>
+          <button
+            onClick={onDelete}
+            className="btn-ghost p-1.5"
+            aria-label="Delete entry"
+            title="Delete this entry — cannot be undone"
+            style={{ color: 'var(--danger)' }}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="h-7 w-40 rounded-lg" style={{ backgroundColor: 'var(--muted)' }} />
+          <div className="h-4 w-28 rounded mt-1.5" style={{ backgroundColor: 'var(--muted)' }} />
+        </div>
+        <div className="h-9 w-28 rounded-lg" style={{ backgroundColor: 'var(--muted)' }} />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={`skel-stat-${i}`} className="card p-4 h-28" style={{ backgroundColor: 'var(--muted)' }} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="card h-56" style={{ backgroundColor: 'var(--muted)' }} />
+        <div className="card lg:col-span-2 h-56" style={{ backgroundColor: 'var(--muted)' }} />
+      </div>
+      <div className="card h-64" style={{ backgroundColor: 'var(--muted)' }} />
+    </div>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatSeconds(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return [h, m, s].map((v) => String(v).padStart(2, '0')).join(':');
+}
+
+function formatDisplayDate(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const date = new Date(year, month, day);
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[date.getDay()]}, ${months[date.getMonth()]} ${day}`;
+}
+
+function getFieldValueForEntry(
+  entry: DailyEntry | undefined,
+  fieldId: string
+): number {
+  if (!entry) return 0;
+  const val = entry.values.find((v) => v.fieldId === fieldId);
+  if (!val) return 0;
+  const n = parseFloat(val.value);
+  return isNaN(n) ? 0 : n;
+}
+
+function computeStreak(entries: DailyEntry[]): number {
+  if (entries.length === 0) return 0;
+  const today = new Date();
+  let streak = 0;
+  const checkDate = new Date(today);
+
+  for (let i = 0; i < 366; i++) {
+    const dateStr = checkDate.toISOString().split('T')[0];
+    const hasEntry = entries.some((e) => {
+      const vals = e.values;
+      const hasData = vals.some((v) => v.value !== '' && v.value !== '0');
+      return e.date === dateStr && hasData;
+    });
+    if (!hasEntry) {
+      if (i === 0) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        continue;
+      }
+      break;
+    }
+    streak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  return streak;
+}
