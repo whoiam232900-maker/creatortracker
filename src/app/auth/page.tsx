@@ -33,7 +33,30 @@ export default function AuthPage() {
 
         <button
           className="btn-primary w-full py-2.5"
-          onClick={() => router?.push('/dashboard')}
+          onClick={() => {
+            let workspaceName = "My Workspace";
+            try {
+              const aiDataRaw = localStorage.getItem('onboardingData');
+              if (aiDataRaw) {
+                const aiData = JSON.parse(aiDataRaw);
+                if (aiData.role) {
+                  workspaceName = `${aiData.role} Workspace`;
+                }
+              } else {
+                const manualSetupRaw = localStorage.getItem('manualSetup');
+                if (manualSetupRaw) {
+                  workspaceName = "Custom Workspace";
+                }
+              }
+            } catch (e) {}
+
+            localStorage.setItem('userSession', JSON.stringify({
+              isLoggedIn: true,
+              workspaceName,
+              plan: "Free"
+            }));
+            router?.push('/dashboard');
+          }}
         >
           Sign In
         </button>
@@ -43,7 +66,30 @@ export default function AuthPage() {
           <button
             className="font-medium"
             style={{ color: 'var(--primary)' }}
-            onClick={() => router?.push('/dashboard')}
+            onClick={() => {
+              let workspaceName = "My Workspace";
+              try {
+                const aiDataRaw = localStorage.getItem('onboardingData');
+                if (aiDataRaw) {
+                  const aiData = JSON.parse(aiDataRaw);
+                  if (aiData.role) {
+                    workspaceName = `${aiData.role} Workspace`;
+                  }
+                } else {
+                  const manualSetupRaw = localStorage.getItem('manualSetup');
+                  if (manualSetupRaw) {
+                    workspaceName = "Custom Workspace";
+                  }
+                }
+              } catch (e) {}
+
+              localStorage.setItem('userSession', JSON.stringify({
+                isLoggedIn: true,
+                workspaceName,
+                plan: "Free"
+              }));
+              router?.push('/dashboard');
+            }}
           >
             Get started free
           </button>

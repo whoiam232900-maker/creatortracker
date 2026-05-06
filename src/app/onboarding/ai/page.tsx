@@ -147,9 +147,9 @@ export default function AIOnboardingPage() {
 
       // Redirect based on wantsTargets
       if (answers.wantsTargets === 'Yes') {
-        router.push('/onboarding/target');
+        router.push('/onboarding/targets');
       } else {
-        router.push('/dashboard');
+        router.push('/auth');
       }
     } else {
       setCurrentStep((prev) => prev + 1);

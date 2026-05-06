@@ -9,6 +9,7 @@ import {
   Settings,
   Flame,
   X,
+  LogOut,
 } from 'lucide-react';
 
 interface NavItem {
@@ -83,6 +84,24 @@ function SidebarContent({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
+  const [workspaceName, setWorkspaceName] = React.useState('My Workspace');
+  const [plan, setPlan] = React.useState('Free Plan');
+
+  React.useEffect(() => {
+    try {
+      const sessionStr = localStorage.getItem('userSession');
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr);
+        if (session.workspaceName) setWorkspaceName(session.workspaceName);
+        if (session.plan) setPlan(`${session.plan} Plan`);
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('userSession');
+    window.location.href = '/auth';
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -207,14 +226,25 @@ function SidebarContent({
                 className="text-xs font-semibold truncate"
                 style={{ color: 'var(--foreground)' }}
               >
-                My Workspace
+                {workspaceName}
               </p>
               <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                Free Plan
+                {plan}
               </p>
             </div>
           )}
         </div>
+        <button
+          onClick={handleLogout}
+          className={[
+            'w-full flex items-center gap-3 px-3 py-2 mt-2 rounded-lg text-sm font-medium transition-all duration-150 hover:bg-red-500/10 text-red-500',
+            collapsed ? 'justify-center' : '',
+          ].join(' ')}
+          title={collapsed ? 'Log out' : undefined}
+        >
+          <LogOut size={16} className="flex-shrink-0" />
+          {!collapsed && <span>Log out</span>}
+        </button>
       </div>
     </div>
   );

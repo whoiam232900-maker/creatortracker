@@ -4,22 +4,39 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { loadState, saveState, AppState } from '@/lib/store';
 
+import { useRouter } from 'next/navigation';
+
 interface AppLayoutProps {
   children: React.ReactNode;
   activeRoute: string;
 }
 
 export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
+  const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    try {
+      const sessionStr = localStorage.getItem('userSession');
+      if (!sessionStr) {
+        router.push('/auth');
+        return;
+      }
+      const session = JSON.parse(sessionStr);
+      if (!session.isLoggedIn) {
+        router.push('/auth');
+      }
+    } catch (e) {
+      router.push('/auth');
+    }
+
     const state = loadState();
     setTheme(state.theme);
     setMounted(true);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!mounted) return;

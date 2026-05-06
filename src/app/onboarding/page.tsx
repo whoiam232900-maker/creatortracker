@@ -18,7 +18,7 @@ export default function OnboardingPage() {
           </button>
           <button
             className="btn-secondary w-full py-3 rounded-lg text-base font-medium"
-            onClick={() => router?.push("/app")}
+            onClick={() => router?.push("/onboarding/manual")}
           >
             Build Manually
           </button>
