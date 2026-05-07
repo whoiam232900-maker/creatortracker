@@ -84,8 +84,8 @@ function SidebarContent({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const [workspaceName, setWorkspaceName] = React.useState('My Workspace');
-  const [plan, setPlan] = React.useState('Free Plan');
+  const [workspaceName, setWorkspaceName] = React.useState('Workspace');
+  const [plan, setPlan] = React.useState('Free');
 
   React.useEffect(() => {
     try {
@@ -93,7 +93,7 @@ function SidebarContent({
       if (sessionStr) {
         const session = JSON.parse(sessionStr);
         if (session.workspaceName) setWorkspaceName(session.workspaceName);
-        if (session.plan) setPlan(`${session.plan} Plan`);
+        if (session.plan) setPlan(session.plan);
       }
     } catch (e) {}
   }, []);

@@ -119,33 +119,68 @@ export default function AIOnboardingPage() {
     if (isLastStep) {
       localStorage.setItem('onboardingData', JSON.stringify(answers));
 
-      // Generate tracking fields based on trackingGoal selections
-      const fieldMapping: Record<string, { name: string; type: string }> = {
-        'Study hours': { name: 'Study Hours', type: 'number' },
-        'Subjects': { name: 'Subject', type: 'text' },
-        'Assignments': { name: 'Assignments', type: 'text' },
-        'Habits': { name: 'Habits', type: 'text' },
-        'Work hours': { name: 'Work Hours', type: 'number' },
-        'Projects': { name: 'Project', type: 'text' },
-        'Clients': { name: 'Client', type: 'text' },
-        'Earnings': { name: 'Earnings', type: 'number' },
-        'Revenue': { name: 'Revenue', type: 'number' },
-        'Team performance': { name: 'Team Performance', type: 'text' },
-        'Tasks': { name: 'Tasks', type: 'text' },
-        'Growth metrics': { name: 'Growth', type: 'number' },
-      };
+      const isFreelancer = answers.role === 'Freelancer';
+      const isStudent = answers.role === 'Student';
 
-      const trackingFields = answers.trackingGoal
-        .filter((goal) => fieldMapping[goal])
-        .map((goal) => fieldMapping[goal]);
+      const generatedTrackers = [];
+      if (isFreelancer) {
+        generatedTrackers.push(
+          { name: 'Work Tracker', emoji: '💼', fields: [{ name: 'Work Hours', type: 'number' }, { name: 'Tasks Completed', type: 'number' }] },
+          { name: 'Client Tracker', emoji: '🤝', fields: [{ name: 'Meetings', type: 'number' }, { name: 'Client Name', type: 'text' }] },
+          { name: 'Revenue Tracker', emoji: '💰', fields: [{ name: 'Earnings', type: 'number' }, { name: 'Source', type: 'text' }] }
+        );
+      } else if (isStudent) {
+        generatedTrackers.push(
+          { name: 'Study Tracker', emoji: '📚', fields: [{ name: 'Study Hours', type: 'number' }, { name: 'Subject', type: 'text' }] },
+          { name: 'Assignment Tracker', emoji: '📝', fields: [{ name: 'Assignments', type: 'number' }, { name: 'Subject', type: 'text' }] }
+        );
+      } else {
+        generatedTrackers.push(
+          { name: 'Business Tracker', emoji: '📈', fields: [{ name: 'Revenue', type: 'number' }, { name: 'Meetings', type: 'number' }] },
+          { name: 'Team Tracker', emoji: '👥', fields: [{ name: 'Team Performance', type: 'text' }] }
+        );
+      }
 
-      localStorage.setItem('trackingFields', JSON.stringify(trackingFields));
+      localStorage.setItem('manualSetup', JSON.stringify({ trackers: generatedTrackers }));
 
-      // Save feature settings based on role
+      const fieldsToSave: any[] = [];
+      const targetsToSave: any[] = [];
+      const generateIdStr = () => Math.random().toString(36).substring(2, 9);
+      const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
+
+      generatedTrackers.forEach((tracker, idx) => {
+        tracker.fields.forEach((f, fIdx) => {
+          const fieldId = `field-${generateIdStr()}`;
+          fieldsToSave.push({
+            id: fieldId,
+            name: `${tracker.name} - ${f.name}`,
+            type: f.type,
+            unit: f.type === 'number' ? (f.name.toLowerCase().includes('hour') ? 'hrs' : '') : '',
+            defaultValue: f.type === 'number' ? '0' : '',
+            color: colors[(idx + fIdx) % colors.length]
+          });
+
+          if (f.type === 'number' && targetsToSave.length < 2) {
+            targetsToSave.push({
+              fieldId,
+              targetValue: f.name.toLowerCase().includes('hour') ? 4 : 5,
+              type: 'daily'
+            });
+          }
+        });
+      });
+
+      try {
+        const rawState = localStorage.getItem('creator_tracker_v2');
+        const state = rawState ? JSON.parse(rawState) : { entries: [], theme: 'light' };
+        state.fields = fieldsToSave;
+        state.targets = answers.wantsTargets === 'Yes' ? targetsToSave : [];
+        localStorage.setItem('creator_tracker_v2', JSON.stringify(state));
+      } catch(e) {}
+
       const timerEnabled = answers.role === 'Student' || answers.role === 'Freelancer';
       localStorage.setItem('featureSettings', JSON.stringify({ timerEnabled }));
 
-      // Redirect based on wantsTargets
       if (answers.wantsTargets === 'Yes') {
         router.push('/onboarding/targets');
       } else {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Field = { id: string; name: string; type: string };
@@ -55,6 +55,29 @@ export default function ManualOnboardingPage() {
   // Step 2 State
   const [customizedTrackers, setCustomizedTrackers] = useState<Tracker[]>([]);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('manualSetup');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.trackers && Array.isArray(parsed.trackers)) {
+          const loadedTrackers = parsed.trackers.map((t: any) => ({
+            id: generateId(),
+            name: t.name,
+            emoji: t.emoji,
+            fields: t.fields.map((f: any) => ({ id: generateId(), name: f.name, type: f.type }))
+          }));
+          
+          setAvailableTrackers((prev) => {
+             const prevFiltered = prev.filter(p => !loadedTrackers.some((lt: any) => lt.name === p.name));
+             return [...loadedTrackers, ...prevFiltered];
+          });
+          setSelectedTrackerIds(loadedTrackers.map((t: any) => t.id));
+        }
+      }
+    } catch (e) {}
+  }, []);
+
   const handleNext = () => {
     if (step === 1) {
       const selected = availableTrackers.filter((t) => selectedTrackerIds.includes(t.id));
@@ -69,6 +92,29 @@ export default function ManualOnboardingPage() {
         }))
       };
       localStorage.setItem('manualSetup', JSON.stringify(manualSetup));
+
+      const fieldsToSave: any[] = [];
+      const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
+      let colorIdx = 0;
+      customizedTrackers.forEach((tracker) => {
+        tracker.fields.forEach((f) => {
+          fieldsToSave.push({
+            id: f.id,
+            name: `${tracker.name} - ${f.name}`,
+            type: f.type === 'currency' || f.type === 'timer' ? 'number' : (f.type === 'checkbox' ? 'text' : f.type),
+            unit: f.type === 'currency' ? '$' : (f.type === 'timer' ? 'min' : ''),
+            defaultValue: f.type === 'number' || f.type === 'currency' || f.type === 'timer' ? '0' : '',
+            color: colors[colorIdx++ % colors.length]
+          });
+        });
+      });
+      try {
+        const rawState = localStorage.getItem('creator_tracker_v2');
+        const state = rawState ? JSON.parse(rawState) : { entries: [], theme: 'light', targets: [] };
+        state.fields = fieldsToSave;
+        localStorage.setItem('creator_tracker_v2', JSON.stringify(state));
+      } catch (e) {}
+
       router.push('/onboarding/targets');
     }
   };

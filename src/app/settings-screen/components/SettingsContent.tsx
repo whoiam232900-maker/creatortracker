@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Sun,
   Moon,
+  LogOut,
 } from 'lucide-react';
 
 type SettingsTab = 'fields' | 'targets' | 'danger';
@@ -46,11 +47,11 @@ export default function SettingsContent() {
   }, []);
 
   const handleThemeToggle = useCallback((checked: boolean) => {
-    const newTheme = checked ? 'dark' : 'light';
+    const newTheme: 'light' | 'dark' = checked ? 'dark' : 'light';
     setTheme(newTheme);
     setState((prev) => {
       if (!prev) return prev;
-      const newState = { ...prev, theme: newTheme };
+      const newState: AppState = { ...prev, theme: newTheme };
       saveState(newState);
       // Apply to DOM
       if (typeof document !== 'undefined') {
@@ -164,6 +165,11 @@ export default function SettingsContent() {
     setTimeout(() => {
       window.location.reload();
     }, 1200);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('userSession');
+    window.location.href = '/auth';
   }, []);
 
   if (!state) return <SettingsSkeleton />;
@@ -282,6 +288,7 @@ export default function SettingsContent() {
           entryCount={state.entries.length}
           onClearEntries={() => setClearEntriesConfirm(true)}
           onResetAll={() => setResetAllConfirm(true)}
+          onLogout={handleLogout}
         />
       )}
 
@@ -568,10 +575,12 @@ function DangerZoneTab({
   entryCount,
   onClearEntries,
   onResetAll,
+  onLogout,
 }: {
   entryCount: number;
   onClearEntries: () => void;
   onResetAll: () => void;
+  onLogout: () => void;
 }) {
   return (
     <div className="space-y-4 max-w-2xl">
@@ -579,6 +588,30 @@ function DangerZoneTab({
         className="rounded-xl border p-1"
         style={{ borderColor: 'var(--danger)', backgroundColor: 'var(--danger-bg)' }}
       >
+        {/* Log Out */}
+        <div className="flex items-center justify-between p-4 rounded-lg">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+              Log out
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+              Sign out of your account. You will need to log in again to access your data.
+            </p>
+          </div>
+          <button
+            onClick={onLogout}
+            className="btn-danger ml-4 flex-shrink-0 transition-all duration-150 hover:bg-red-600 hover:text-white"
+          >
+            <LogOut size={14} />
+            Log Out
+          </button>
+        </div>
+
+        <div
+          className="mx-4 my-1 border-t"
+          style={{ borderColor: 'rgba(220,38,38,0.2)' }}
+        />
+
         {/* Clear entries */}
         <div
           className="flex items-center justify-between p-4 rounded-lg"

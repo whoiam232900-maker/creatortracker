@@ -17,6 +17,7 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     try {
@@ -28,9 +29,12 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
       const session = JSON.parse(sessionStr);
       if (!session.isLoggedIn) {
         router.push('/auth');
+        return;
       }
+      setIsAuthenticated(true);
     } catch (e) {
       router.push('/auth');
+      return;
     }
 
     const state = loadState();
