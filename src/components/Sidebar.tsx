@@ -2,15 +2,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import AppLogo from '@/components/ui/AppLogo';
-import {
-  LayoutDashboard,
-  BarChart3,
-  Settings,
-  Flame,
-  X,
-  LogOut,
-} from 'lucide-react';
+import { LayoutDashboard, BarChart3, Settings } from 'lucide-react';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 interface NavItem {
   label: string;
@@ -32,28 +25,36 @@ interface SidebarProps {
   onMobileClose: () => void;
 }
 
-export default function Sidebar({
-  collapsed,
-  mobileOpen,
-  onMobileClose,
-}: SidebarProps) {
+export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: SidebarProps) {
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const isEffectivelyCollapsed = collapsed && !isHovered && !isDropdownOpen;
+
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside
+      {/* Desktop sidebar placeholder to prevent layout shifting */}
+      <div 
         className={[
-          'hidden lg:flex flex-col flex-shrink-0 h-screen border-r sidebar-transition overflow-hidden',
+          'hidden lg:block flex-shrink-0 h-screen sidebar-transition',
           collapsed ? 'w-16' : 'w-60',
+        ].join(' ')}
+      />
+
+      {/* Desktop sidebar actual visual element */}
+      <aside
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={[
+          'hidden lg:flex flex-col h-screen border-r sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
+          (!isEffectivelyCollapsed && collapsed) ? 'shadow-2xl' : '',
+          isEffectivelyCollapsed ? 'w-16' : 'w-60',
         ].join(' ')}
         style={{
           backgroundColor: 'var(--card)',
           borderColor: 'var(--border)',
         }}
       >
-        <SidebarContent
-          collapsed={collapsed}
-          onClose={undefined}
-        />
+        <SidebarContent collapsed={isEffectivelyCollapsed} onClose={undefined} onDropdownOpenChange={setIsDropdownOpen} />
       </aside>
 
       {/* Mobile sidebar */}
@@ -67,73 +68,18 @@ export default function Sidebar({
           borderColor: 'var(--border)',
         }}
       >
-        <SidebarContent
-          collapsed={false}
-          onClose={onMobileClose}
-        />
+        <SidebarContent collapsed={false} onClose={onMobileClose} />
       </aside>
     </>
   );
 }
 
-function SidebarContent({
-  collapsed,
-  onClose,
-}: {
-  collapsed: boolean;
-  onClose?: () => void;
-}) {
+function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapsed: boolean; onClose?: () => void; onDropdownOpenChange?: (open: boolean) => void }) {
   const pathname = usePathname();
-  const [workspaceName, setWorkspaceName] = React.useState('Workspace');
-  const [plan, setPlan] = React.useState('Free');
-
-  React.useEffect(() => {
-    try {
-      const sessionStr = localStorage.getItem('userSession');
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        if (session.workspaceName) setWorkspaceName(session.workspaceName);
-        if (session.plan) setPlan(session.plan);
-      }
-    } catch (e) {}
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('userSession');
-    window.location.href = '/auth';
-  };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div
-        className={[
-          'flex items-center gap-3 border-b flex-shrink-0 rounded-br-none rounded-t-none rounded-bl-none',
-          collapsed ? 'px-4 py-4 justify-center' : 'px-4 py-4',
-        ].join(' ')}
-        style={{ borderColor: 'var(--border)', minHeight: '64px' }}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <AppLogo size={32} />
-          {!collapsed && (
-            <span
-              className="font-semibold text-base tracking-tight truncate"
-              style={{ color: 'var(--foreground)' }}
-            >
-              CreatorTracker
-            </span>
-          )}
-        </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="ml-auto btn-ghost p-1"
-            aria-label="Close sidebar"
-          >
-            <X size={18} />
-          </button>
-        )}
-      </div>
+      <WorkspaceSwitcher collapsed={collapsed} onClose={onClose} onDropdownOpenChange={onDropdownOpenChange} />
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-thin">
@@ -156,8 +102,7 @@ function SidebarContent({
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group',
                 collapsed ? 'justify-center' : '',
-                isActive
-                  ? 'text-primary' : 'hover:bg-muted',
+                isActive ? 'text-primary' : 'hover:bg-muted',
               ].join(' ')}
               style={
                 isActive
@@ -169,9 +114,7 @@ function SidebarContent({
               }
             >
               <NavIcon size={18} className="flex-shrink-0" />
-              {!collapsed && (
-                <span className="flex-1 truncate">{item.label}</span>
-              )}
+              {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
               {!collapsed && item.badge != null && item.badge > 0 && (
                 <span
                   className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
@@ -200,52 +143,7 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Footer */}
-      <div
-        className="border-t px-2 py-3 flex-shrink-0"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <div
-          className={[
-            'flex items-center gap-3 px-3 py-2 rounded-lg',
-            collapsed ? 'justify-center' : '',
-          ].join(' ')}
-        >
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-            style={{
-              backgroundColor: 'rgba(37,99,235,0.12)',
-              color: 'var(--primary)',
-            }}
-          >
-            <Flame size={14} />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p
-                className="text-xs font-semibold truncate"
-                style={{ color: 'var(--foreground)' }}
-              >
-                {workspaceName}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                {plan}
-              </p>
-            </div>
-          )}
-        </div>
-        <button
-          onClick={handleLogout}
-          className={[
-            'w-full flex items-center gap-3 px-3 py-2 mt-2 rounded-lg text-sm font-medium transition-all duration-150 hover:bg-red-500/10 text-red-500',
-            collapsed ? 'justify-center' : '',
-          ].join(' ')}
-          title={collapsed ? 'Log out' : undefined}
-        >
-          <LogOut size={16} className="flex-shrink-0" />
-          {!collapsed && <span>Log out</span>}
-        </button>
-      </div>
+
     </div>
   );
 }

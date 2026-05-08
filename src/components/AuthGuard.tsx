@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * AuthGuard wraps protected pages.
+ * If no valid session is found, redirects to /auth (login page).
+ * If the user is logged in but hasn't finished onboarding (isNewAccount = true),
+ * they're sent to the correct onboarding page rather than being allowed into the dashboard.
+ */
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const router = useRouter();
@@ -13,19 +19,27 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (sessionString) {
         const session = JSON.parse(sessionString);
         if (session && session.isLoggedIn === true) {
+          // If the user is mid-onboarding, push them back to the right onboarding step
+          // instead of letting them directly access the dashboard
+          if (session.isNewAccount === true) {
+            console.debug('[AuthGuard] isNewAccount=true — redirecting to onboarding');
+            const path = session.onboardingPath ?? 'ai';
+            router.replace(path === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
+            return;
+          }
           setIsAuthorized(true);
           return;
         }
       }
     } catch (error) {
-      console.error('Error parsing userSession', error);
+      console.error('[AuthGuard] Error parsing userSession:', error);
     }
-    
-    // Not authorized, redirect
+
+    // Not authenticated — redirect to auth
+    console.debug('[AuthGuard] No valid session — redirecting to /auth');
     router.replace('/auth');
   }, [router]);
 
-  // Prevent hydration mismatch and flash of unauthorized content
   if (isAuthorized !== true) {
     return null;
   }

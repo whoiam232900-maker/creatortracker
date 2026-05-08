@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { loadState, saveState } from '@/lib/store';
 
 type Field = { id: string; name: string; type: string };
 type Tracker = { id: string; name: string; emoji?: string; fields: Field[] };
@@ -24,21 +25,67 @@ interface Step2FieldsProps {
   setTrackers: React.Dispatch<React.SetStateAction<Tracker[]>>;
 }
 
-interface Step2FieldsProps {
-  trackers: Tracker[];
-  setTrackers: React.Dispatch<React.SetStateAction<Tracker[]>>;
-}
-
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const DEFAULT_TRACKERS: Tracker[] = [
-  { id: 'study', name: 'Study', fields: [{ id: generateId(), name: 'Hours studied', type: 'number' }, { id: generateId(), name: 'Subjects', type: 'text' }, { id: generateId(), name: 'Notes', type: 'text' }, { id: generateId(), name: 'Assignments', type: 'text' }] },
-  { id: 'work', name: 'Work', fields: [{ id: generateId(), name: 'Work Hours', type: 'number' }, { id: generateId(), name: 'Tasks', type: 'text' }] },
-  { id: 'projects', name: 'Projects', fields: [{ id: generateId(), name: 'Time Spent', type: 'timer' }, { id: generateId(), name: 'Milestones', type: 'text' }] },
-  { id: 'revenue', name: 'Revenue', fields: [{ id: generateId(), name: 'Amount', type: 'currency' }, { id: generateId(), name: 'Source', type: 'text' }] },
-  { id: 'habits', name: 'Habits', fields: [{ id: generateId(), name: 'Completed', type: 'checkbox' }, { id: generateId(), name: 'Notes', type: 'text' }] },
-  { id: 'fitness', name: 'Fitness', fields: [{ id: generateId(), name: 'Workout Time', type: 'timer' }, { id: generateId(), name: 'Exercises', type: 'text' }] },
-  { id: 'clients', name: 'Clients', fields: [{ id: generateId(), name: 'Client Name', type: 'text' }, { id: generateId(), name: 'Billed Amount', type: 'currency' }] },
+  {
+    id: 'study',
+    name: 'Study',
+    fields: [
+      { id: generateId(), name: 'Hours studied', type: 'number' },
+      { id: generateId(), name: 'Subjects', type: 'text' },
+      { id: generateId(), name: 'Notes', type: 'text' },
+      { id: generateId(), name: 'Assignments', type: 'text' },
+    ],
+  },
+  {
+    id: 'work',
+    name: 'Work',
+    fields: [
+      { id: generateId(), name: 'Work Hours', type: 'number' },
+      { id: generateId(), name: 'Tasks', type: 'text' },
+    ],
+  },
+  {
+    id: 'projects',
+    name: 'Projects',
+    fields: [
+      { id: generateId(), name: 'Time Spent', type: 'timer' },
+      { id: generateId(), name: 'Milestones', type: 'text' },
+    ],
+  },
+  {
+    id: 'revenue',
+    name: 'Revenue',
+    fields: [
+      { id: generateId(), name: 'Amount', type: 'currency' },
+      { id: generateId(), name: 'Source', type: 'text' },
+    ],
+  },
+  {
+    id: 'habits',
+    name: 'Habits',
+    fields: [
+      { id: generateId(), name: 'Completed', type: 'checkbox' },
+      { id: generateId(), name: 'Notes', type: 'text' },
+    ],
+  },
+  {
+    id: 'fitness',
+    name: 'Fitness',
+    fields: [
+      { id: generateId(), name: 'Workout Time', type: 'timer' },
+      { id: generateId(), name: 'Exercises', type: 'text' },
+    ],
+  },
+  {
+    id: 'clients',
+    name: 'Clients',
+    fields: [
+      { id: generateId(), name: 'Client Name', type: 'text' },
+      { id: generateId(), name: 'Billed Amount', type: 'currency' },
+    ],
+  },
 ];
 
 export default function ManualOnboardingPage() {
@@ -55,67 +102,97 @@ export default function ManualOnboardingPage() {
   // Step 2 State
   const [customizedTrackers, setCustomizedTrackers] = useState<Tracker[]>([]);
 
+  // ── Guard: only new accounts may run onboarding ────────────────────────────
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('manualSetup');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.trackers && Array.isArray(parsed.trackers)) {
-          const loadedTrackers = parsed.trackers.map((t: any) => ({
-            id: generateId(),
-            name: t.name,
-            emoji: t.emoji,
-            fields: t.fields.map((f: any) => ({ id: generateId(), name: f.name, type: f.type }))
-          }));
-          
-          setAvailableTrackers((prev) => {
-             const prevFiltered = prev.filter(p => !loadedTrackers.some((lt: any) => lt.name === p.name));
-             return [...loadedTrackers, ...prevFiltered];
-          });
-          setSelectedTrackerIds(loadedTrackers.map((t: any) => t.id));
-        }
+      const raw = localStorage.getItem('userSession');
+      if (!raw) {
+        console.debug('[onboarding/manual] No session — redirecting to /');
+        router.replace('/');
+        return;
       }
-    } catch (e) {}
-  }, []);
+      const session = JSON.parse(raw);
+      if (!session?.isNewAccount) {
+        console.debug(
+          '[onboarding/manual] isNewAccount is false for',
+          session?.email,
+          '— skipping onboarding, redirecting to /dashboard'
+        );
+        router.replace('/dashboard');
+      } else {
+        console.debug('[onboarding/manual] New account — proceeding for', session?.email);
+      }
+    } catch (e) {
+      console.error('[onboarding/manual] Session read error:', e);
+      router.replace('/');
+    }
+  }, [router]);
 
   const handleNext = () => {
     if (step === 1) {
       const selected = availableTrackers.filter((t) => selectedTrackerIds.includes(t.id));
-      setCustomizedTrackers(JSON.parse(JSON.stringify(selected))); // Deep clone
+      setCustomizedTrackers(JSON.parse(JSON.stringify(selected)));
       setStep(2);
     } else if (step === 2) {
-      const manualSetup = {
-        trackers: customizedTrackers.map(t => ({
-          name: t.name,
-          emoji: t.emoji,
-          fields: t.fields.map(f => ({ name: f.name, type: f.type }))
-        }))
-      };
-      localStorage.setItem('manualSetup', JSON.stringify(manualSetup));
+      try {
+        const raw = localStorage.getItem('userSession');
+        if (!raw) return;
+        const session = JSON.parse(raw);
 
-      const fieldsToSave: any[] = [];
-      const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
-      let colorIdx = 0;
-      customizedTrackers.forEach((tracker) => {
-        tracker.fields.forEach((f) => {
-          fieldsToSave.push({
-            id: f.id,
-            name: `${tracker.name} - ${f.name}`,
-            type: f.type === 'currency' || f.type === 'timer' ? 'number' : (f.type === 'checkbox' ? 'text' : f.type),
-            unit: f.type === 'currency' ? '$' : (f.type === 'timer' ? 'min' : ''),
-            defaultValue: f.type === 'number' || f.type === 'currency' || f.type === 'timer' ? '0' : '',
-            color: colors[colorIdx++ % colors.length]
+        // Double-check guard
+        if (!session?.isNewAccount) {
+          console.warn('[onboarding/manual] isNewAccount is false mid-flow — aborting data write');
+          router.replace('/dashboard');
+          return;
+        }
+
+        const userId = session.email;
+        console.debug('[onboarding/manual] Saving manual setup for user:', userId);
+
+        const fieldsToSave: any[] = [];
+        const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
+        let colorIdx = 0;
+
+        customizedTrackers.forEach((tracker) => {
+          tracker.fields.forEach((f) => {
+            fieldsToSave.push({
+              id: f.id,
+              name: `${tracker.name} - ${f.name}`,
+              type:
+                f.type === 'currency' || f.type === 'timer'
+                  ? 'number'
+                  : f.type === 'checkbox'
+                    ? 'text'
+                    : f.type,
+              unit: f.type === 'currency' ? '$' : f.type === 'timer' ? 'min' : '',
+              defaultValue:
+                f.type === 'number' || f.type === 'currency' || f.type === 'timer' ? '0' : '',
+              color: colors[colorIdx++ % colors.length],
+            });
           });
         });
-      });
-      try {
-        const rawState = localStorage.getItem('creator_tracker_v2');
-        const state = rawState ? JSON.parse(rawState) : { entries: [], theme: 'light', targets: [] };
-        state.fields = fieldsToSave;
-        localStorage.setItem('creator_tracker_v2', JSON.stringify(state));
-      } catch (e) {}
 
-      router.push('/onboarding/targets');
+        // Load existing (empty for new user) and apply fields only
+        const existingState = loadState(userId);
+        const newState = { ...existingState, fields: fieldsToSave };
+        saveState(newState, userId);
+
+        // Save tracker structure scoped to user
+        const manualSetup = {
+          trackers: customizedTrackers.map((t) => ({
+            name: t.name,
+            emoji: t.emoji,
+            fields: t.fields.map((f) => ({ name: f.name, type: f.type })),
+          })),
+        };
+        localStorage.setItem(`onboarding_${userId}`, JSON.stringify(manualSetup));
+
+        // NOTE: isNewAccount is cleared by the /onboarding/targets page (final step)
+        router.push('/onboarding/targets');
+      } catch (e) {
+        console.error('[onboarding/manual] Error saving manual data:', e);
+        router.push('/onboarding/targets');
+      }
     }
   };
 
@@ -128,26 +205,31 @@ export default function ManualOnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ backgroundColor: 'var(--background)' }}>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      style={{ backgroundColor: 'var(--background)' }}
+    >
       <div className="w-full max-w-md flex flex-col gap-8 transition-all duration-700 ease-out animate-in fade-in slide-in-from-bottom-4">
-
         {/* Header */}
         <div className="flex flex-col gap-2 text-center">
           <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
             Step {step} of 2
           </p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>
-            {step === 1 && "Build Your Tracker"}
-            {step === 2 && "Customize Fields"}
+            {step === 1 && 'Build Your Tracker'}
+            {step === 2 && 'Customize Fields'}
           </h1>
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            {step === 1 && "Choose what you want to track manually"}
-            {step === 2 && "Tailor the data you want to collect"}
+            {step === 1 && 'Choose what you want to track manually'}
+            {step === 2 && 'Tailor the data you want to collect'}
           </p>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border)' }}>
+        <div
+          className="w-full h-1.5 rounded-full overflow-hidden"
+          style={{ backgroundColor: 'var(--border)' }}
+        >
           <div
             className="h-full rounded-full transition-all duration-300"
             style={{ width: `${(step / 2) * 100}%`, backgroundColor: 'var(--primary)' }}
@@ -178,10 +260,7 @@ export default function ManualOnboardingPage() {
           )}
 
           {step === 2 && (
-            <Step2Fields
-              trackers={customizedTrackers}
-              setTrackers={setCustomizedTrackers}
-            />
+            <Step2Fields trackers={customizedTrackers} setTrackers={setCustomizedTrackers} />
           )}
         </div>
 
@@ -198,7 +277,7 @@ export default function ManualOnboardingPage() {
             disabled={step === 1 && selectedTrackerIds.length === 0}
             className="btn-primary flex-1 py-2.5 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            {step === 2 ? "Continue" : "Continue"}
+            Continue
           </button>
         </div>
       </div>
@@ -209,7 +288,18 @@ export default function ManualOnboardingPage() {
 // ============================================================================
 // STEP 1: TRACKER CATEGORY SELECTION
 // ============================================================================
-function Step1Trackers({ availableTrackers, selectedTrackerIds, setSelectedTrackerIds, showCustomForm, setShowCustomForm, customName, setCustomName, customEmoji, setCustomEmoji, onAddCustomTracker }: Step1TrackersProps) {
+function Step1Trackers({
+  availableTrackers,
+  selectedTrackerIds,
+  setSelectedTrackerIds,
+  showCustomForm,
+  setShowCustomForm,
+  customName,
+  setCustomName,
+  customEmoji,
+  setCustomEmoji,
+  onAddCustomTracker,
+}: Step1TrackersProps) {
   const toggleSelection = (id: string) => {
     if (selectedTrackerIds.includes(id)) {
       setSelectedTrackerIds(selectedTrackerIds.filter((tId: string) => tId !== id));
@@ -224,7 +314,7 @@ function Step1Trackers({ availableTrackers, selectedTrackerIds, setSelectedTrack
       id: generateId(),
       name: customName.trim(),
       emoji: customEmoji.trim(),
-      fields: [{ id: generateId(), name: 'Value', type: 'number' }]
+      fields: [{ id: generateId(), name: 'Value', type: 'number' }],
     });
   };
 
@@ -260,8 +350,13 @@ function Step1Trackers({ availableTrackers, selectedTrackerIds, setSelectedTrack
           + Create Custom Tracker
         </button>
       ) : (
-        <div className="flex flex-col gap-3 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>New Custom Tracker</p>
+        <div
+          className="flex flex-col gap-3 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2"
+          style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+        >
+          <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+            New Custom Tracker
+          </p>
           <div className="flex gap-3">
             <input
               type="text"
@@ -282,8 +377,20 @@ function Step1Trackers({ availableTrackers, selectedTrackerIds, setSelectedTrack
             />
           </div>
           <div className="flex justify-end gap-2 mt-2">
-            <button onClick={() => setShowCustomForm(false)} className="text-xs font-medium px-3 py-2 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5" style={{ color: 'var(--muted-foreground)' }}>Cancel</button>
-            <button onClick={handleAddCustom} disabled={!customName.trim()} className="btn-primary text-xs font-medium px-4 py-2 rounded-lg disabled:opacity-50">Add Tracker</button>
+            <button
+              onClick={() => setShowCustomForm(false)}
+              className="text-xs font-medium px-3 py-2 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: 'var(--muted-foreground)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddCustom}
+              disabled={!customName.trim()}
+              className="btn-primary text-xs font-medium px-4 py-2 rounded-lg disabled:opacity-50"
+            >
+              Add Tracker
+            </button>
           </div>
         </div>
       )}
@@ -296,35 +403,54 @@ function Step1Trackers({ availableTrackers, selectedTrackerIds, setSelectedTrack
 // ============================================================================
 function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
   const updateTrackerName = (tId: string, newName: string) => {
-    setTrackers(trackers.map((t: Tracker) => t.id === tId ? { ...t, name: newName } : t));
+    setTrackers(trackers.map((t: Tracker) => (t.id === tId ? { ...t, name: newName } : t)));
   };
 
   const updateField = (tId: string, fId: string, key: string, value: string) => {
-    setTrackers(trackers.map((t: Tracker) => {
-      if (t.id !== tId) return t;
-      return { ...t, fields: t.fields.map((f: Field) => f.id === fId ? { ...f, [key]: value } : f) };
-    }));
+    setTrackers(
+      trackers.map((t: Tracker) => {
+        if (t.id !== tId) return t;
+        return {
+          ...t,
+          fields: t.fields.map((f: Field) => (f.id === fId ? { ...f, [key]: value } : f)),
+        };
+      })
+    );
   };
 
   const removeField = (tId: string, fId: string) => {
-    setTrackers(trackers.map((t: Tracker) => {
-      if (t.id !== tId) return t;
-      return { ...t, fields: t.fields.filter((f: Field) => f.id !== fId) };
-    }));
+    setTrackers(
+      trackers.map((t: Tracker) => {
+        if (t.id !== tId) return t;
+        return { ...t, fields: t.fields.filter((f: Field) => f.id !== fId) };
+      })
+    );
   };
 
   const addField = (tId: string) => {
-    setTrackers(trackers.map((t: Tracker) => {
-      if (t.id !== tId) return t;
-      return { ...t, fields: [...t.fields, { id: generateId(), name: 'New Field', type: 'text' }] };
-    }));
+    setTrackers(
+      trackers.map((t: Tracker) => {
+        if (t.id !== tId) return t;
+        return {
+          ...t,
+          fields: [...t.fields, { id: generateId(), name: 'New Field', type: 'text' }],
+        };
+      })
+    );
   };
 
   return (
     <div className="flex flex-col gap-5 max-h-[55vh] overflow-y-auto pb-4 pr-1">
       {trackers.map((tracker: Tracker) => (
-        <div key={tracker.id} className="flex flex-col gap-4 p-5 rounded-xl border" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+        <div
+          key={tracker.id}
+          className="flex flex-col gap-4 p-5 rounded-xl border"
+          style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+        >
+          <div
+            className="flex items-center gap-2 border-b pb-3"
+            style={{ borderColor: 'var(--border)' }}
+          >
             {tracker.emoji && <span className="text-xl">{tracker.emoji}</span>}
             <input
               type="text"
@@ -349,7 +475,11 @@ function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
                   value={field.type}
                   onChange={(e) => updateField(tracker.id, field.id, 'type', e.target.value)}
                   className="w-[105px] bg-transparent border rounded-lg px-2 py-2 text-xs focus:outline-none cursor-pointer"
-                  style={{ borderColor: 'var(--border)', color: 'var(--foreground)', backgroundColor: 'var(--background)' }}
+                  style={{
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)',
+                    backgroundColor: 'var(--background)',
+                  }}
                 >
                   <option value="number">Number</option>
                   <option value="text">Text</option>
@@ -362,7 +492,20 @@ function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
                   className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
                   title="Remove Field"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
             ))}
@@ -380,4 +523,3 @@ function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
     </div>
   );
 }
-

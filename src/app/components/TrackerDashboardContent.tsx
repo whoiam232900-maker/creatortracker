@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   loadState,
   saveState,
+  initializeStarterData,
   getTodayString,
   getWeekDates,
   getFieldTotal,
@@ -33,6 +34,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { showToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 import EntryFormModal from './EntryFormModal';
+import AIInsightsPanel from '@/components/AIInsightsPanel';
 
 export default function TrackerDashboardContent() {
   const [state, setState] = useState<AppState | null>(null);
@@ -43,16 +45,67 @@ export default function TrackerDashboardContent() {
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load state
+  // Load state — per user, with new-account seeding
   useEffect(() => {
-    const s = loadState();
-    setState(s);
-    if (s.fields.length > 0) {
-      const numField = s.fields.find((f) => f.type === 'number');
-      if (numField) setAddToFieldId(numField.id);
+    let resolvedUserId: string | undefined;
+
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session?.email) {
+          resolvedUserId = session.email;
+          setUserId(session.email);
+          console.debug('[dashboard] Resolved userId:', session.email, '| isNewAccount:', session.isNewAccount);
+
+          if (session.isNewAccount) {
+            // New account with no onboarding-set fields yet — seed starter data
+            console.debug('[dashboard] isNewAccount detected — calling initializeStarterData');
+            const seeded = initializeStarterData(session.email);
+            setState(seeded);
+
+            // Clear the isNewAccount flag so this only runs once
+            const updatedSession = { ...session, isNewAccount: false };
+            localStorage.setItem('userSession', JSON.stringify(updatedSession));
+            console.debug('[dashboard] isNewAccount cleared after seeding');
+
+            if (seeded.fields.length > 0) {
+              const numField = seeded.fields.find((f) => f.type === 'number');
+              if (numField) setAddToFieldId(numField.id);
+            }
+          } else {
+            // Existing account — just load their data
+            const s = loadState(session.email);
+            console.debug('[dashboard] Loaded existing data —', s.fields.length, 'fields,', s.entries.length, 'entries');
+            setState(s);
+            if (s.fields.length > 0) {
+              const numField = s.fields.find((f) => f.type === 'number');
+              if (numField) setAddToFieldId(numField.id);
+            }
+          }
+        } else {
+          // Admin or no email — load from fallback key
+          const s = loadState();
+          setState(s);
+          if (s.fields.length > 0) {
+            const numField = s.fields.find((f) => f.type === 'number');
+            if (numField) setAddToFieldId(numField.id);
+          }
+        }
+      } else {
+        // No session at all — load from fallback
+        const s = loadState();
+        setState(s);
+      }
+    } catch (e) {
+      console.error('[dashboard] Error during state load:', e);
+      const s = loadState(resolvedUserId);
+      setState(s);
     }
+
     // Restore timer from sessionStorage
     try {
       const timerRaw = sessionStorage.getItem('ct_timer');
@@ -145,7 +198,7 @@ export default function TrackerDashboardContent() {
       });
     }
 
-    saveState(newState);
+    saveState(newState, userId);
     setState(newState);
     handleTimerReset();
     showToast({
@@ -153,7 +206,7 @@ export default function TrackerDashboardContent() {
       title: 'Time logged',
       description: `Added ${roundedHours}h to ${state.fields.find((f) => f.id === addToFieldId)?.name}`,
     });
-  }, [state, addToFieldId, timerElapsed, handleTimerReset]);
+  }, [state, addToFieldId, timerElapsed, handleTimerReset, userId]);
 
   const handleDeleteEntry = useCallback((entryId: string) => {
     setState((prev) => {
@@ -162,12 +215,12 @@ export default function TrackerDashboardContent() {
         ...prev,
         entries: prev.entries.filter((e) => e.id !== entryId),
       };
-      saveState(newState);
+      saveState(newState, userId);
       return newState;
     });
     setDeleteConfirm(null);
     showToast({ type: 'success', title: 'Entry deleted' });
-  }, []);
+  }, [userId]);
 
   const handleSaveEntry = useCallback(
     (entry: DailyEntry) => {
@@ -181,14 +234,14 @@ export default function TrackerDashboardContent() {
           newEntries = [...prev.entries, entry];
         }
         const newState = { ...prev, entries: newEntries };
-        saveState(newState);
+        saveState(newState, userId);
         return newState;
       });
       setEntryModalOpen(false);
       setEditingEntry(null);
       showToast({ type: 'success', title: editingEntry ? 'Entry updated' : 'Entry logged' });
     },
-    [editingEntry]
+    [editingEntry, userId]
   );
 
   if (!state) {
@@ -198,12 +251,10 @@ export default function TrackerDashboardContent() {
   const today = getTodayString();
   const weekDates = getWeekDates();
   const todayEntry = state.entries.find((e) => e.date === today);
-  const recentEntries = [...state.entries]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 8);
+  const recentEntries = [...state.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
 
   // Streak
-  let streak = computeStreak(state.entries);
+  const streak = computeStreak(state.entries);
 
   // Daily completion rate
   const numFields = state.fields.filter((f) => f.type === 'number');
@@ -213,9 +264,7 @@ export default function TrackerDashboardContent() {
     return val >= t.targetValue;
   });
   const completionRate =
-    targetsToday.length > 0
-      ? Math.round((metTargets.length / targetsToday.length) * 100)
-      : null;
+    targetsToday.length > 0 ? Math.round((metTargets.length / targetsToday.length) * 100) : null;
 
   // Weekly totals
   const weeklyTotals: Record<string, number> = {};
@@ -251,10 +300,7 @@ export default function TrackerDashboardContent() {
 
       {/* No fields state */}
       {state.fields.length === 0 && (
-        <div
-          className="card p-12 text-center"
-          style={{ borderStyle: 'dashed' }}
-        >
+        <div className="card p-12 text-center" style={{ borderStyle: 'dashed' }}>
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4"
             style={{ backgroundColor: 'rgba(37,99,235,0.08)' }}
@@ -265,7 +311,8 @@ export default function TrackerDashboardContent() {
             No tracking fields yet
           </h3>
           <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
-            Define what you want to track — hours worked, tasks completed, revenue earned — then log daily entries here.
+            Define what you want to track — hours worked, tasks completed, revenue earned — then log
+            daily entries here.
           </p>
           <Link href="/settings-screen" className="btn-primary inline-flex">
             <Plus size={16} />
@@ -293,10 +340,38 @@ export default function TrackerDashboardContent() {
             <StatCard
               label="Today's Targets"
               value={completionRate !== null ? `${completionRate}%` : '—'}
-              unit={completionRate !== null ? `${metTargets.length}/${targetsToday.length} met` : 'no targets set'}
-              icon={<Target size={18} style={{ color: completionRate === 100 ? 'var(--success)' : completionRate !== null && completionRate < 50 ? 'var(--danger)' : 'var(--primary)' }} />}
-              color={completionRate === 100 ? 'var(--success)' : completionRate !== null && completionRate < 50 ? 'var(--danger)' : 'var(--primary)'}
-              bg={completionRate === 100 ? 'var(--success-bg)' : completionRate !== null && completionRate < 50 ? 'var(--danger-bg)' : 'rgba(37,99,235,0.06)'}
+              unit={
+                completionRate !== null
+                  ? `${metTargets.length}/${targetsToday.length} met`
+                  : 'no targets set'
+              }
+              icon={
+                <Target
+                  size={18}
+                  style={{
+                    color:
+                      completionRate === 100
+                        ? 'var(--success)'
+                        : completionRate !== null && completionRate < 50
+                          ? 'var(--danger)'
+                          : 'var(--primary)',
+                  }}
+                />
+              }
+              color={
+                completionRate === 100
+                  ? 'var(--success)'
+                  : completionRate !== null && completionRate < 50
+                    ? 'var(--danger)'
+                    : 'var(--primary)'
+              }
+              bg={
+                completionRate === 100
+                  ? 'var(--success-bg)'
+                  : completionRate !== null && completionRate < 50
+                    ? 'var(--danger-bg)'
+                    : 'rgba(37,99,235,0.06)'
+              }
             />
             {/* Weekly total for top number field */}
             {numFields.length > 0 && (
@@ -421,10 +496,7 @@ export default function TrackerDashboardContent() {
                       target.type === 'weekly'
                         ? getFieldTotal(state.entries, field.id, weekDates)
                         : getFieldValueForEntry(todayEntry, field.id);
-                    const pct = Math.min(
-                      100,
-                      Math.round((current / target.targetValue) * 100)
-                    );
+                    const pct = Math.min(100, Math.round((current / target.targetValue) * 100));
                     const met = current >= target.targetValue;
                     return (
                       <TargetProgressRow
@@ -440,6 +512,11 @@ export default function TrackerDashboardContent() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* AI Insights Panel */}
+          <div>
+            <AIInsightsPanel state={state} />
           </div>
 
           {/* Recent Entries Table */}
@@ -477,10 +554,7 @@ export default function TrackerDashboardContent() {
                 <p className="text-xs mb-4" style={{ color: 'var(--muted-foreground)' }}>
                   Start tracking your daily work by logging your first entry.
                 </p>
-                <button
-                  onClick={() => setEntryModalOpen(true)}
-                  className="btn-primary text-sm"
-                >
+                <button onClick={() => setEntryModalOpen(true)} className="btn-primary text-sm">
                   <Plus size={14} />
                   Log Your First Entry
                 </button>
@@ -504,9 +578,7 @@ export default function TrackerDashboardContent() {
                         >
                           {f.name}
                           {f.unit && (
-                            <span className="ml-1 normal-case font-normal">
-                              ({f.unit})
-                            </span>
+                            <span className="ml-1 normal-case font-normal">({f.unit})</span>
                           )}
                         </th>
                       ))}
@@ -542,9 +614,7 @@ export default function TrackerDashboardContent() {
           fields={state.fields}
           existingEntry={editingEntry}
           existingEntryForDate={
-            !editingEntry
-              ? state.entries.find((e) => e.date === today) || null
-              : null
+            !editingEntry ? state.entries.find((e) => e.date === today) || null : null
           }
           onSave={handleSaveEntry}
           onClose={() => {
@@ -596,9 +666,7 @@ function StatCard({
         >
           {icon}
         </div>
-        {trend === 'up' && (
-          <TrendingUp size={14} style={{ color: 'var(--success)' }} />
-        )}
+        {trend === 'up' && <TrendingUp size={14} style={{ color: 'var(--success)' }} />}
       </div>
       <div
         className="text-2xl font-bold tabular-nums mb-0.5"
@@ -609,10 +677,7 @@ function StatCard({
       <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
         {unit}
       </p>
-      <p
-        className="text-xs font-medium mt-1 truncate"
-        style={{ color: 'var(--muted-foreground)' }}
-      >
+      <p className="text-xs font-medium mt-1 truncate" style={{ color: 'var(--muted-foreground)' }}>
         {label}
       </p>
     </div>
@@ -653,24 +718,20 @@ function TargetProgressRow({
           ) : pct < 40 ? (
             <AlertCircle size={14} style={{ color: 'var(--danger)' }} />
           ) : null}
-          <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--foreground)' }}>
+          <span
+            className="text-xs font-semibold tabular-nums"
+            style={{ color: 'var(--foreground)' }}
+          >
             {Math.round(current * 10) / 10} / {target.targetValue} {field.unit}
           </span>
         </div>
       </div>
-      <div
-        className="h-2 rounded-full overflow-hidden"
-        style={{ backgroundColor: 'var(--muted)' }}
-      >
+      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--muted)' }}>
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${pct}%`,
-            backgroundColor: met
-              ? 'var(--success)'
-              : pct < 40
-              ? 'var(--danger)'
-              : field.color,
+            backgroundColor: met ? 'var(--success)' : pct < 40 ? 'var(--danger)' : field.color,
           }}
         />
       </div>
@@ -724,29 +785,22 @@ function EntryRow({
           <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
             {formatDisplayDate(entry.date)}
           </span>
-          {isToday && (
-            <Badge variant="default">Today</Badge>
-          )}
+          {isToday && <Badge variant="default">Today</Badge>}
         </div>
       </td>
       {fields.map((field) => {
         const val = entry.values.find((v) => v.fieldId === field.id);
         const displayVal = val?.value || (field.type === 'number' ? '0' : '—');
         const numVal = field.type === 'number' ? parseFloat(displayVal) : null;
-        const target = targets.find(
-          (t) => t.fieldId === field.id && t.type === 'daily'
-        );
-        const metTarget =
-          target && numVal !== null ? numVal >= target.targetValue : false;
+        const target = targets.find((t) => t.fieldId === field.id && t.type === 'daily');
+        const metTarget = target && numVal !== null ? numVal >= target.targetValue : false;
         return (
           <td key={`cell-${entry.id}-${field.id}`} className="px-4 py-3">
             <div className="flex items-center gap-1.5">
               <span
                 className="text-sm tabular-nums"
                 style={{
-                  color: metTarget
-                    ? 'var(--success)'
-                    : 'var(--foreground)',
+                  color: metTarget ? 'var(--success)' : 'var(--foreground)',
                   fontWeight: metTarget ? 600 : 400,
                 }}
               >
@@ -757,9 +811,7 @@ function EntryRow({
                   {field.unit}
                 </span>
               )}
-              {metTarget && (
-                <CheckCircle2 size={12} style={{ color: 'var(--success)' }} />
-              )}
+              {metTarget && <CheckCircle2 size={12} style={{ color: 'var(--success)' }} />}
             </div>
           </td>
         );
@@ -801,7 +853,11 @@ function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={`skel-stat-${i}`} className="card p-4 h-28" style={{ backgroundColor: 'var(--muted)' }} />
+          <div
+            key={`skel-stat-${i}`}
+            className="card p-4 h-28"
+            style={{ backgroundColor: 'var(--muted)' }}
+          />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -830,14 +886,24 @@ function formatDisplayDate(dateStr: string): string {
   const day = parseInt(parts[2], 10);
   const date = new Date(year, month, day);
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   return `${days[date.getDay()]}, ${months[date.getMonth()]} ${day}`;
 }
 
-function getFieldValueForEntry(
-  entry: DailyEntry | undefined,
-  fieldId: string
-): number {
+function getFieldValueForEntry(entry: DailyEntry | undefined, fieldId: string): number {
   if (!entry) return 0;
   const val = entry.values.find((v) => v.fieldId === fieldId);
   if (!val) return 0;

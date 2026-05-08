@@ -37,10 +37,7 @@ function CustomTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div
-      className="card shadow-elevated px-3 py-2 text-xs"
-      style={{ minWidth: '100px' }}
-    >
+    <div className="card shadow-elevated px-3 py-2 text-xs" style={{ minWidth: '100px' }}>
       <p className="font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
         {label}
       </p>
@@ -51,12 +48,7 @@ function CustomTooltip({
   );
 }
 
-export default function FieldTrendChart({
-  data,
-  fieldName,
-  unit,
-  color,
-}: FieldTrendChartProps) {
+export default function FieldTrendChart({ data, fieldName, unit, color }: FieldTrendChartProps) {
   if (data.length === 0) {
     return (
       <div
@@ -68,8 +60,7 @@ export default function FieldTrendChart({
     );
   }
 
-  const avg =
-    data.reduce((s, d) => s + d.value, 0) / Math.max(data.length, 1);
+  const avg = data.reduce((s, d) => s + d.value, 0) / Math.max(data.length, 1);
   const avgRounded = Math.round(avg * 10) / 10;
 
   // Show every Nth label to avoid crowding
@@ -86,11 +77,7 @@ export default function FieldTrendChart({
               <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="var(--border)"
-            vertical={false}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="label"
             tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}

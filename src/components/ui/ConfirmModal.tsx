@@ -47,8 +47,7 @@ export default function ConfirmModal({
           <div
             className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
             style={{
-              backgroundColor:
-                variant === 'danger' ? 'var(--danger-bg)' : 'var(--warning-bg)',
+              backgroundColor: variant === 'danger' ? 'var(--danger-bg)' : 'var(--warning-bg)',
             }}
           >
             <AlertTriangle
@@ -59,21 +58,14 @@ export default function ConfirmModal({
             />
           </div>
           <div className="flex-1 min-w-0">
-            <h3
-              className="text-base font-semibold mb-1"
-              style={{ color: 'var(--foreground)' }}
-            >
+            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
               {title}
             </h3>
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
               {description}
             </p>
           </div>
-          <button
-            onClick={onCancel}
-            className="btn-ghost p-1 flex-shrink-0"
-            aria-label="Close"
-          >
+          <button onClick={onCancel} className="btn-ghost p-1 flex-shrink-0" aria-label="Close">
             <X size={16} />
           </button>
         </div>

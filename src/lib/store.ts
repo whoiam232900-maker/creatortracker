@@ -40,7 +40,36 @@ export interface AppState {
   theme: 'light' | 'dark';
 }
 
-const STORAGE_KEY = 'creator_tracker_v2';
+// ─── Storage key helpers ──────────────────────────────────────────────────────
+
+/**
+ * Returns the localStorage key for a given userId.
+ * Falls back to reading from userSession if no userId is provided.
+ * This ensures per-user data isolation.
+ */
+export function getUserStorageKey(userId?: string): string {
+  if (userId) return `creator_tracker_${userId}`;
+
+  if (typeof window === 'undefined') return 'creator_tracker_v2';
+
+  try {
+    const raw = localStorage.getItem('userSession');
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session?.email) {
+        console.debug('[store] Resolved storage key for user:', session.email);
+        return `creator_tracker_${session.email}`;
+      }
+    }
+  } catch (e) {
+    console.warn('[store] Could not read userSession for storage key, using fallback');
+  }
+
+  // Anonymous / admin fallback
+  return 'creator_tracker_v2';
+}
+
+// ─── Color palette ────────────────────────────────────────────────────────────
 
 const FIELD_COLORS = [
   '#2563EB',
@@ -56,6 +85,8 @@ const FIELD_COLORS = [
 export function getFieldColor(index: number): string {
   return FIELD_COLORS[index % FIELD_COLORS.length];
 }
+
+// ─── Starter / default data ───────────────────────────────────────────────────
 
 const DEFAULT_FIELDS: TrackingField[] = [
   {
@@ -84,10 +115,14 @@ const DEFAULT_FIELDS: TrackingField[] = [
   },
 ];
 
+const DEFAULT_TARGETS: TargetConfig[] = [
+  { fieldId: 'field-001', targetValue: 8, type: 'daily' },
+  { fieldId: 'field-002', targetValue: 5, type: 'daily' },
+];
+
 function generateSampleEntries(fields: TrackingField[]): DailyEntry[] {
   const entries: DailyEntry[] = [];
   const today = new Date();
-  const numberFields = fields.filter((f) => f.type === 'number');
 
   const patterns = [
     [6.5, 8, 5, 7.5, 9, 4, 0],
@@ -146,7 +181,7 @@ function generateSampleEntries(fields: TrackingField[]): DailyEntry[] {
     date.setDate(today.getDate() - i);
     const dayOfWeek = date.getDay();
 
-    if (dayOfWeek === 0) continue; // skip some Sundays for realism
+    if (dayOfWeek === 0) continue;
 
     const dateStr = date.toISOString().split('T')[0];
     const patternIdx = i % patterns.length;
@@ -170,9 +205,7 @@ function generateSampleEntries(fields: TrackingField[]): DailyEntry[] {
       return { fieldId: field.id, value: notes[noteIdx] };
     });
 
-    const hasMeaningfulData = values.some(
-      (v) => v.value !== '0' && v.value !== ''
-    );
+    const hasMeaningfulData = values.some((v) => v.value !== '0' && v.value !== '');
     if (!hasMeaningfulData && dayOfWeek !== 6) continue;
 
     entries.push({
@@ -186,58 +219,139 @@ function generateSampleEntries(fields: TrackingField[]): DailyEntry[] {
   return entries;
 }
 
-const DEFAULT_TARGETS: TargetConfig[] = [
-  { fieldId: 'field-001', targetValue: 8, type: 'daily' },
-  { fieldId: 'field-002', targetValue: 5, type: 'daily' },
-];
+// ─── Core load / save ─────────────────────────────────────────────────────────
 
-export function loadState(): AppState {
+/**
+ * Loads the AppState for a specific user.
+ * IMPORTANT: If no data exists for the user, returns an EMPTY state (no auto-seed).
+ * Starter data seeding is done explicitly via initializeStarterData().
+ */
+export function loadState(userId?: string): AppState {
   if (typeof window === 'undefined') {
-    return {
-      fields: DEFAULT_FIELDS,
-      entries: [],
-      targets: DEFAULT_TARGETS,
-      theme: 'light',
-    };
+    return { fields: [], entries: [], targets: [], theme: 'light' };
   }
 
+  const key = getUserStorageKey(userId);
+  console.debug('[store] loadState() — key:', key);
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) {
-      const initial: AppState = {
-        fields: DEFAULT_FIELDS,
-        entries: generateSampleEntries(DEFAULT_FIELDS),
-        targets: DEFAULT_TARGETS,
-        theme: 'light',
-      };
-      saveState(initial);
-      return initial;
+      console.debug('[store] loadState() — no data found for key:', key, '→ returning empty state');
+      return { fields: [], entries: [], targets: [], theme: 'light' };
     }
     const parsed = JSON.parse(raw) as Partial<AppState>;
+    console.debug(
+      '[store] loadState() — loaded',
+      (parsed.fields ?? []).length,
+      'fields,',
+      (parsed.entries ?? []).length,
+      'entries for key:',
+      key
+    );
     return {
-      fields: Array.isArray(parsed.fields) ? parsed.fields : DEFAULT_FIELDS,
+      fields: Array.isArray(parsed.fields) ? parsed.fields : [],
       entries: Array.isArray(parsed.entries) ? parsed.entries : [],
-      targets: Array.isArray(parsed.targets) ? parsed.targets : DEFAULT_TARGETS,
+      targets: Array.isArray(parsed.targets) ? parsed.targets : [],
       theme: parsed.theme === 'dark' ? 'dark' : 'light',
     };
-  } catch {
-    return {
-      fields: DEFAULT_FIELDS,
-      entries: generateSampleEntries(DEFAULT_FIELDS),
-      targets: DEFAULT_TARGETS,
-      theme: 'light',
-    };
+  } catch (e) {
+    console.error('[store] loadState() — parse error:', e);
+    return { fields: [], entries: [], targets: [], theme: 'light' };
   }
 }
 
-export function saveState(state: AppState): void {
+export function saveState(state: AppState, userId?: string): void {
   if (typeof window === 'undefined') return;
+  const key = getUserStorageKey(userId);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Storage quota exceeded — silently fail
+    localStorage.setItem(key, JSON.stringify(state));
+    console.debug(
+      '[store] saveState() — saved',
+      state.fields.length,
+      'fields,',
+      state.entries.length,
+      'entries to key:',
+      key
+    );
+  } catch (e) {
+    console.warn('[store] saveState() — storage quota exceeded:', e);
   }
 }
+
+// ─── New account seeding ──────────────────────────────────────────────────────
+
+/**
+ * Seeds starter data for a brand-new user.
+ * ONLY call this when the account is truly new (isNewAccount flag is set).
+ * If data already exists for the user, this is a no-op.
+ */
+export function initializeStarterData(userId?: string): AppState {
+  const key = getUserStorageKey(userId);
+  const existing = localStorage.getItem(key);
+
+  if (existing) {
+    console.warn(
+      '[store] initializeStarterData() — data already exists for key:',
+      key,
+      '→ skipping seed to avoid overwrite'
+    );
+    return loadState(userId);
+  }
+
+  console.debug('[store] initializeStarterData() — seeding starter data for key:', key);
+  const initial: AppState = {
+    fields: DEFAULT_FIELDS,
+    entries: generateSampleEntries(DEFAULT_FIELDS),
+    targets: DEFAULT_TARGETS,
+    theme: 'light',
+  };
+  saveState(initial, userId);
+  return initial;
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+
+/**
+ * Completely wipes all data for a user:
+ * - tracker data (creator_tracker_<userId>)
+ * - onboarding scratch data (onboarding_<userId>)
+ * - feature settings (featureSettings_<userId>)
+ *
+ * After calling this, set isNewAccount: true in userSession so onboarding re-runs.
+ */
+export function resetUserData(userId?: string): void {
+  const resolvedId = userId ?? (() => {
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (raw) return JSON.parse(raw)?.email ?? '';
+    } catch { return ''; }
+    return '';
+  })();
+
+  console.debug('[store] resetUserData() — wiping all data for user:', resolvedId);
+
+  const keysToRemove = [
+    `creator_tracker_${resolvedId}`,
+    `onboarding_${resolvedId}`,
+    `featureSettings_${resolvedId}`,
+    // Legacy global keys (clean up too)
+    'creator_tracker_v2',
+    'onboardingData',
+    'manualSetup',
+    'userTargets',
+    'featureSettings',
+  ];
+
+  keysToRemove.forEach((k) => {
+    if (localStorage.getItem(k) !== null) {
+      localStorage.removeItem(k);
+      console.debug('[store] resetUserData() — removed key:', k);
+    }
+  });
+}
+
+// ─── Date / field utilities ───────────────────────────────────────────────────
 
 export function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
@@ -255,14 +369,8 @@ export function getWeekDates(): string[] {
   });
 }
 
-export function getFieldTotal(
-  entries: DailyEntry[],
-  fieldId: string,
-  dates?: string[]
-): number {
-  const filtered = dates
-    ? entries.filter((e) => dates.includes(e.date))
-    : entries;
+export function getFieldTotal(entries: DailyEntry[], fieldId: string, dates?: string[]): number {
+  const filtered = dates ? entries.filter((e) => dates.includes(e.date)) : entries;
   return filtered.reduce((sum, entry) => {
     const val = entry.values.find((v) => v.fieldId === fieldId);
     if (!val) return sum;
@@ -275,14 +383,13 @@ export function getCurrentStreak(entries: DailyEntry[]): number {
   if (entries.length === 0) return 0;
   const today = new Date();
   let streak = 0;
-  let checkDate = new Date(today);
+  const checkDate = new Date(today);
 
   while (true) {
     const dateStr = checkDate.toISOString().split('T')[0];
     const hasEntry = entries.some((e) => e.date === dateStr);
     if (!hasEntry) {
       if (streak === 0) {
-        // Check yesterday too (user might not have logged today yet)
         checkDate.setDate(checkDate.getDate() - 1);
         const yestStr = checkDate.toISOString().split('T')[0];
         if (!entries.some((e) => e.date === yestStr)) break;

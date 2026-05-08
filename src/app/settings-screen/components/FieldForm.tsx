@@ -19,16 +19,17 @@ interface FieldFormProps {
 }
 
 const FIELD_COLORS = [
-  '#2563EB', '#0EA5E9', '#16A34A', '#D97706',
-  '#9333EA', '#DB2777', '#0891B2', '#65A30D',
+  '#2563EB',
+  '#0EA5E9',
+  '#16A34A',
+  '#D97706',
+  '#9333EA',
+  '#DB2777',
+  '#0891B2',
+  '#65A30D',
 ];
 
-export default function FieldForm({
-  existingField,
-  fieldCount,
-  onSave,
-  onCancel,
-}: FieldFormProps) {
+export default function FieldForm({ existingField, fieldCount, onSave, onCancel }: FieldFormProps) {
   const {
     register,
     handleSubmit,
@@ -101,21 +102,14 @@ export default function FieldForm({
               className="flex items-center gap-2 cursor-pointer flex-1 px-3 py-2.5 rounded-lg border transition-all duration-150"
               style={{
                 borderColor: watchedType === t ? 'var(--primary)' : 'var(--border)',
-                backgroundColor:
-                  watchedType === t ? 'rgba(37,99,235,0.06)' : 'var(--card)',
+                backgroundColor: watchedType === t ? 'rgba(37,99,235,0.06)' : 'var(--card)',
               }}
             >
-              <input
-                type="radio"
-                value={t}
-                className="sr-only"
-                {...register('type')}
-              />
+              <input type="radio" value={t} className="sr-only" {...register('type')} />
               <div
                 className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
                 style={{
-                  borderColor:
-                    watchedType === t ? 'var(--primary)' : 'var(--border)',
+                  borderColor: watchedType === t ? 'var(--primary)' : 'var(--border)',
                 }}
               >
                 {watchedType === t && (
@@ -128,10 +122,7 @@ export default function FieldForm({
               <span
                 className="text-sm font-medium capitalize"
                 style={{
-                  color:
-                    watchedType === t
-                      ? 'var(--primary)'
-                      : 'var(--foreground)',
+                  color: watchedType === t ? 'var(--primary)' : 'var(--foreground)',
                 }}
               >
                 {t}
@@ -140,7 +131,9 @@ export default function FieldForm({
           ))}
         </div>
         <p className="helper-text">
-          {watchedType === 'number' ?'Numeric fields support totals, averages, targets, and charts.' :'Text fields store notes or qualitative observations.'}
+          {watchedType === 'number'
+            ? 'Numeric fields support totals, averages, targets, and charts.'
+            : 'Text fields store notes or qualitative observations.'}
         </p>
       </div>
 
@@ -186,21 +179,14 @@ export default function FieldForm({
             },
           })}
         />
-        {errors.defaultValue && (
-          <p className="error-text">{errors.defaultValue.message}</p>
-        )}
-        <p className="helper-text">
-          Pre-filled value when creating a new entry.
-        </p>
+        {errors.defaultValue && <p className="error-text">{errors.defaultValue.message}</p>}
+        <p className="helper-text">Pre-filled value when creating a new entry.</p>
       </div>
 
       {/* Color preview */}
       {existingField && (
         <div className="flex items-center gap-2 pt-1">
-          <div
-            className="w-4 h-4 rounded-full"
-            style={{ backgroundColor: existingField.color }}
-          />
+          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: existingField.color }} />
           <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
             Field color: {existingField.color}
           </span>
@@ -213,7 +199,14 @@ export default function FieldForm({
           {isSubmitting ? (
             <span className="flex items-center gap-2">
               <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
               Saving...

@@ -24,13 +24,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={montserrat.variable}>
-      <body className={montserrat.className}>{children}
-</body>
+      <body className={montserrat.className}>{children}</body>
     </html>
   );
 }

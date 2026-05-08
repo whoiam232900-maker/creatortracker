@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { loadState, saveState, AppState, TrackingField, TargetConfig,  } from '@/lib/store';
+import { loadState, saveState, resetUserData, getUserStorageKey, AppState, TrackingField, TargetConfig } from '@/lib/store';
 import { showToast } from '@/components/ui/Toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import Badge from '@/components/ui/Badge';
@@ -34,17 +34,32 @@ export default function SettingsContent() {
   const [clearEntriesConfirm, setClearEntriesConfirm] = useState(false);
   const [resetAllConfirm, setResetAllConfirm] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [userId, setUserId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    // Resolve userId from session
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session?.email) {
+          setUserId(session.email);
+          console.debug('[settings] Resolved userId:', session.email);
+        }
+      }
+    } catch (e) {
+      console.warn('[settings] Could not read userSession:', e);
+    }
+
     const s = loadState();
     setState(s);
     setTheme(s.theme);
   }, []);
 
   const persistState = useCallback((newState: AppState) => {
-    saveState(newState);
+    saveState(newState, userId);
     setState(newState);
-  }, []);
+  }, [userId]);
 
   const handleThemeToggle = useCallback((checked: boolean) => {
     const newTheme: 'light' | 'dark' = checked ? 'dark' : 'light';
@@ -52,7 +67,7 @@ export default function SettingsContent() {
     setState((prev) => {
       if (!prev) return prev;
       const newState: AppState = { ...prev, theme: newTheme };
-      saveState(newState);
+      saveState(newState, userId);
       // Apply to DOM
       if (typeof document !== 'undefined') {
         if (newTheme === 'dark') {
@@ -64,7 +79,7 @@ export default function SettingsContent() {
       return newState;
     });
     showToast({ type: 'info', title: `Switched to ${newTheme} mode` });
-  }, []);
+  }, [userId]);
 
   const handleSaveField = useCallback(
     (field: TrackingField) => {
@@ -78,7 +93,7 @@ export default function SettingsContent() {
           newFields = [...prev.fields, field];
         }
         const newState = { ...prev, fields: newFields };
-        saveState(newState);
+        saveState(newState, userId);
         return newState;
       });
       setShowFieldForm(false);
@@ -89,14 +104,14 @@ export default function SettingsContent() {
         description: `"${field.name}" is now available for tracking`,
       });
     },
-    [editingField]
+    [editingField, userId]
   );
 
   const handleDeleteField = useCallback((fieldId: string) => {
     setState((prev) => {
       if (!prev) return prev;
-      let newFields = prev.fields.filter((f) => f.id !== fieldId);
-      let newTargets = prev.targets.filter((t) => t.fieldId !== fieldId);
+      const newFields = prev.fields.filter((f) => f.id !== fieldId);
+      const newTargets = prev.targets.filter((t) => t.fieldId !== fieldId);
       const newEntries = prev.entries.map((e) => ({
         ...e,
         values: e.values.filter((v) => v.fieldId !== fieldId),
@@ -107,12 +122,16 @@ export default function SettingsContent() {
         targets: newTargets,
         entries: newEntries,
       };
-      saveState(newState);
+      saveState(newState, userId);
       return newState;
     });
     setDeleteFieldConfirm(null);
-    showToast({ type: 'success', title: 'Field deleted', description: 'All associated entry data was also removed' });
-  }, []);
+    showToast({
+      type: 'success',
+      title: 'Field deleted',
+      description: 'All associated entry data was also removed',
+    });
+  }, [userId]);
 
   const handleSaveTarget = useCallback((target: TargetConfig) => {
     setState((prev) => {
@@ -120,18 +139,16 @@ export default function SettingsContent() {
       const existing = prev.targets.findIndex((t) => t.fieldId === target.fieldId);
       let newTargets: TargetConfig[];
       if (existing >= 0) {
-        newTargets = prev.targets.map((t) =>
-          t.fieldId === target.fieldId ? target : t
-        );
+        newTargets = prev.targets.map((t) => (t.fieldId === target.fieldId ? target : t));
       } else {
         newTargets = [...prev.targets, target];
       }
       const newState = { ...prev, targets: newTargets };
-      saveState(newState);
+      saveState(newState, userId);
       return newState;
     });
     showToast({ type: 'success', title: 'Target saved' });
-  }, []);
+  }, [userId]);
 
   const handleDeleteTarget = useCallback((fieldId: string) => {
     setState((prev) => {
@@ -140,32 +157,62 @@ export default function SettingsContent() {
         ...prev,
         targets: prev.targets.filter((t) => t.fieldId !== fieldId),
       };
-      saveState(newState);
+      saveState(newState, userId);
       return newState;
     });
     showToast({ type: 'info', title: 'Target removed' });
-  }, []);
+  }, [userId]);
 
   const handleClearEntries = useCallback(() => {
     setState((prev) => {
       if (!prev) return prev;
       const newState = { ...prev, entries: [] };
-      saveState(newState);
+      saveState(newState, userId);
       return newState;
     });
     setClearEntriesConfirm(false);
-    showToast({ type: 'success', title: 'All entries cleared', description: 'Your fields and targets are still intact' });
-  }, []);
+    showToast({
+      type: 'success',
+      title: 'All entries cleared',
+      description: 'Your fields and targets are still intact',
+    });
+  }, [userId]);
 
   const handleResetAll = useCallback(() => {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem('creator_tracker_v2');
+
+    console.debug('[settings] handleResetAll — wiping all data for user:', userId);
+
+    // Clear ALL per-user data (tracker data, onboarding, feature settings)
+    resetUserData(userId);
+
+    // Set isNewAccount + clear onboardingPath so user re-chooses AI vs Manual from landing
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (raw) {
+        const session = JSON.parse(raw);
+        const updatedSession = {
+          ...session,
+          isNewAccount: true,
+          onboardingPath: null, // will be set again when they choose on landing page
+        };
+        localStorage.setItem('userSession', JSON.stringify(updatedSession));
+        // Also clear pendingSetupPath in case it was left over
+        localStorage.removeItem('pendingSetupPath');
+        console.debug('[settings] isNewAccount=true, onboardingPath cleared — user will re-choose setup');
+      }
+    } catch (e) {
+      console.warn('[settings] Could not update session after reset:', e);
+    }
+
     setResetAllConfirm(false);
-    showToast({ type: 'info', title: 'App reset', description: 'Reloading with default data...' });
+    showToast({ type: 'info', title: 'App reset', description: 'Redirecting to setup...' });
+
+    // Redirect to landing so user can re-choose AI or Manual
     setTimeout(() => {
-      window.location.reload();
-    }, 1200);
-  }, []);
+      window.location.href = '/';
+    }, 1000);
+  }, [userId]);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('userSession');
@@ -210,10 +257,7 @@ export default function SettingsContent() {
       </div>
 
       {/* Tab nav */}
-      <div
-        className="flex items-center gap-1 border-b"
-        style={{ borderColor: 'var(--border)' }}
-      >
+      <div className="flex items-center gap-1 border-b" style={{ borderColor: 'var(--border)' }}>
         {TABS.map((tab) => (
           <button
             key={`settings-tab-${tab.id}`}
@@ -221,15 +265,12 @@ export default function SettingsContent() {
             className={[
               'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors duration-150',
               activeTab === tab.id
-                ? 'border-primary' :'border-transparent hover:border-muted-foreground/30',
+                ? 'border-primary'
+                : 'border-transparent hover:border-muted-foreground/30',
             ].join(' ')}
             style={{
-              color:
-                activeTab === tab.id
-                  ? 'var(--primary)'
-                  : 'var(--muted-foreground)',
-              borderBottomColor:
-                activeTab === tab.id ? 'var(--primary)' : 'transparent',
+              color: activeTab === tab.id ? 'var(--primary)' : 'var(--muted-foreground)',
+              borderBottomColor: activeTab === tab.id ? 'var(--primary)' : 'transparent',
             }}
           >
             {tab.icon}
@@ -238,10 +279,8 @@ export default function SettingsContent() {
               <span
                 className="ml-1 px-1.5 py-0.5 rounded text-xs font-semibold"
                 style={{
-                  backgroundColor:
-                    activeTab === 'fields' ?'rgba(37,99,235,0.1)' :'var(--muted)',
-                  color:
-                    activeTab === 'fields' ?'var(--primary)' :'var(--muted-foreground)',
+                  backgroundColor: activeTab === 'fields' ? 'rgba(37,99,235,0.1)' : 'var(--muted)',
+                  color: activeTab === 'fields' ? 'var(--primary)' : 'var(--muted-foreground)',
                 }}
               >
                 {state.fields.length}
@@ -360,10 +399,7 @@ function FieldsTab({
         </div>
 
         {fields.length === 0 ? (
-          <div
-            className="card p-8 text-center"
-            style={{ borderStyle: 'dashed' }}
-          >
+          <div className="card p-8 text-center" style={{ borderStyle: 'dashed' }}>
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
               style={{ backgroundColor: 'var(--muted)' }}
@@ -374,7 +410,8 @@ function FieldsTab({
               No tracking fields yet
             </p>
             <p className="text-xs mb-4" style={{ color: 'var(--muted-foreground)' }}>
-              Fields define what you measure — hours worked, tasks completed, revenue earned, or any custom metric.
+              Fields define what you measure — hours worked, tasks completed, revenue earned, or any
+              custom metric.
             </p>
             <button onClick={onAddField} className="btn-primary text-sm">
               <Plus size={14} />
@@ -411,14 +448,8 @@ function FieldsTab({
             />
           </div>
         ) : (
-          <div
-            className="card p-5 border-dashed flex flex-col items-center justify-center text-center min-h-[180px]"
-          >
-            <Settings
-              size={24}
-              className="mb-3"
-              style={{ color: 'var(--muted-foreground)' }}
-            />
+          <div className="card p-5 border-dashed flex flex-col items-center justify-center text-center min-h-[180px]">
+            <Settings size={24} className="mb-3" style={{ color: 'var(--muted-foreground)' }} />
             <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
               Field editor
             </p>
@@ -478,9 +509,7 @@ function FieldRow({
               </span>
             )}
           </Badge>
-          {field.unit && (
-            <Badge variant="neutral">{field.unit}</Badge>
-          )}
+          {field.unit && <Badge variant="neutral">{field.unit}</Badge>}
         </div>
         {field.defaultValue && (
           <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
@@ -531,11 +560,7 @@ function TargetsTab({
   if (numberFields.length === 0) {
     return (
       <div className="card p-10 text-center" style={{ borderStyle: 'dashed' }}>
-        <Target
-          size={28}
-          className="mx-auto mb-3"
-          style={{ color: 'var(--muted-foreground)' }}
-        />
+        <Target size={28} className="mx-auto mb-3" style={{ color: 'var(--muted-foreground)' }} />
         <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
           No numeric fields available
         </p>
@@ -607,15 +632,10 @@ function DangerZoneTab({
           </button>
         </div>
 
-        <div
-          className="mx-4 my-1 border-t"
-          style={{ borderColor: 'rgba(220,38,38,0.2)' }}
-        />
+        <div className="mx-4 my-1 border-t" style={{ borderColor: 'rgba(220,38,38,0.2)' }} />
 
         {/* Clear entries */}
-        <div
-          className="flex items-center justify-between p-4 rounded-lg"
-        >
+        <div className="flex items-center justify-between p-4 rounded-lg">
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
               Clear all logged entries
@@ -634,10 +654,7 @@ function DangerZoneTab({
           </button>
         </div>
 
-        <div
-          className="mx-4 my-1 border-t"
-          style={{ borderColor: 'rgba(220,38,38,0.2)' }}
-        />
+        <div className="mx-4 my-1 border-t" style={{ borderColor: 'rgba(220,38,38,0.2)' }} />
 
         {/* Reset all */}
         <div className="flex items-center justify-between p-4 rounded-lg">
@@ -649,10 +666,7 @@ function DangerZoneTab({
               Wipes all data — fields, entries, targets, and settings. App reloads with defaults.
             </p>
           </div>
-          <button
-            onClick={onResetAll}
-            className="btn-danger ml-4 flex-shrink-0"
-          >
+          <button onClick={onResetAll} className="btn-danger ml-4 flex-shrink-0">
             <RefreshCw size={14} />
             Reset App
           </button>
@@ -660,7 +674,8 @@ function DangerZoneTab({
       </div>
 
       <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-        All data is stored locally in your browser. Clearing browser storage also removes all CreatorTracker data.
+        All data is stored locally in your browser. Clearing browser storage also removes all
+        CreatorTracker data.
       </p>
     </div>
   );
@@ -672,13 +687,21 @@ function SettingsSkeleton() {
       <div className="h-8 w-36 rounded-lg" style={{ backgroundColor: 'var(--muted)' }} />
       <div className="flex gap-4 border-b pb-2" style={{ borderColor: 'var(--border)' }}>
         {[1, 2, 3].map((i) => (
-          <div key={`sskel-tab-${i}`} className="h-8 w-28 rounded" style={{ backgroundColor: 'var(--muted)' }} />
+          <div
+            key={`sskel-tab-${i}`}
+            className="h-8 w-28 rounded"
+            style={{ backgroundColor: 'var(--muted)' }}
+          />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3 space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={`sskel-row-${i}`} className="card h-16" style={{ backgroundColor: 'var(--muted)' }} />
+            <div
+              key={`sskel-row-${i}`}
+              className="card h-16"
+              style={{ backgroundColor: 'var(--muted)' }}
+            />
           ))}
         </div>
         <div className="lg:col-span-2">

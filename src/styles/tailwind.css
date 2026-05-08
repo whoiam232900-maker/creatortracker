@@ -3,55 +3,55 @@
 @tailwind utilities;
 
 :root {
-  --background: #F8FAFC;
+  --background: #f8fafc;
   --foreground: #000f33;
-  --primary: #2563EB;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F1F5F9;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
   --secondary-foreground: #475569;
-  --accent: #0EA5E9;
-  --accent-foreground: #FFFFFF;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --card: #FFFFFF;
-  --card-foreground: #0F172A;
-  --border: #E2E8F0;
-  --input: #E2E8F0;
-  --ring: #2563EB;
+  --accent: #0ea5e9;
+  --accent-foreground: #ffffff;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
   --radius: 8px;
   --font-sans: 'Montserrat', sans-serif;
-  --success: #16A34A;
-  --success-bg: #F0FDF4;
-  --warning: #D97706;
-  --warning-bg: #FFFBEB;
-  --danger: #DC2626;
-  --danger-bg: #FEF2F2;
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
   --sidebar-width: 240px;
   --sidebar-collapsed: 64px;
 }
 
 .dark {
-  --background: #0F172A;
-  --foreground: #F1F5F9;
-  --primary: #3B82F6;
-  --primary-foreground: #FFFFFF;
-  --secondary: #1E293B;
-  --secondary-foreground: #94A3B8;
-  --accent: #38BDF8;
-  --accent-foreground: #0F172A;
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
-  --card: #1E293B;
-  --card-foreground: #F1F5F9;
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #94a3b8;
+  --accent: #38bdf8;
+  --accent-foreground: #0f172a;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
   --border: #334155;
   --input: #334155;
-  --ring: #3B82F6;
-  --success: #22C55E;
-  --success-bg: #052E16;
-  --warning: #F59E0B;
-  --warning-bg: #1C1400;
-  --danger: #EF4444;
-  --danger-bg: #1C0A0A;
+  --ring: #3b82f6;
+  --success: #22c55e;
+  --success-bg: #052e16;
+  --warning: #f59e0b;
+  --warning-bg: #1c1400;
+  --danger: #ef4444;
+  --danger-bg: #1c0a0a;
 }
 
 @layer base {
@@ -89,7 +89,9 @@
   }
 
   .sidebar-transition {
-    transition: width 300ms ease, transform 300ms ease;
+    transition:
+      width 300ms ease,
+      transform 300ms ease;
   }
 
   .fade-in {
@@ -236,7 +238,7 @@
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 active:scale-95;
     background-color: var(--danger);
-    color: #FFFFFF;
+    color: #ffffff;
   }
 
   .btn-danger:hover {

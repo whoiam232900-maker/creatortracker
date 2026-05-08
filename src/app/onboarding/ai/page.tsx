@@ -1,6 +1,7 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getUserStorageKey, loadState, saveState } from '@/lib/store';
 
 interface OnboardingAnswers {
   role: string;
@@ -29,7 +30,7 @@ const BASE_STEPS = [
     question: 'What do you want to track?',
     key: 'trackingGoal',
     type: 'multi',
-    options: [] as string[], // dynamically filled
+    options: [] as string[],
   },
   {
     id: 3,
@@ -65,13 +66,36 @@ export default function AIOnboardingPage() {
     wantsTargets: '',
   });
 
+  // ── Guard: only new accounts may run onboarding ──────────────────────────
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (!raw) {
+        console.debug('[onboarding/ai] No session — redirecting to /');
+        router.replace('/');
+        return;
+      }
+      const session = JSON.parse(raw);
+      if (!session?.isNewAccount) {
+        console.debug(
+          '[onboarding/ai] isNewAccount is false for',
+          session?.email,
+          '— skipping onboarding, redirecting to /dashboard'
+        );
+        router.replace('/dashboard');
+      } else {
+        console.debug('[onboarding/ai] New account detected for', session?.email, '— proceeding');
+      }
+    } catch (e) {
+      console.error('[onboarding/ai] Session read error:', e);
+      router.replace('/');
+    }
+  }, [router]);
+
   // Build steps with dynamic Step 2 options based on selected role
   const steps = BASE_STEPS.map((s) => {
     if (s.id === 2) {
-      return {
-        ...s,
-        options: TRACKING_OPTIONS_BY_ROLE[answers.role] ?? [],
-      };
+      return { ...s, options: TRACKING_OPTIONS_BY_ROLE[answers.role] ?? [] };
     }
     return s;
   });
@@ -79,15 +103,11 @@ export default function AIOnboardingPage() {
   const step = steps[currentStep];
   const isLastStep = currentStep === steps.length - 1;
 
-  const getCurrentAnswer = () => {
-    return answers[step.key as keyof OnboardingAnswers];
-  };
+  const getCurrentAnswer = () => answers[step.key as keyof OnboardingAnswers];
 
   const isOptionSelected = (option: string) => {
     const val = getCurrentAnswer();
-    if (step.type === 'multi') {
-      return (val as string[]).includes(option);
-    }
+    if (step.type === 'multi') return (val as string[]).includes(option);
     return val === option;
   };
 
@@ -99,7 +119,6 @@ export default function AIOnboardingPage() {
         : [...current, option];
       setAnswers((prev) => ({ ...prev, trackingGoal: updated }));
     } else {
-      // When role changes, reset trackingGoal since options will change
       if (step.key === 'role' && option !== answers.role) {
         setAnswers((prev) => ({ ...prev, role: option, trackingGoal: [] }));
       } else {
@@ -116,75 +135,153 @@ export default function AIOnboardingPage() {
 
   const handleNext = () => {
     if (!canProceed()) return;
+
     if (isLastStep) {
-      localStorage.setItem('onboardingData', JSON.stringify(answers));
-
-      const isFreelancer = answers.role === 'Freelancer';
-      const isStudent = answers.role === 'Student';
-
-      const generatedTrackers = [];
-      if (isFreelancer) {
-        generatedTrackers.push(
-          { name: 'Work Tracker', emoji: '💼', fields: [{ name: 'Work Hours', type: 'number' }, { name: 'Tasks Completed', type: 'number' }] },
-          { name: 'Client Tracker', emoji: '🤝', fields: [{ name: 'Meetings', type: 'number' }, { name: 'Client Name', type: 'text' }] },
-          { name: 'Revenue Tracker', emoji: '💰', fields: [{ name: 'Earnings', type: 'number' }, { name: 'Source', type: 'text' }] }
-        );
-      } else if (isStudent) {
-        generatedTrackers.push(
-          { name: 'Study Tracker', emoji: '📚', fields: [{ name: 'Study Hours', type: 'number' }, { name: 'Subject', type: 'text' }] },
-          { name: 'Assignment Tracker', emoji: '📝', fields: [{ name: 'Assignments', type: 'number' }, { name: 'Subject', type: 'text' }] }
-        );
-      } else {
-        generatedTrackers.push(
-          { name: 'Business Tracker', emoji: '📈', fields: [{ name: 'Revenue', type: 'number' }, { name: 'Meetings', type: 'number' }] },
-          { name: 'Team Tracker', emoji: '👥', fields: [{ name: 'Team Performance', type: 'text' }] }
-        );
-      }
-
-      localStorage.setItem('manualSetup', JSON.stringify({ trackers: generatedTrackers }));
-
-      const fieldsToSave: any[] = [];
-      const targetsToSave: any[] = [];
-      const generateIdStr = () => Math.random().toString(36).substring(2, 9);
-      const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
-
-      generatedTrackers.forEach((tracker, idx) => {
-        tracker.fields.forEach((f, fIdx) => {
-          const fieldId = `field-${generateIdStr()}`;
-          fieldsToSave.push({
-            id: fieldId,
-            name: `${tracker.name} - ${f.name}`,
-            type: f.type,
-            unit: f.type === 'number' ? (f.name.toLowerCase().includes('hour') ? 'hrs' : '') : '',
-            defaultValue: f.type === 'number' ? '0' : '',
-            color: colors[(idx + fIdx) % colors.length]
-          });
-
-          if (f.type === 'number' && targetsToSave.length < 2) {
-            targetsToSave.push({
-              fieldId,
-              targetValue: f.name.toLowerCase().includes('hour') ? 4 : 5,
-              type: 'daily'
-            });
-          }
-        });
-      });
-
+      // ── Final step: write AI-generated data ─────────────────────────────
       try {
-        const rawState = localStorage.getItem('creator_tracker_v2');
-        const state = rawState ? JSON.parse(rawState) : { entries: [], theme: 'light' };
-        state.fields = fieldsToSave;
-        state.targets = answers.wantsTargets === 'Yes' ? targetsToSave : [];
-        localStorage.setItem('creator_tracker_v2', JSON.stringify(state));
-      } catch(e) {}
+        const raw = localStorage.getItem('userSession');
+        if (!raw) return;
+        const session = JSON.parse(raw);
 
-      const timerEnabled = answers.role === 'Student' || answers.role === 'Freelancer';
-      localStorage.setItem('featureSettings', JSON.stringify({ timerEnabled }));
+        // Double-check guard: never overwrite existing data
+        if (!session?.isNewAccount) {
+          console.warn('[onboarding/ai] isNewAccount is false mid-flow — aborting data write');
+          router.replace('/dashboard');
+          return;
+        }
 
-      if (answers.wantsTargets === 'Yes') {
-        router.push('/onboarding/targets');
-      } else {
-        router.push('/auth');
+        const userId = session.email;
+        console.debug('[onboarding/ai] Saving AI-generated data for user:', userId);
+
+        const isFreelancer = answers.role === 'Freelancer';
+        const isStudent = answers.role === 'Student';
+
+        const generatedTrackers = [];
+        if (isFreelancer) {
+          generatedTrackers.push(
+            {
+              name: 'Work Tracker',
+              emoji: '💼',
+              fields: [
+                { name: 'Work Hours', type: 'number' },
+                { name: 'Tasks Completed', type: 'number' },
+              ],
+            },
+            {
+              name: 'Client Tracker',
+              emoji: '🤝',
+              fields: [
+                { name: 'Meetings', type: 'number' },
+                { name: 'Client Name', type: 'text' },
+              ],
+            },
+            {
+              name: 'Revenue Tracker',
+              emoji: '💰',
+              fields: [
+                { name: 'Earnings', type: 'number' },
+                { name: 'Source', type: 'text' },
+              ],
+            }
+          );
+        } else if (isStudent) {
+          generatedTrackers.push(
+            {
+              name: 'Study Tracker',
+              emoji: '📚',
+              fields: [
+                { name: 'Study Hours', type: 'number' },
+                { name: 'Subject', type: 'text' },
+              ],
+            },
+            {
+              name: 'Assignment Tracker',
+              emoji: '📝',
+              fields: [
+                { name: 'Assignments', type: 'number' },
+                { name: 'Subject', type: 'text' },
+              ],
+            }
+          );
+        } else {
+          generatedTrackers.push(
+            {
+              name: 'Business Tracker',
+              emoji: '📈',
+              fields: [
+                { name: 'Revenue', type: 'number' },
+                { name: 'Meetings', type: 'number' },
+              ],
+            },
+            {
+              name: 'Team Tracker',
+              emoji: '👥',
+              fields: [{ name: 'Team Performance', type: 'text' }],
+            }
+          );
+        }
+
+        const fieldsToSave: any[] = [];
+        const targetsToSave: any[] = [];
+        const generateIdStr = () => Math.random().toString(36).substring(2, 9);
+        const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
+
+        generatedTrackers.forEach((tracker, idx) => {
+          tracker.fields.forEach((f, fIdx) => {
+            const fieldId = `field-${generateIdStr()}`;
+            fieldsToSave.push({
+              id: fieldId,
+              name: `${tracker.name} - ${f.name}`,
+              type: f.type,
+              unit: f.type === 'number' ? (f.name.toLowerCase().includes('hour') ? 'hrs' : '') : '',
+              defaultValue: f.type === 'number' ? '0' : '',
+              color: colors[(idx + fIdx) % colors.length],
+            });
+
+            if (f.type === 'number' && targetsToSave.length < 2) {
+              targetsToSave.push({
+                fieldId,
+                targetValue: f.name.toLowerCase().includes('hour') ? 4 : 5,
+                type: 'daily',
+              });
+            }
+          });
+        });
+
+        // Load existing state (should be empty for a new user) and set fields
+        const existingState = loadState(userId);
+        const newState = {
+          ...existingState,
+          fields: fieldsToSave,
+          targets: answers.wantsTargets === 'Yes' ? targetsToSave : [],
+        };
+        saveState(newState, userId);
+
+        // Save onboarding answers scoped to user
+        localStorage.setItem(`onboarding_${userId}`, JSON.stringify(answers));
+
+        // Save feature settings scoped to user
+        const timerEnabled = answers.role === 'Student' || answers.role === 'Freelancer';
+        localStorage.setItem(`featureSettings_${userId}`, JSON.stringify({ timerEnabled }));
+
+        // Conditional routing based on 'wantsTargets' answer
+        if (answers.wantsTargets === 'Yes') {
+          console.debug('[onboarding/ai] User wants targets — continuing to /onboarding/targets');
+          router.push('/onboarding/targets');
+        } else {
+          console.debug('[onboarding/ai] User skipped targets — clearing flag and finishing at /dashboard');
+          
+          // Since we skip the targets page (where the flag is usually cleared), 
+          // we MUST clear isNewAccount here to complete the onboarding journey.
+          const updatedSession = { ...session, isNewAccount: false };
+          localStorage.setItem('userSession', JSON.stringify(updatedSession));
+          
+          router.push('/dashboard');
+        }
+      } catch (e) {
+        console.error('[onboarding/ai] Error saving AI data:', e);
+        // Fallback to dashboard if anything goes wrong
+        router.push('/dashboard');
       }
     } else {
       setCurrentStep((prev) => prev + 1);
@@ -225,10 +322,7 @@ export default function AIOnboardingPage() {
         >
           <div
             className="h-full rounded-full transition-all duration-300"
-            style={{
-              width: `${progressPercent}%`,
-              backgroundColor: 'var(--primary)',
-            }}
+            style={{ width: `${progressPercent}%`, backgroundColor: 'var(--primary)' }}
           />
         </div>
 

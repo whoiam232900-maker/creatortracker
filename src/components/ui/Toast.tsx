@@ -54,10 +54,7 @@ export function ToastContainer() {
         >
           <div className="flex-shrink-0 mt-0.5">{icons[toast.type]}</div>
           <div className="flex-1 min-w-0">
-            <p
-              className="text-sm font-semibold"
-              style={{ color: 'var(--foreground)' }}
-            >
+            <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
               {toast.title}
             </p>
             {toast.description && (

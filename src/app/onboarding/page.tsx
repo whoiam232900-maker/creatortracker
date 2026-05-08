@@ -1,29 +1,46 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function OnboardingPage() {
+/**
+ * The /onboarding route is no longer the setup-choice page.
+ * Setup choices (AI vs Manual) are now on the landing page (/).
+ * This page simply redirects to the right place:
+ *   - Logged-in new accounts → should already be on /onboarding/ai or /onboarding/manual
+ *   - Not logged in → landing page
+ *   - Existing accounts → dashboard
+ */
+export default function OnboardingIndexPage() {
   const router = useRouter();
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="card p-8 w-full max-w-md flex flex-col items-center gap-6">
-        <h1 className="text-2xl font-bold text-foreground">Choose setup method</h1>
-        <div className="flex flex-col gap-4 w-full">
-          <button
-            className="btn-primary w-full py-3 rounded-lg text-base font-medium"
-            onClick={() => router?.push("/onboarding/ai")}
-          >
-            Build with AI
-          </button>
-          <button
-            className="btn-secondary w-full py-3 rounded-lg text-base font-medium"
-            onClick={() => router?.push("/onboarding/manual")}
-          >
-            Build Manually
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (!raw) {
+        console.debug('[onboarding/index] No session — to landing');
+        router.replace('/');
+        return;
+      }
+      const session = JSON.parse(raw);
+      if (!session?.isLoggedIn) {
+        router.replace('/');
+        return;
+      }
+      if (session?.isNewAccount) {
+        // Resume onboarding from the correct path
+        const path = session?.onboardingPath ?? 'ai';
+        console.debug('[onboarding/index] isNewAccount=true, resuming:', path);
+        router.replace(path === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
+      } else {
+        // Existing user — go to dashboard
+        console.debug('[onboarding/index] Existing user — to dashboard');
+        router.replace('/dashboard');
+      }
+    } catch (e) {
+      router.replace('/');
+    }
+  }, [router]);
+
+  return null;
 }

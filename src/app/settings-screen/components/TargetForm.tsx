@@ -17,12 +17,7 @@ interface TargetFormProps {
   onDelete?: () => void;
 }
 
-export default function TargetForm({
-  field,
-  existingTarget,
-  onSave,
-  onDelete,
-}: TargetFormProps) {
+export default function TargetForm({ field, existingTarget, onSave, onDelete }: TargetFormProps) {
   const {
     register,
     handleSubmit,
@@ -67,9 +62,7 @@ export default function TargetForm({
             </Badge>
           )}
         </div>
-        {existingTarget && (
-          <Badge variant="success">Active</Badge>
-        )}
+        {existingTarget && <Badge variant="success">Active</Badge>}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -94,9 +87,7 @@ export default function TargetForm({
               },
             })}
           />
-          {errors.targetValue && (
-            <p className="error-text">{errors.targetValue.message}</p>
-          )}
+          {errors.targetValue && <p className="error-text">{errors.targetValue.message}</p>}
         </div>
 
         {/* Type selector */}
@@ -109,17 +100,11 @@ export default function TargetForm({
                 className="flex items-center gap-2 cursor-pointer flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all duration-150"
                 style={{
                   borderColor: watchedType === t ? 'var(--primary)' : 'var(--border)',
-                  backgroundColor:
-                    watchedType === t ? 'rgba(37,99,235,0.06)' : 'var(--card)',
+                  backgroundColor: watchedType === t ? 'rgba(37,99,235,0.06)' : 'var(--card)',
                   color: watchedType === t ? 'var(--primary)' : 'var(--muted-foreground)',
                 }}
               >
-                <input
-                  type="radio"
-                  value={t}
-                  className="sr-only"
-                  {...register('type')}
-                />
+                <input type="radio" value={t} className="sr-only" {...register('type')} />
                 <div
                   className="w-3 h-3 rounded-full border-2 flex items-center justify-center flex-shrink-0"
                   style={{
@@ -141,30 +126,28 @@ export default function TargetForm({
 
         {/* Preview */}
         {watchedValue && parseFloat(watchedValue) > 0 && (
-          <div
-            className="rounded-lg px-3 py-2 text-xs"
-            style={{ backgroundColor: 'var(--muted)' }}
-          >
+          <div className="rounded-lg px-3 py-2 text-xs" style={{ backgroundColor: 'var(--muted)' }}>
             <span style={{ color: 'var(--muted-foreground)' }}>Goal: </span>
             <span className="font-semibold tabular-nums" style={{ color: 'var(--foreground)' }}>
               {watchedValue} {field.unit}
             </span>
-            <span style={{ color: 'var(--muted-foreground)' }}>
-              {' '}per {watchedType}
-            </span>
+            <span style={{ color: 'var(--muted-foreground)' }}> per {watchedType}</span>
           </div>
         )}
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-1">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="btn-primary flex-1 text-xs py-2"
-          >
+          <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 text-xs py-2">
             {isSubmitting ? (
               <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
             ) : (

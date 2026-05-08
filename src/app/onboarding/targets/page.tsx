@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { loadState, saveState } from '@/lib/store';
 
 type Targets = { dailyTarget: string; weeklyConsistency: string; monthlyGoal: string };
 
@@ -14,13 +15,61 @@ export default function TargetsSetupPage() {
     monthlyGoal: '',
   });
 
+  // ── Guard: only new accounts may run onboarding ────────────────────────────
   useEffect(() => {
     setMounted(true);
-  }, []);
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (!raw) {
+        console.debug('[onboarding/targets] No session — redirecting to /');
+        router.replace('/');
+        return;
+      }
+      const session = JSON.parse(raw);
+      if (!session?.isNewAccount) {
+        console.debug(
+          '[onboarding/targets] isNewAccount is false for',
+          session?.email,
+          '— redirecting to /dashboard'
+        );
+        router.replace('/dashboard');
+      } else {
+        console.debug('[onboarding/targets] New account — showing targets setup for', session?.email);
+      }
+    } catch (e) {
+      console.error('[onboarding/targets] Session read error:', e);
+      router.replace('/');
+    }
+  }, [router]);
 
   const handleContinue = () => {
-    localStorage.setItem('userTargets', JSON.stringify(targets));
-    router.push('/auth');
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (!raw) return;
+      const session = JSON.parse(raw);
+
+      // Double-check guard
+      if (!session?.isNewAccount) {
+        console.warn('[onboarding/targets] isNewAccount is false mid-flow — aborting');
+        router.replace('/dashboard');
+        return;
+      }
+
+      const userId = session.email;
+      console.debug('[onboarding/targets] Saving user targets for user:', userId);
+
+      // Persist user-facing targets metadata scoped to user
+      localStorage.setItem(`userTargets_${userId}`, JSON.stringify(targets));
+
+      // ── Clear isNewAccount flag — onboarding is complete ─────────────────
+      const updatedSession = { ...session, isNewAccount: false };
+      localStorage.setItem('userSession', JSON.stringify(updatedSession));
+      console.debug('[onboarding/targets] isNewAccount cleared for user:', userId);
+    } catch (e) {
+      console.error('[onboarding/targets] Error saving targets:', e);
+    }
+
+    router.push('/dashboard');
   };
 
   return (
@@ -32,7 +81,7 @@ export default function TargetsSetupPage() {
         className="w-full max-w-md flex flex-col gap-8 transition-all duration-700 ease-out"
         style={{
           opacity: mounted ? 1 : 0,
-          transform: mounted ? 'translateY(0)' : 'translateY(16px)'
+          transform: mounted ? 'translateY(0)' : 'translateY(16px)',
         }}
       >
         {/* Header */}
@@ -47,10 +96,17 @@ export default function TargetsSetupPage() {
 
         {/* Inputs */}
         <div className="flex flex-col gap-4">
-          <div className="p-6 rounded-xl border flex flex-col gap-6" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div
+            className="p-6 rounded-xl border flex flex-col gap-6"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+          >
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Daily Target</label>
-              <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>Optional: E.g., "4 hours" or "5 tasks"</p>
+              <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                Daily Target
+              </label>
+              <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>
+                Optional: E.g., &quot;4 hours&quot; or &quot;5 tasks&quot;
+              </p>
               <input
                 type="text"
                 placeholder="e.g. 4 hours"
@@ -62,8 +118,12 @@ export default function TargetsSetupPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Weekly Consistency</label>
-              <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>Optional: E.g., "5 days a week"</p>
+              <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                Weekly Consistency
+              </label>
+              <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>
+                Optional: E.g., &quot;5 days a week&quot;
+              </p>
               <input
                 type="text"
                 placeholder="e.g. 5 days"
@@ -75,8 +135,12 @@ export default function TargetsSetupPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Monthly Goal</label>
-              <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>Optional: A bigger milestone</p>
+              <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                Monthly Goal
+              </label>
+              <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>
+                Optional: A bigger milestone
+              </p>
               <input
                 type="text"
                 placeholder="e.g. $5000 revenue"
@@ -95,7 +159,7 @@ export default function TargetsSetupPage() {
             onClick={handleContinue}
             className="btn-primary w-full py-3 rounded-xl text-base font-medium transition-all duration-150 active:scale-[0.98]"
           >
-            Save & Continue
+            Save &amp; Continue
           </button>
         </div>
       </div>

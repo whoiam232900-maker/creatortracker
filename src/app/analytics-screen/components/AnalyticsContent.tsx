@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { loadState, AppState, getFieldTotal, getCurrentStreak,  } from '@/lib/store';
+import { loadState, AppState, getFieldTotal, getCurrentStreak } from '@/lib/store';
 import {
   TrendingUp,
   Award,
@@ -15,6 +15,7 @@ import Badge from '@/components/ui/Badge';
 
 const FieldTrendChart = dynamic(() => import('./FieldTrendChart'), { ssr: false });
 const WeeklyComparisonChart = dynamic(() => import('./WeeklyComparisonChart'), { ssr: false });
+import AIInsightsPanel from '@/components/AIInsightsPanel';
 
 type DateRange = '7d' | '14d' | '30d' | '90d';
 
@@ -67,7 +68,7 @@ export default function AnalyticsContent() {
     return Math.round((total / rangeDays[dateRange]) * 100) / 100;
   }, [rangeEntries, selectedFieldId, dateRange]);
 
-  const bestDay = useMemo(() => {
+  const bestDay = useMemo<{ date: string; value: number } | null>(() => {
     if (!selectedFieldId || rangeEntries.length === 0) return null;
     let best: { date: string; value: number } | null = null;
     rangeEntries.forEach((e) => {
@@ -80,10 +81,7 @@ export default function AnalyticsContent() {
     return best;
   }, [rangeEntries, selectedFieldId]);
 
-  const streak = useMemo(
-    () => (state ? getCurrentStreak(state.entries) : 0),
-    [state]
-  );
+  const streak = useMemo(() => (state ? getCurrentStreak(state.entries) : 0), [state]);
 
   const trendData = useMemo(() => {
     if (!selectedFieldId) return [];
@@ -100,7 +98,20 @@ export default function AnalyticsContent() {
       const parts = dateStr.split('-');
       const month = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       result.push({
         date: dateStr,
         value: isNaN(n) ? 0 : n,
@@ -150,83 +161,7 @@ export default function AnalyticsContent() {
     });
   }, [state, selectedFieldId]);
 
-  const insights = useMemo(() => {
-    if (!selectedField || trendData.length === 0) return [];
-    const msgs: string[] = [];
 
-    // Best day of week
-    const dayTotals: Record<string, { total: number; count: number }> = {};
-    trendData.forEach((d) => {
-      const parts = d.date.split('-');
-      const dow = new Date(
-        parseInt(parts[0], 10),
-        parseInt(parts[1], 10) - 1,
-        parseInt(parts[2], 10)
-      ).getDay();
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const dayName = days[dow];
-      if (!dayTotals[dayName]) dayTotals[dayName] = { total: 0, count: 0 };
-      if (d.value > 0) {
-        dayTotals[dayName].total += d.value;
-        dayTotals[dayName].count++;
-      }
-    });
-
-    let bestDayName = '';
-    let bestDayAvg = 0;
-    Object.entries(dayTotals).forEach(([day, data]) => {
-      const { total, count } = data;
-      if (count > 0) {
-        const avg = total / count;
-        if (avg > bestDayAvg) {
-          bestDayAvg = avg;
-          bestDayName = day;
-        }
-      }
-    });
-
-    if (bestDayName) {
-      msgs.push(
-        `Your best day is ${bestDayName} — you average ${Math.round(bestDayAvg * 10) / 10} ${selectedField.unit} on ${bestDayName}s.`
-      );
-    }
-
-    // Trend direction
-    const recent = trendData.slice(-7).filter((d) => d.value > 0);
-    const earlier = trendData.slice(-14, -7).filter((d) => d.value > 0);
-    if (recent.length > 0 && earlier.length > 0) {
-      const recentAvg = recent.reduce((s, d) => s + d.value, 0) / recent.length;
-      const earlierAvg = earlier.reduce((s, d) => s + d.value, 0) / earlier.length;
-      const diff = recentAvg - earlierAvg;
-      if (diff > 0) {
-        msgs.push(
-          `Trending up — last 7 days averaged ${Math.round(recentAvg * 10) / 10} ${selectedField.unit}, up from ${Math.round(earlierAvg * 10) / 10} the week before.`
-        );
-      } else if (diff < -0.5) {
-        msgs.push(
-          `Output dipped — last 7 days averaged ${Math.round(recentAvg * 10) / 10} ${selectedField.unit}, down from ${Math.round(earlierAvg * 10) / 10} the week before. Consider reviewing your schedule.`
-        );
-      }
-    }
-
-    // Streak insight
-    if (streak >= 7) {
-      msgs.push(`You're on a ${streak}-day streak — strong consistency builds compounding results.`);
-    } else if (streak === 0) {
-      msgs.push("No active streak detected — logging entries daily builds momentum and better analytics.");
-    }
-
-    // Zero days
-    const zeroDays = trendData.filter((d) => d.value === 0).length;
-    const zeroPct = Math.round((zeroDays / trendData.length) * 100);
-    if (zeroPct > 30) {
-      msgs.push(
-        `${zeroPct}% of days in this range had no logged ${selectedField.name.toLowerCase()} — consistent daily logging improves your averages.`
-      );
-    }
-
-    return msgs.slice(0, 4);
-  }, [trendData, selectedField, streak]);
 
   if (!state) return <AnalyticsSkeleton />;
 
@@ -243,7 +178,8 @@ export default function AnalyticsContent() {
           No numeric fields to analyze
         </h2>
         <p className="text-sm text-center max-w-sm" style={{ color: 'var(--muted-foreground)' }}>
-          Analytics requires at least one numeric tracking field. Add fields in Settings, then start logging entries.
+          Analytics requires at least one numeric tracking field. Add fields in Settings, then start
+          logging entries.
         </p>
       </div>
     );
@@ -286,19 +222,18 @@ export default function AnalyticsContent() {
           </div>
 
           {/* Date range */}
-          <div className="flex items-center rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+          <div
+            className="flex items-center rounded-lg border overflow-hidden"
+            style={{ borderColor: 'var(--border)' }}
+          >
             {(['7d', '14d', '30d', '90d'] as DateRange[]).map((r) => (
               <button
                 key={`range-${r}`}
                 onClick={() => setDateRange(r)}
                 className="px-3 py-2 text-xs font-medium transition-colors duration-150"
                 style={{
-                  backgroundColor:
-                    dateRange === r ? 'var(--primary)' : 'var(--card)',
-                  color:
-                    dateRange === r
-                      ? 'var(--primary-foreground)'
-                      : 'var(--muted-foreground)',
+                  backgroundColor: dateRange === r ? 'var(--primary)' : 'var(--card)',
+                  color: dateRange === r ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                 }}
               >
                 {r}
@@ -334,7 +269,7 @@ export default function AnalyticsContent() {
         <AnalyticsStatCard
           label="Best Single Day"
           value={bestDay ? String(Math.round(bestDay.value * 10) / 10) : '—'}
-          unit={bestDay ? selectedField?.unit ?? '' : ''}
+          unit={bestDay ? (selectedField?.unit ?? '') : ''}
           sub={bestDay ? formatShortDate(bestDay.date) : 'no data'}
           icon={<Award size={18} style={{ color: '#D97706' }} />}
           bg="var(--warning-bg)"
@@ -349,9 +284,7 @@ export default function AnalyticsContent() {
             <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
               {selectedField?.name} — Daily Trend
             </h2>
-            <Badge variant="neutral">
-              {dateRange}
-            </Badge>
+            <Badge variant="neutral">{dateRange}</Badge>
           </div>
           <FieldTrendChart
             data={trendData}
@@ -367,13 +300,22 @@ export default function AnalyticsContent() {
             <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
               This Week vs Last Week
             </h2>
-            <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+            <div
+              className="flex items-center gap-3 text-xs"
+              style={{ color: 'var(--muted-foreground)' }}
+            >
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: selectedField?.color ?? 'var(--primary)' }} />
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: selectedField?.color ?? 'var(--primary)' }}
+                />
                 This week
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: 'var(--border)' }} />
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: 'var(--border)' }}
+                />
                 Last week
               </span>
             </div>
@@ -392,8 +334,7 @@ export default function AnalyticsContent() {
         <div
           className="card p-5 shadow-card flex flex-col items-center justify-center text-center"
           style={{
-            backgroundColor:
-              streak >= 7 ? 'var(--warning-bg)' : 'var(--card)',
+            backgroundColor: streak >= 7 ? 'var(--warning-bg)' : 'var(--card)',
           }}
         >
           <Flame
@@ -414,56 +355,23 @@ export default function AnalyticsContent() {
             {streak >= 7
               ? 'Excellent consistency!'
               : streak >= 3
-              ? 'Building momentum'
-              : streak === 0
-              ? 'Start a streak today' :'Keep it going!'}
+                ? 'Building momentum'
+                : streak === 0
+                  ? 'Start a streak today'
+                  : 'Keep it going!'}
           </p>
         </div>
 
-        {/* Insights panel */}
-        <div className="card p-5 shadow-card lg:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <Lightbulb size={16} style={{ color: 'var(--warning)' }} />
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-              Insights
-            </h2>
-          </div>
-          {insights.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-              Log more entries to unlock personalized insights about your work patterns.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {insights.map((insight, i) => (
-                <li
-                  key={`insight-${i}`}
-                  className="flex items-start gap-3 text-sm"
-                  style={{ color: 'var(--foreground)' }}
-                >
-                  <span
-                    className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                    style={{
-                      backgroundColor: 'rgba(37,99,235,0.1)',
-                      color: 'var(--primary)',
-                    }}
-                  >
-                    {i + 1}
-                  </span>
-                  <span>{insight}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* AI Insights panel */}
+        <div className="lg:col-span-2">
+          <AIInsightsPanel state={state} />
         </div>
       </div>
 
       {/* Per-field summary table */}
       {numberFields.length > 1 && (
         <div className="card shadow-card overflow-hidden">
-          <div
-            className="px-5 py-4 border-b"
-            style={{ borderColor: 'var(--border)' }}
-          >
+          <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
               All Fields — Summary
             </h2>
@@ -472,7 +380,14 @@ export default function AnalyticsContent() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Field', 'Unit', 'All-Time Total', `Total (${dateRange})`, 'Daily Avg', 'Best Day'].map((h) => (
+                  {[
+                    'Field',
+                    'Unit',
+                    'All-Time Total',
+                    `Total (${dateRange})`,
+                    'Daily Avg',
+                    'Best Day',
+                  ].map((h) => (
                     <th
                       key={`analytics-th-${h}`}
                       className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide"
@@ -502,10 +417,12 @@ export default function AnalyticsContent() {
                       className="transition-colors duration-100"
                       style={{ borderBottom: '1px solid var(--border)' }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--muted)';
+                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                          'var(--muted)';
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'transparent';
+                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                          'transparent';
                       }}
                     >
                       <td className="px-5 py-3">
@@ -528,10 +445,16 @@ export default function AnalyticsContent() {
                       <td className="px-5 py-3 tabular-nums" style={{ color: 'var(--foreground)' }}>
                         {Math.round(rangeT * 10) / 10}
                       </td>
-                      <td className="px-5 py-3 tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
+                      <td
+                        className="px-5 py-3 tabular-nums"
+                        style={{ color: 'var(--muted-foreground)' }}
+                      >
                         {avg}
                       </td>
-                      <td className="px-5 py-3 tabular-nums font-medium" style={{ color: 'var(--foreground)' }}>
+                      <td
+                        className="px-5 py-3 tabular-nums font-medium"
+                        style={{ color: 'var(--foreground)' }}
+                      >
                         {best !== null ? Math.round(best * 10) / 10 : '—'}
                       </td>
                     </tr>
@@ -600,7 +523,11 @@ function AnalyticsSkeleton() {
       <div className="h-8 w-40 rounded-lg" style={{ backgroundColor: 'var(--muted)' }} />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={`askel-${i}`} className="card h-24" style={{ backgroundColor: 'var(--muted)' }} />
+          <div
+            key={`askel-${i}`}
+            className="card h-24"
+            style={{ backgroundColor: 'var(--muted)' }}
+          />
         ))}
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
@@ -616,6 +543,19 @@ function formatShortDate(dateStr: string): string {
   if (parts.length !== 3) return dateStr;
   const month = parseInt(parts[1], 10) - 1;
   const day = parseInt(parts[2], 10);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   return `${months[month]} ${day}`;
 }

@@ -13,7 +13,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
   const router = useRouter();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
@@ -67,9 +67,7 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   }, []);
 
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev) => !prev);
-  }, []);
+
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
@@ -83,20 +81,16 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
 
       {/* Sidebar */}
       <Sidebar
-        collapsed={sidebarCollapsed}
+        collapsed={true}
         mobileOpen={mobileSidebarOpen}
         activeRoute={activeRoute}
         onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main content */}
-      <div
-        className="flex flex-col flex-1 min-w-0 overflow-hidden transition-all duration-300"
-      >
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden transition-all duration-300 relative">
         <Topbar
           onMenuClick={() => setMobileSidebarOpen(true)}
-          onSidebarToggle={toggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
           theme={theme}
           onThemeToggle={toggleTheme}
         />

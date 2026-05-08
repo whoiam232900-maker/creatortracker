@@ -56,11 +56,7 @@ function CustomTooltip({
   );
 }
 
-export default function WeeklyComparisonChart({
-  data,
-  color,
-  unit,
-}: WeeklyComparisonChartProps) {
+export default function WeeklyComparisonChart({ data, color, unit }: WeeklyComparisonChartProps) {
   if (data.length === 0) {
     return (
       <div
@@ -81,11 +77,7 @@ export default function WeeklyComparisonChart({
           barCategoryGap="30%"
           barGap={2}
         >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="var(--border)"
-            vertical={false}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="day"
             tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
