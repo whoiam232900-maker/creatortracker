@@ -353,12 +353,34 @@ export function resetUserData(userId?: string): void {
 
 // ─── Date / field utilities ───────────────────────────────────────────────────
 
+function getAdjustedDate(baseDate = new Date()): Date {
+  const d = new Date(baseDate);
+  if (typeof window !== 'undefined') {
+    try {
+      const settingsStr = localStorage.getItem('app_settings');
+      if (settingsStr) {
+        const settings = JSON.parse(settingsStr);
+        if (settings.dailyResetTime) {
+          const [hours, minutes] = settings.dailyResetTime.split(':').map(Number);
+          const resetTime = new Date(d);
+          resetTime.setHours(hours, minutes, 0, 0);
+          if (d < resetTime) {
+            // Before reset time, still counts as previous day
+            d.setDate(d.getDate() - 1);
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return d;
+}
+
 export function getTodayString(): string {
-  return new Date().toISOString().split('T')[0];
+  return getAdjustedDate().toISOString().split('T')[0];
 }
 
 export function getWeekDates(): string[] {
-  const today = new Date();
+  const today = getAdjustedDate();
   const day = today.getDay();
   const monday = new Date(today);
   monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
@@ -381,7 +403,7 @@ export function getFieldTotal(entries: DailyEntry[], fieldId: string, dates?: st
 
 export function getCurrentStreak(entries: DailyEntry[]): number {
   if (entries.length === 0) return 0;
-  const today = new Date();
+  const today = getAdjustedDate();
   let streak = 0;
   const checkDate = new Date(today);
 

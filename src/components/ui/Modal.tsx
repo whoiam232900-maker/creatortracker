@@ -61,7 +61,7 @@ export default function Modal({
       className="fixed inset-0 z-[200] flex items-center justify-center fade-in p-4 sm:p-6"
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        backdropFilter: 'blur(3px)',
+        backdropFilter: 'blur(var(--blur-intensity, 3px))',
       }}
     >
       <div 

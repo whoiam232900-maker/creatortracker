@@ -2,6 +2,7 @@ import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Montserrat } from 'next/font/google';
 import '../styles/tailwind.css';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -26,8 +27,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={montserrat.variable}>
-      <body className={montserrat.className}>{children}</body>
+    <html lang="en" className={`${montserrat.variable} dark`}>
+      <body className={montserrat.className}>
+        <SettingsProvider>
+          {children}
+        </SettingsProvider>
+      </body>
     </html>
   );
 }

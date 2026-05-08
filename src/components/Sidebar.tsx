@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, BarChart3, Settings } from 'lucide-react';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface NavItem {
   label: string;
@@ -26,9 +27,13 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: SidebarProps) {
+  const { settings } = useSettings();
   const [isHovered, setIsHovered] = React.useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
-  const isEffectivelyCollapsed = collapsed && !isHovered && !isDropdownOpen;
+  
+  // If hover expand is disabled, hover should not affect collapsed state
+  const effectivelyHovered = settings.hoverExpandSidebar ? isHovered : false;
+  const isEffectivelyCollapsed = collapsed && !effectivelyHovered && !isDropdownOpen;
 
   return (
     <>
@@ -76,6 +81,7 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
 
 function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapsed: boolean; onClose?: () => void; onDropdownOpenChange?: (open: boolean) => void }) {
   const pathname = usePathname();
+  const { settings } = useSettings();
 
   return (
     <div className="flex flex-col h-full">
@@ -127,7 +133,7 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
                 </span>
               )}
               {/* Collapsed tooltip */}
-              {collapsed && (
+              {collapsed && !settings.iconOnlyMinimized && (
                 <span
                   className="absolute left-full ml-2 px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 shadow-elevated"
                   style={{

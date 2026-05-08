@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSettings } from '@/contexts/SettingsContext';
 
 // ── Inner component that uses useSearchParams (must be inside Suspense) ─────
 function AuthForm() {
@@ -12,6 +13,15 @@ function AuthForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const { settings } = useSettings();
+
+  const getLandingRoute = () => {
+    switch (settings.defaultLandingPage) {
+      case 'Analytics': return '/analytics-screen';
+      case 'Settings': return '/settings-screen';
+      default: return '/dashboard';
+    }
+  };
 
   useEffect(() => {
     const mode = searchParams?.get('mode');
@@ -24,8 +34,8 @@ function AuthForm() {
       if (raw) {
         const session = JSON.parse(raw);
         if (session?.isLoggedIn === true && session?.isNewAccount !== true) {
-          console.debug('[auth] Already fully logged in — to /dashboard');
-          router.replace('/dashboard');
+          console.debug('[auth] Already fully logged in — to default landing page');
+          router.replace(getLandingRoute());
         }
       }
     } catch (e) {
@@ -56,7 +66,7 @@ function AuthForm() {
         };
         localStorage.setItem('userSession', JSON.stringify(sessionData));
         localStorage.removeItem('pendingSetupPath');
-        router.push('/dashboard');
+        router.push(getLandingRoute());
         return;
       }
 
@@ -126,8 +136,8 @@ function AuthForm() {
         };
         localStorage.setItem('userSession', JSON.stringify(sessionData));
 
-        // Go straight to dashboard — existing data is stored under their key
-        router.push('/dashboard');
+        // Go straight to dashboard or preferred landing page — existing data is stored under their key
+        router.push(getLandingRoute());
       }
     } catch (err) {
       console.error('[auth] Error during auth:', err);

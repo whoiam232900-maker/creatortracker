@@ -5,6 +5,7 @@ import Topbar from './Topbar';
 import { loadState, saveState, AppState } from '@/lib/store';
 
 import { useRouter } from 'next/navigation';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -13,9 +14,9 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
   const router = useRouter();
+  const { settings, updateSetting } = useSettings();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -37,35 +38,12 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
       return;
     }
 
-    const state = loadState();
-    setTheme(state.theme);
     setMounted(true);
   }, [router]);
 
-  useEffect(() => {
-    if (!mounted) return;
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    // Persist theme
-    try {
-      const raw = localStorage.getItem('creator_tracker_v2');
-      if (raw) {
-        const parsed = JSON.parse(raw) as AppState;
-        parsed.theme = theme;
-        saveState(parsed);
-      }
-    } catch {
-      // ignore
-    }
-  }, [theme, mounted]);
-
   const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  }, []);
+    updateSetting('themeMode', settings.themeMode === 'Light' ? 'Dark' : 'Light');
+  }, [settings.themeMode, updateSetting]);
 
 
 
@@ -81,7 +59,7 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
 
       {/* Sidebar */}
       <Sidebar
-        collapsed={true}
+        collapsed={settings.autoCollapseSidebar}
         mobileOpen={mobileSidebarOpen}
         activeRoute={activeRoute}
         onMobileClose={() => setMobileSidebarOpen(false)}
@@ -91,7 +69,7 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden transition-all duration-300 relative">
         <Topbar
           onMenuClick={() => setMobileSidebarOpen(true)}
-          theme={theme}
+          theme={settings.themeMode.toLowerCase() as 'light' | 'dark'}
           onThemeToggle={toggleTheme}
         />
         <main className="flex-1 overflow-y-auto scrollbar-thin">

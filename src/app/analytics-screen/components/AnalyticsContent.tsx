@@ -16,10 +16,12 @@ import Badge from '@/components/ui/Badge';
 const FieldTrendChart = dynamic(() => import('./FieldTrendChart'), { ssr: false });
 const WeeklyComparisonChart = dynamic(() => import('./WeeklyComparisonChart'), { ssr: false });
 import AIInsightsPanel from '@/components/AIInsightsPanel';
+import { useSettings } from '@/contexts/SettingsContext';
 
 type DateRange = '7d' | '14d' | '30d' | '90d';
 
 export default function AnalyticsContent() {
+  const { settings } = useSettings();
   const [state, setState] = useState<AppState | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange>('30d');
@@ -329,44 +331,50 @@ export default function AnalyticsContent() {
       </div>
 
       {/* Streak + Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Streak card */}
-        <div
-          className="card p-5 shadow-card flex flex-col items-center justify-center text-center"
-          style={{
-            backgroundColor: streak >= 7 ? 'var(--warning-bg)' : 'var(--card)',
-          }}
-        >
-          <Flame
-            size={32}
-            className="mb-3"
-            style={{ color: streak >= 7 ? 'var(--warning)' : 'var(--muted-foreground)' }}
-          />
-          <div
-            className="text-5xl font-bold tabular-nums mb-1"
-            style={{ color: streak >= 7 ? 'var(--warning)' : 'var(--foreground)' }}
-          >
-            {streak}
-          </div>
-          <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-            Day Streak
-          </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-            {streak >= 7
-              ? 'Excellent consistency!'
-              : streak >= 3
-                ? 'Building momentum'
-                : streak === 0
-                  ? 'Start a streak today'
-                  : 'Keep it going!'}
-          </p>
-        </div>
+      {(settings.showStreaks || settings.showAIInsights) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Streak card */}
+          {settings.showStreaks && (
+            <div
+              className={`card p-5 shadow-card flex flex-col items-center justify-center text-center ${!settings.showAIInsights ? 'lg:col-span-3' : ''}`}
+              style={{
+                backgroundColor: streak >= 7 ? 'var(--warning-bg)' : 'var(--card)',
+              }}
+            >
+              <Flame
+                size={32}
+                className="mb-3"
+                style={{ color: streak >= 7 ? 'var(--warning)' : 'var(--muted-foreground)' }}
+              />
+              <div
+                className="text-5xl font-bold tabular-nums mb-1"
+                style={{ color: streak >= 7 ? 'var(--warning)' : 'var(--foreground)' }}
+              >
+                {streak}
+              </div>
+              <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                Day Streak
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                {streak >= 7
+                  ? 'Excellent consistency!'
+                  : streak >= 3
+                    ? 'Building momentum'
+                    : streak === 0
+                      ? 'Start a streak today'
+                      : 'Keep it going!'}
+              </p>
+            </div>
+          )}
 
-        {/* AI Insights panel */}
-        <div className="lg:col-span-2">
-          <AIInsightsPanel state={state} />
+          {/* AI Insights panel */}
+          {settings.showAIInsights && (
+            <div className={`${!settings.showStreaks ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
+              <AIInsightsPanel state={state} />
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Per-field summary table */}
       {numberFields.length > 1 && (

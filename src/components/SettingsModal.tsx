@@ -4,6 +4,7 @@ import {
   Check, Sparkles, Zap, Shield, User, Building, 
   CreditCard, Settings, Bell, HelpCircle, X, ChevronRight 
 } from 'lucide-react';
+import { useSettings, ThemeMode, UIDensity, LandingPage } from '@/contexts/SettingsContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const PLANS = [
   {
     name: 'Free',
     price: '$0',
+    priceYearly: '$0',
     period: 'forever',
     description: 'Perfect for getting started with basic tracking.',
     icon: Shield,
@@ -43,6 +45,7 @@ const PLANS = [
   {
     name: 'Pro',
     price: '$12',
+    priceYearly: '$9',
     period: 'per month',
     description: 'Advanced analytics and unlimited tracking for creators.',
     icon: Zap,
@@ -63,6 +66,7 @@ const PLANS = [
   {
     name: 'Max',
     price: '$29',
+    priceYearly: '$24',
     period: 'per month',
     description: 'The ultimate toolkit for agency teams and power users.',
     icon: Sparkles,
@@ -92,10 +96,77 @@ const COMPARISON_FEATURES = [
   { name: 'Support Level', free: 'Community', pro: 'Priority Email', max: 'Dedicated' },
 ];
 
+function Toggle({ active, onChange }: { active: boolean, onChange: (val: boolean) => void }) {
+  return (
+    <button 
+      onClick={() => onChange(!active)}
+      className={`relative w-10 h-[22px] rounded-full transition-all duration-300 ease-in-out border outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 ${
+        active 
+          ? 'bg-primary/90 border-primary/90 shadow-[0_0_10px_rgba(255,255,255,0.05)]' 
+          : 'bg-muted border-border/80 hover:bg-muted/80'
+      }`}
+      aria-pressed={active}
+      role="switch"
+    >
+      <span 
+        className={`absolute top-[1px] left-[1px] w-[18px] h-[18px] rounded-full bg-white transition-transform duration-300 ease-out shadow-sm ${
+          active ? 'translate-x-[18px]' : 'translate-x-0'
+        }`} 
+      />
+    </button>
+  );
+}
+
+function Segment<T extends string>({ options, active, onChange }: { options: T[], active: T, onChange: (val: T) => void }) {
+  return (
+    <div className="flex bg-muted/40 p-1 rounded-[10px] border border-border/40 relative">
+      {options.map(opt => (
+        <button 
+          key={opt} 
+          onClick={() => onChange(opt)}
+          className={`relative px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 z-10 ${
+            active === opt ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {active === opt && (
+            <div className="absolute inset-0 bg-card border border-border/50 rounded-md shadow-sm -z-10" />
+          )}
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CustomSlider({ value, min, max, onChange }: { value: number, min: number, max: number, onChange: (val: number) => void }) {
+  const percentage = ((value - min) / (max - min)) * 100;
+  return (
+    <div className="relative w-40 sm:w-48 h-6 flex items-center group">
+      <input 
+        type="range" 
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+        min={min} 
+        max={max} 
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <div className="w-full h-1.5 bg-muted/80 rounded-full overflow-hidden border border-border/30">
+        <div className="h-full bg-primary/80 transition-all duration-150 ease-out" style={{ width: `${percentage}%` }} />
+      </div>
+      <div 
+        className="absolute h-4 w-4 bg-white border border-border/80 shadow-[0_2px_8px_rgba(0,0,0,0.15)] rounded-full top-1/2 -mt-2 transition-transform duration-150 ease-out group-hover:scale-110" 
+        style={{ left: `calc(${percentage}% - 8px)` }}
+      />
+    </div>
+  );
+}
+
 export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', initialTab = 'Billing & Plans' }: SettingsModalProps) {
+  const { settings, updateSetting } = useSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
 
   // Sync initial tab when modal opens
   React.useEffect(() => {
@@ -145,13 +216,13 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                 <button
                   key={item.label}
                   onClick={() => setActiveTab(item.label)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                     activeTab === item.label
-                      ? 'bg-primary/10 text-primary' 
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      ? 'bg-white/[0.04] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.1)] border border-white/[0.05]' 
+                      : 'text-muted-foreground hover:bg-white/[0.02] hover:text-foreground border border-transparent'
                   }`}
                 >
-                  <Icon size={18} />
+                  <Icon size={16} className={`transition-colors ${activeTab === item.label ? 'text-foreground' : 'group-hover:text-foreground'}`} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -208,7 +279,14 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
 
                 {/* Pricing Cards */}
                 <div className="mb-16">
-                  <h3 className="text-xl font-bold mb-6">Available Plans</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold">Available Plans</h3>
+                    <Segment<'Monthly' | 'Yearly'> 
+                      options={['Monthly', 'Yearly']} 
+                      active={billingInterval} 
+                      onChange={setBillingInterval} 
+                    />
+                  </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {PLANS.map((plan) => {
                       const isCurrent = currentPlan.toLowerCase() === plan.name.toLowerCase();
@@ -250,10 +328,29 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                             </div>
 
                             <div className="mb-4">
-                              <div className="flex items-baseline gap-1.5">
-                                <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
-                                <span className="text-sm font-medium text-muted-foreground">/ {plan.period}</span>
+                              <div className="flex items-baseline gap-1.5 min-h-[48px]">
+                                <span className="text-4xl font-extrabold tracking-tight transition-all duration-300">
+                                  {billingInterval === 'Yearly' && plan.name !== 'Free' ? plan.priceYearly : plan.price}
+                                </span>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-muted-foreground">
+                                    / {plan.name === 'Free' ? 'forever' : 'mo'}
+                                  </span>
+                                  {billingInterval === 'Yearly' && plan.name !== 'Free' && (
+                                    <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-wide mt-0.5">
+                                      Billed yearly
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+                              {billingInterval === 'Yearly' && plan.name !== 'Free' && (
+                                <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-bold border border-green-500/20">
+                                  Save 20%
+                                </div>
+                              )}
+                              {billingInterval !== 'Yearly' && plan.name !== 'Free' && (
+                                <div className="mt-2 h-5" /> // spacing placeholder to prevent layout jump
+                              )}
                             </div>
 
                             <p className="text-sm text-muted-foreground mb-8 min-h-[40px] leading-relaxed">
@@ -330,207 +427,204 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                   </p>
                 </div>
 
-                <div className="space-y-12">
+                <div className="space-y-10">
                   
                   {/* 1. Appearance */}
                   <section>
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Appearance</h3>
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Theme Mode</p>
-                          <p className="text-sm text-muted-foreground">Select your interface color scheme.</p>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Appearance</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Theme Mode</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Select your interface color scheme.</p>
                         </div>
-                        <div className="flex bg-muted/40 p-1 rounded-xl border border-border/50">
-                          {['Dark', 'Light', 'System'].map(opt => (
-                            <button key={opt} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${opt === 'Dark' ? 'bg-card shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
+                        <Segment<ThemeMode> 
+                          options={['Dark', 'Light', 'System']} 
+                          active={settings.themeMode} 
+                          onChange={(val) => updateSetting('themeMode', val)} 
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">UI Density</p>
-                          <p className="text-sm text-muted-foreground">Adjust spacing and sizing of elements.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">UI Density</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Adjust spacing and sizing of elements.</p>
                         </div>
-                        <div className="flex bg-muted/40 p-1 rounded-xl border border-border/50">
-                          {['Comfortable', 'Compact'].map(opt => (
-                            <button key={opt} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${opt === 'Comfortable' ? 'bg-card shadow-sm text-foreground border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}>
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
+                        <Segment<UIDensity> 
+                          options={['Comfortable', 'Compact']} 
+                          active={settings.uiDensity} 
+                          onChange={(val) => updateSetting('uiDensity', val)} 
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Card Corner Radius</p>
-                          <p className="text-sm text-muted-foreground">Adjust the roundness of UI elements.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Card Corner Radius</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Adjust the roundness of UI elements.</p>
                         </div>
-                        <input type="range" className="w-48 accent-primary" min="0" max="100" defaultValue="70" />
+                        <CustomSlider 
+                          min={0} 
+                          max={100} 
+                          value={settings.cardCornerRadius}
+                          onChange={(val) => updateSetting('cardCornerRadius', val)}
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Blur Intensity</p>
-                          <p className="text-sm text-muted-foreground">Strength of glassmorphism effects.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Blur Intensity</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Strength of glassmorphism effects.</p>
                         </div>
-                        <input type="range" className="w-48 accent-primary" min="0" max="100" defaultValue="40" />
+                        <CustomSlider 
+                          min={0} 
+                          max={100} 
+                          value={settings.blurIntensity}
+                          onChange={(val) => updateSetting('blurIntensity', val)}
+                        />
                       </div>
+
                     </div>
                   </section>
-
-                  <div className="h-px w-full bg-border/50" />
 
                   {/* 2. Dashboard Experience */}
                   <section>
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Dashboard Experience</h3>
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Toggle animations</p>
-                          <p className="text-sm text-muted-foreground">Enable rich interactive animations.</p>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Dashboard Experience</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Toggle animations</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Enable rich interactive animations.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.enableAnimations} onChange={(val) => updateSetting('enableAnimations', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Smooth transitions</p>
-                          <p className="text-sm text-muted-foreground">Page routing and layout shifts.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Smooth transitions</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Page routing and layout shifts.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.smoothTransitions} onChange={(val) => updateSetting('smoothTransitions', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">AI Insights Section</p>
-                          <p className="text-sm text-muted-foreground">Show AI behavior analysis on dashboard.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">AI Insights Section</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Show AI behavior analysis on dashboard.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.showAIInsights} onChange={(val) => updateSetting('showAIInsights', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Streak Visibility</p>
-                          <p className="text-sm text-muted-foreground">Display activity streaks on cards.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Streak Visibility</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Display activity streaks on cards.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.showStreaks} onChange={(val) => updateSetting('showStreaks', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Default Landing Page</p>
-                          <p className="text-sm text-muted-foreground">Where you go after logging in.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Default Landing Page</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Where you go after logging in.</p>
                         </div>
-                        <select className="bg-muted/40 border border-border/50 text-foreground text-sm rounded-lg px-3 py-2 outline-none">
-                          <option>Dashboard</option>
-                          <option>Analytics</option>
-                          <option>Settings</option>
+                        <select 
+                          className="bg-card border border-border/80 text-foreground text-sm font-medium rounded-lg px-3 py-1.5 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all cursor-pointer"
+                          value={settings.defaultLandingPage}
+                          onChange={(e) => updateSetting('defaultLandingPage', e.target.value as LandingPage)}
+                        >
+                          <option value="Dashboard">Dashboard</option>
+                          <option value="Analytics">Analytics</option>
+                          <option value="Settings">Settings</option>
                         </select>
                       </div>
+
                     </div>
                   </section>
-
-                  <div className="h-px w-full bg-border/50" />
 
                   {/* 3. Sidebar Behavior */}
                   <section>
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Sidebar Behavior</h3>
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Auto collapse sidebar</p>
-                          <p className="text-sm text-muted-foreground">Minimize automatically on small screens.</p>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Sidebar Behavior</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Auto collapse sidebar</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Minimize automatically on small screens.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.autoCollapseSidebar} onChange={(val) => updateSetting('autoCollapseSidebar', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Hover expand sidebar</p>
-                          <p className="text-sm text-muted-foreground">Expand when moving cursor to edge.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Hover expand sidebar</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Expand when moving cursor to edge.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.hoverExpandSidebar} onChange={(val) => updateSetting('hoverExpandSidebar', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Icon-only minimized mode</p>
-                          <p className="text-sm text-muted-foreground">Hide labels when collapsed.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Icon-only minimized mode</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Hide labels when collapsed.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.iconOnlyMinimized} onChange={(val) => updateSetting('iconOnlyMinimized', val)} />
                       </div>
+
                     </div>
                   </section>
-
-                  <div className="h-px w-full bg-border/50" />
 
                   {/* 4. Productivity */}
                   <section>
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Productivity</h3>
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Focus timer auto start</p>
-                          <p className="text-sm text-muted-foreground">Start timer automatically when opening a task.</p>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Productivity</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Focus timer auto start</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Start timer automatically when opening a task.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-muted-foreground/30 cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-0 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.focusTimerAutoStart} onChange={(val) => updateSetting('focusTimerAutoStart', val)} />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Daily reset time</p>
-                          <p className="text-sm text-muted-foreground">When your daily streaks and targets refresh.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Daily reset time</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">When your daily streaks and targets refresh.</p>
                         </div>
-                        <input type="time" defaultValue="00:00" className="bg-muted/40 border border-border/50 text-foreground text-sm rounded-lg px-3 py-2 outline-none" />
+                        <input 
+                          type="time" 
+                          value={settings.dailyResetTime}
+                          onChange={(e) => updateSetting('dailyResetTime', e.target.value)}
+                          className="bg-card border border-border/80 text-foreground text-sm font-medium rounded-lg px-3 py-1.5 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all cursor-text" 
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Enable keyboard shortcuts</p>
-                          <p className="text-sm text-muted-foreground">Use shortcuts for quick navigation and logging.</p>
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Enable keyboard shortcuts</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Use shortcuts for quick navigation and logging.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-primary cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-5 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.enableShortcuts} onChange={(val) => updateSetting('enableShortcuts', val)} />
                       </div>
+
                     </div>
                   </section>
 
-                  <div className="h-px w-full bg-border/50" />
-
                   {/* 5. Experimental */}
                   <section>
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Experimental</h3>
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-foreground">Enable future beta features</p>
-                          <p className="text-xs text-warning/80 mt-1 max-w-md">Warning: Beta features are experimental and may cause instability or change without notice.</p>
+                    <h3 className="text-xs font-bold text-warning/80 uppercase tracking-widest mb-4 pl-1">Experimental</h3>
+                    <div className="bg-card border border-warning/20 rounded-2xl shadow-sm overflow-hidden">
+                      
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-warning/5 transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground group-hover:text-warning/90 transition-colors">Enable future beta features</p>
+                          <p className="text-xs text-warning/70 mt-0.5">Warning: Beta features are experimental and may cause instability.</p>
                         </div>
-                        <div className="w-11 h-6 rounded-full flex items-center transition-colors px-0.5 bg-muted-foreground/30 cursor-pointer shadow-inner">
-                          <div className="w-5 h-5 rounded-full bg-white transition-transform translate-x-0 shadow-sm" />
-                        </div>
+                        <Toggle active={settings.enableBetaFeatures} onChange={(val) => updateSetting('enableBetaFeatures', val)} />
                       </div>
+
                     </div>
                   </section>
 

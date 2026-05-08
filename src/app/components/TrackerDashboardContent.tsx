@@ -35,8 +35,10 @@ import { showToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 import EntryFormModal from './EntryFormModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export default function TrackerDashboardContent() {
+  const { settings } = useSettings();
   const [state, setState] = useState<AppState | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerElapsed, setTimerElapsed] = useState(0);
@@ -146,6 +148,33 @@ export default function TrackerDashboardContent() {
       // ignore
     }
   }, [timerElapsed, timerRunning, timerStartedAt]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    if (!settings.enableShortcuts || !state) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (
+        document.activeElement?.tagName === 'INPUT' || 
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === 'SELECT'
+      ) return;
+
+      if (e.key === 'n' && !entryModalOpen) {
+        e.preventDefault();
+        setEditingEntry(null);
+        setEntryModalOpen(true);
+        if (settings.focusTimerAutoStart && !timerRunning) {
+          setTimerStartedAt(Date.now());
+          setTimerRunning(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [settings.enableShortcuts, settings.focusTimerAutoStart, entryModalOpen, timerRunning, state]);
 
   const handleTimerToggle = useCallback(() => {
     if (!timerRunning) {
@@ -290,6 +319,10 @@ export default function TrackerDashboardContent() {
           onClick={() => {
             setEditingEntry(null);
             setEntryModalOpen(true);
+            if (settings.focusTimerAutoStart && !timerRunning) {
+              setTimerStartedAt(Date.now());
+              setTimerRunning(true);
+            }
           }}
           className="btn-primary"
         >
@@ -327,15 +360,17 @@ export default function TrackerDashboardContent() {
           {/* Grid plan: 4 cards → grid-cols-2 lg:grid-cols-4, all equal */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Streak */}
-            <StatCard
-              label="Current Streak"
-              value={String(streak)}
-              unit="days"
-              icon={<Flame size={18} style={{ color: '#D97706' }} />}
-              color="#D97706"
-              bg="var(--warning-bg)"
-              trend={streak >= 7 ? 'up' : undefined}
-            />
+            {settings.showStreaks && (
+              <StatCard
+                label="Current Streak"
+                value={String(streak)}
+                unit="days"
+                icon={<Flame size={18} style={{ color: '#D97706' }} />}
+                color="#D97706"
+                bg="var(--warning-bg)"
+                trend={streak >= 7 ? 'up' : undefined}
+              />
+            )}
             {/* Today completion */}
             <StatCard
               label="Today's Targets"
@@ -515,9 +550,11 @@ export default function TrackerDashboardContent() {
           </div>
 
           {/* AI Insights Panel */}
-          <div>
-            <AIInsightsPanel state={state} />
-          </div>
+          {settings.showAIInsights && (
+            <div>
+              <AIInsightsPanel state={state} />
+            </div>
+          )}
 
           {/* Recent Entries Table */}
           <div className="card shadow-card overflow-hidden">
@@ -532,6 +569,10 @@ export default function TrackerDashboardContent() {
                 onClick={() => {
                   setEditingEntry(null);
                   setEntryModalOpen(true);
+                  if (settings.focusTimerAutoStart && !timerRunning) {
+                    setTimerStartedAt(Date.now());
+                    setTimerRunning(true);
+                  }
                 }}
                 className="btn-ghost text-xs px-2 py-1.5"
               >
@@ -554,7 +595,16 @@ export default function TrackerDashboardContent() {
                 <p className="text-xs mb-4" style={{ color: 'var(--muted-foreground)' }}>
                   Start tracking your daily work by logging your first entry.
                 </p>
-                <button onClick={() => setEntryModalOpen(true)} className="btn-primary text-sm">
+                <button 
+                  onClick={() => {
+                    setEntryModalOpen(true);
+                    if (settings.focusTimerAutoStart && !timerRunning) {
+                      setTimerStartedAt(Date.now());
+                      setTimerRunning(true);
+                    }
+                  }} 
+                  className="btn-primary text-sm"
+                >
                   <Plus size={14} />
                   Log Your First Entry
                 </button>
