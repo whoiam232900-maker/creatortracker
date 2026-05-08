@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import Modal from './ui/Modal';
 import { 
   Check, Sparkles, Zap, Shield, User, Building, 
-  CreditCard, Settings, Bell, HelpCircle, X, ChevronRight 
+  CreditCard, Settings, Bell, HelpCircle, X, ChevronRight,
+  LogOut, Trash2, Monitor, Globe, Mail, Lock, Camera, Edit2
 } from 'lucide-react';
 import { useSettings, ThemeMode, UIDensity, LandingPage } from '@/contexts/SettingsContext';
 
@@ -167,10 +168,17 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
+  const [session, setSession] = useState<{ email?: string; isAdmin?: boolean; plan?: string } | null>(null);
 
   // Sync initial tab when modal opens
   React.useEffect(() => {
-    if (isOpen) setActiveTab(initialTab);
+    if (isOpen) {
+      setActiveTab(initialTab);
+      try {
+        const raw = localStorage.getItem('userSession');
+        if (raw) setSession(JSON.parse(raw));
+      } catch(e) {}
+    }
   }, [isOpen, initialTab]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -632,7 +640,193 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
               </div>
             )}
 
-            {activeTab !== 'Billing & Plans' && activeTab !== 'Preferences' && (
+            {activeTab === 'Account' && (
+              <div className="pb-12 max-w-3xl">
+                <div className="mb-10">
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">Account</h1>
+                  <p className="text-muted-foreground text-base">
+                    Manage your personal profile, security settings, and connected accounts.
+                  </p>
+                </div>
+
+                <div className="space-y-10">
+                  {/* 1. Profile Section */}
+                  <section>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Profile</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                      <div className="relative group">
+                        <div className="w-24 h-24 rounded-full bg-muted border-2 border-border/50 flex items-center justify-center overflow-hidden">
+                          <User size={40} className="text-muted-foreground opacity-50" />
+                        </div>
+                        <button className="absolute bottom-0 right-0 p-1.5 bg-primary text-primary-foreground rounded-full shadow-md hover:scale-105 transition-transform">
+                          <Camera size={14} />
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h2 className="text-xl font-bold text-foreground">
+                            {session?.email ? session.email.split('@')[0] : 'User'}
+                          </h2>
+                          {session?.isAdmin && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8b5cf6]/15 text-[#8b5cf6] border border-[#8b5cf6]/20">
+                              Admin
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary border border-primary/20">
+                            {session?.plan || currentPlan} Member
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">{session?.email || 'user@example.com'}</p>
+                        <div className="flex gap-3">
+                          <button className="px-4 py-2 rounded-lg text-sm font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
+                            Change Photo
+                          </button>
+                          <button className="px-4 py-2 rounded-lg text-sm font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
+                            Edit Profile
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* 2. Account Information */}
+                  <section>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Account Information</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">Username</p>
+                        <p className="text-sm font-semibold text-foreground/90">{session?.email ? session.email.split('@')[0] : 'User'}</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">Email</p>
+                        <p className="text-sm font-semibold text-foreground/90">{session?.email || 'user@example.com'}</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">Workspace</p>
+                        <p className="text-sm font-semibold text-foreground/90">Personal Workspace</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">Subscription</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground/90">{session?.plan || currentPlan}</p>
+                          <button onClick={() => setActiveTab('Billing & Plans')} className="text-xs text-primary hover:underline font-medium ml-2">Upgrade</button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* 3. Security Section */}
+                  <section>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Security & Access</h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      <div className="flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
+                        <div className="flex gap-3 items-center">
+                          <Lock size={18} className="text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-semibold text-foreground/90">Password</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Last changed 3 months ago</p>
+                          </div>
+                        </div>
+                        <button className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
+                          Change
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
+                        <div className="flex gap-3 items-center">
+                          <Shield size={18} className="text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-semibold text-foreground/90">Two-Factor Authentication</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Add an extra layer of security</p>
+                          </div>
+                        </div>
+                        <Toggle active={false} onChange={() => {}} />
+                      </div>
+                      <div className="p-5">
+                        <p className="text-sm font-semibold text-foreground/90 mb-4">Active Sessions</p>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-muted/20">
+                            <div className="flex gap-3 items-center">
+                              <Monitor size={16} className="text-primary" />
+                              <div>
+                                <p className="text-sm font-medium text-foreground">Windows PC • Chrome</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Current session • IP: 192.168.1.1</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-primary/80">Active</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* 4. Connected Accounts */}
+                  <section>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Connected Accounts</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="bg-card border border-border/60 rounded-2xl p-5 flex flex-col gap-4 hover:border-border/80 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Mail size={20} className="text-red-500" />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-foreground">Google</p>
+                            <p className="text-xs text-muted-foreground">Not connected</p>
+                          </div>
+                        </div>
+                        <button className="w-full py-2 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
+                          Connect
+                        </button>
+                      </div>
+                      <div className="bg-card border border-border/60 rounded-2xl p-5 flex flex-col gap-4 hover:border-border/80 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Globe size={20} className="text-foreground" />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-foreground">GitHub</p>
+                            <p className="text-xs text-muted-foreground">Not connected</p>
+                          </div>
+                        </div>
+                        <button className="w-full py-2 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
+                          Connect
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* 5. Danger Zone */}
+                  <section>
+                    <h3 className="text-xs font-bold text-red-500/80 uppercase tracking-widest mb-4 pl-1">Danger Zone</h3>
+                    <div className="bg-card border border-red-500/20 rounded-2xl shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between p-5 hover:bg-red-500/5 transition-colors group">
+                        <div className="flex gap-3 items-center">
+                          <LogOut size={18} className="text-muted-foreground group-hover:text-red-500/70 transition-colors" />
+                          <div>
+                            <p className="text-sm font-medium text-foreground group-hover:text-red-500/90 transition-colors">Log out of all devices</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">You will be logged out of all active sessions.</p>
+                          </div>
+                        </div>
+                        <button className="px-4 py-2 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-red-500 hover:text-white border border-border/50 hover:border-red-500 transition-colors">
+                          Log Out All
+                        </button>
+                      </div>
+                      <div className="border-t border-red-500/10"></div>
+                      <div className="flex items-center justify-between p-5 hover:bg-red-500/5 transition-colors group">
+                        <div className="flex gap-3 items-center">
+                          <Trash2 size={18} className="text-muted-foreground group-hover:text-red-500/70 transition-colors" />
+                          <div>
+                            <p className="text-sm font-medium text-foreground group-hover:text-red-500/90 transition-colors">Delete account</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Permanently remove your account and all data.</p>
+                          </div>
+                        </div>
+                        <button className="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 transition-colors">
+                          Delete Account
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                </div>
+              </div>
+            )}
+
+            {activeTab !== 'Account' && activeTab !== 'Billing & Plans' && activeTab !== 'Preferences' && (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Settings size={48} className="text-muted-foreground/30 mb-4" />
                 <h2 className="text-xl font-bold text-muted-foreground mb-2">{activeTab}</h2>

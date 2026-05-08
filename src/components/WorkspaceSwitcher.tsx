@@ -22,7 +22,7 @@ export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenCh
   
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const leaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const leaveTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   useEffect(() => {
     if (onDropdownOpenChange) {
