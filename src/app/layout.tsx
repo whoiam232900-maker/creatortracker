@@ -1,12 +1,14 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Montserrat } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import '../styles/tailwind.css';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { WorkspaceProvider } from '@/contexts/WorkspaceContext';
+import { WorkspaceDataProvider } from '@/contexts/WorkspaceDataContext';
+import { UserProvider } from '@/contexts/UserContext';
 
-const montserrat = Montserrat({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
   variable: '--font-sans',
   display: 'swap',
 });
@@ -27,10 +29,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${montserrat.variable} dark`}>
-      <body className={montserrat.className}>
+    <html lang="en" className={`${inter.variable} dark`}>
+      <body className={inter.className}>
         <SettingsProvider>
-          {children}
+          <UserProvider>
+            <WorkspaceProvider>
+              <WorkspaceDataProvider>
+                {children}
+              </WorkspaceDataProvider>
+            </WorkspaceProvider>
+          </UserProvider>
         </SettingsProvider>
       </body>
     </html>

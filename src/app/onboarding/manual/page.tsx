@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadState, saveState } from '@/lib/store';
+import { useUser, SESSION_KEY } from '@/contexts/UserContext';
+import AppButton from '@/components/ui/AppButton';
+import AppInput from '@/components/ui/AppInput';
 
 type Field = { id: string; name: string; type: string };
 type Tracker = { id: string; name: string; emoji?: string; fields: Field[] };
@@ -34,8 +37,6 @@ const DEFAULT_TRACKERS: Tracker[] = [
     fields: [
       { id: generateId(), name: 'Hours studied', type: 'number' },
       { id: generateId(), name: 'Subjects', type: 'text' },
-      { id: generateId(), name: 'Notes', type: 'text' },
-      { id: generateId(), name: 'Assignments', type: 'text' },
     ],
   },
   {
@@ -50,7 +51,7 @@ const DEFAULT_TRACKERS: Tracker[] = [
     id: 'projects',
     name: 'Projects',
     fields: [
-      { id: generateId(), name: 'Time Spent', type: 'timer' },
+      { id: generateId(), name: 'Time Spent', type: 'number' },
       { id: generateId(), name: 'Milestones', type: 'text' },
     ],
   },
@@ -58,7 +59,7 @@ const DEFAULT_TRACKERS: Tracker[] = [
     id: 'revenue',
     name: 'Revenue',
     fields: [
-      { id: generateId(), name: 'Amount', type: 'currency' },
+      { id: generateId(), name: 'Amount', type: 'number' },
       { id: generateId(), name: 'Source', type: 'text' },
     ],
   },
@@ -66,67 +67,38 @@ const DEFAULT_TRACKERS: Tracker[] = [
     id: 'habits',
     name: 'Habits',
     fields: [
-      { id: generateId(), name: 'Completed', type: 'checkbox' },
+      { id: generateId(), name: 'Completed', type: 'number' },
       { id: generateId(), name: 'Notes', type: 'text' },
-    ],
-  },
-  {
-    id: 'fitness',
-    name: 'Fitness',
-    fields: [
-      { id: generateId(), name: 'Workout Time', type: 'timer' },
-      { id: generateId(), name: 'Exercises', type: 'text' },
-    ],
-  },
-  {
-    id: 'clients',
-    name: 'Clients',
-    fields: [
-      { id: generateId(), name: 'Client Name', type: 'text' },
-      { id: generateId(), name: 'Billed Amount', type: 'currency' },
     ],
   },
 ];
 
 export default function ManualOnboardingPage() {
   const router = useRouter();
+  const { user, updateUser } = useUser();
   const [step, setStep] = useState(1);
 
-  // Step 1 State
   const [availableTrackers, setAvailableTrackers] = useState<Tracker[]>(DEFAULT_TRACKERS);
   const [selectedTrackerIds, setSelectedTrackerIds] = useState<string[]>([]);
   const [showCustomTrackerForm, setShowCustomTrackerForm] = useState(false);
   const [customTrackerName, setCustomTrackerName] = useState('');
   const [customTrackerEmoji, setCustomTrackerEmoji] = useState('');
 
-  // Step 2 State
   const [customizedTrackers, setCustomizedTrackers] = useState<Tracker[]>([]);
 
-  // ── Guard: only new accounts may run onboarding ────────────────────────────
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('userSession');
+    console.log('[ManualOnboarding] Mounting, user:', user?.email);
+    if (!user) {
+      const raw = localStorage.getItem(SESSION_KEY);
       if (!raw) {
-        console.debug('[onboarding/manual] No session — redirecting to /');
+        console.log('[ManualOnboarding] No session, to landing');
         router.replace('/');
-        return;
       }
-      const session = JSON.parse(raw);
-      if (!session?.isNewAccount) {
-        console.debug(
-          '[onboarding/manual] isNewAccount is false for',
-          session?.email,
-          '— skipping onboarding, redirecting to /dashboard'
-        );
-        router.replace('/dashboard');
-      } else {
-        console.debug('[onboarding/manual] New account — proceeding for', session?.email);
-      }
-    } catch (e) {
-      console.error('[onboarding/manual] Session read error:', e);
-      router.replace('/');
+    } else if (!user.isNewAccount) {
+      console.log('[ManualOnboarding] Not new account, to dashboard');
+      router.replace('/dashboard');
     }
-  }, [router]);
+  }, [user, router]);
 
   const handleNext = () => {
     if (step === 1) {
@@ -135,22 +107,10 @@ export default function ManualOnboardingPage() {
       setStep(2);
     } else if (step === 2) {
       try {
-        const raw = localStorage.getItem('userSession');
-        if (!raw) return;
-        const session = JSON.parse(raw);
-
-        // Double-check guard
-        if (!session?.isNewAccount) {
-          console.warn('[onboarding/manual] isNewAccount is false mid-flow — aborting data write');
-          router.replace('/dashboard');
-          return;
-        }
-
-        const userId = session.email;
-        console.debug('[onboarding/manual] Saving manual setup for user:', userId);
-
+        console.log('[ManualOnboarding] Finishing setup...');
+        const userId = user?.email || 'guest';
         const fieldsToSave: any[] = [];
-        const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
+        const colors = ['#38BDF8', '#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E'];
         let colorIdx = 0;
 
         customizedTrackers.forEach((tracker) => {
@@ -158,26 +118,18 @@ export default function ManualOnboardingPage() {
             fieldsToSave.push({
               id: f.id,
               name: `${tracker.name} - ${f.name}`,
-              type:
-                f.type === 'currency' || f.type === 'timer'
-                  ? 'number'
-                  : f.type === 'checkbox'
-                    ? 'text'
-                    : f.type,
-              unit: f.type === 'currency' ? '$' : f.type === 'timer' ? 'min' : '',
-              defaultValue:
-                f.type === 'number' || f.type === 'currency' || f.type === 'timer' ? '0' : '',
+              type: 'number',
+              unit: '',
+              defaultValue: '0',
               color: colors[colorIdx++ % colors.length],
             });
           });
         });
 
-        // Load existing (empty for new user) and apply fields only
         const existingState = loadState(userId);
         const newState = { ...existingState, fields: fieldsToSave };
         saveState(newState, userId);
 
-        // Save tracker structure scoped to user
         const manualSetup = {
           trackers: customizedTrackers.map((t) => ({
             name: t.name,
@@ -186,58 +138,46 @@ export default function ManualOnboardingPage() {
           })),
         };
         localStorage.setItem(`onboarding_${userId}`, JSON.stringify(manualSetup));
-
-        // NOTE: isNewAccount is cleared by the /onboarding/targets page (final step)
         router.push('/onboarding/targets');
       } catch (e) {
-        console.error('[onboarding/manual] Error saving manual data:', e);
+        console.error('[ManualOnboarding] Error finishing:', e);
         router.push('/onboarding/targets');
       }
     }
   };
 
   const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    } else {
-      router.push('/onboarding');
-    }
+    if (step > 1) setStep(step - 1);
+    else router.push('/');
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
-      style={{ backgroundColor: 'var(--background)' }}
-    >
-      <div className="w-full max-w-md flex flex-col gap-8 transition-all duration-700 ease-out animate-in fade-in slide-in-from-bottom-4">
-        {/* Header */}
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 bg-background relative overflow-hidden">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-md flex flex-col gap-10 relative z-10 animate-in fade-in duration-700">
         <div className="flex flex-col gap-2 text-center">
-          <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
-            Step {step} of 2
+          <p className="text-[11px] font-bold uppercase tracking-widest text-primary/60">
+            Step {step} <span className="text-muted-foreground/30 mx-1">/</span> 2
           </p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>
-            {step === 1 && 'Build Your Tracker'}
-            {step === 2 && 'Customize Fields'}
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {step === 1 && 'Select categories'}
+            {step === 2 && 'Customize fields'}
           </h1>
-          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            {step === 1 && 'Choose what you want to track manually'}
-            {step === 2 && 'Tailor the data you want to collect'}
+          <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+            {step === 1 && 'Choose what you want to track in your workspace.'}
+            {step === 2 && 'Fine-tune the data points for each tracker.'}
           </p>
         </div>
 
-        {/* Progress Bar */}
-        <div
-          className="w-full h-1.5 rounded-full overflow-hidden"
-          style={{ backgroundColor: 'var(--border)' }}
-        >
+        <div className="w-full h-1 bg-muted/20 rounded-full overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${(step / 2) * 100}%`, backgroundColor: 'var(--primary)' }}
+            className="h-full bg-primary rounded-full transition-all duration-500 shadow-glow-primary"
+            style={{ width: `${(step / 2) * 100}%` }}
           />
         </div>
 
-        {/* Step Content */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           {step === 1 && (
             <Step1Trackers
               availableTrackers={availableTrackers}
@@ -264,30 +204,24 @@ export default function ManualOnboardingPage() {
           )}
         </div>
 
-        {/* Navigation Actions */}
-        <div className="flex items-center justify-between gap-3 mt-2">
-          <button
-            onClick={handleBack}
-            className="btn-secondary px-6 py-2.5 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
+        <div className="flex items-center justify-between gap-4 pt-4">
+          <AppButton variant="ghost" onClick={handleBack} className="px-6">
             Back
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             onClick={handleNext}
             disabled={step === 1 && selectedTrackerIds.length === 0}
-            className="btn-primary flex-1 py-2.5 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            fullWidth
+            size="lg"
           >
-            Continue
-          </button>
+            {step === 1 ? 'Continue' : 'Finish setup'}
+          </AppButton>
         </div>
       </div>
     </div>
   );
 }
 
-// ============================================================================
-// STEP 1: TRACKER CATEGORY SELECTION
-// ============================================================================
 function Step1Trackers({
   availableTrackers,
   selectedTrackerIds,
@@ -327,12 +261,11 @@ function Step1Trackers({
             <button
               key={tracker.id}
               onClick={() => toggleSelection(tracker.id)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                backgroundColor: isSelected ? 'var(--primary)' : 'var(--card)',
-                color: isSelected ? 'var(--primary-foreground)' : 'var(--foreground)',
-                borderColor: isSelected ? 'var(--primary)' : 'var(--border)',
-              }}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                isSelected 
+                  ? 'bg-primary/10 border-primary text-primary shadow-sm' 
+                  : 'bg-card border-border hover:border-border/80 text-foreground'
+              }`}
             >
               {tracker.emoji && <span>{tracker.emoji}</span>}
               {tracker.name}
@@ -344,53 +277,33 @@ function Step1Trackers({
       {!showCustomForm ? (
         <button
           onClick={() => setShowCustomForm(true)}
-          className="w-full py-3 rounded-xl border border-dashed text-sm font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
-          style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
+          className="w-full py-3 rounded-xl border border-dashed border-border text-sm font-semibold text-muted-foreground/60 hover:text-foreground hover:border-muted-foreground/40 transition-all duration-200"
         >
-          + Create Custom Tracker
+          + Add custom category
         </button>
       ) : (
-        <div
-          className="flex flex-col gap-3 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2"
-          style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
-        >
-          <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-            New Custom Tracker
-          </p>
+        <div className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-card animate-in fade-in slide-in-from-top-2">
+          <p className="text-xs font-bold text-muted-foreground/40 uppercase tracking-wider px-1">New category</p>
           <div className="flex gap-3">
             <input
               type="text"
               placeholder="🎬"
               value={customEmoji}
               onChange={(e) => setCustomEmoji(e.target.value)}
-              className="w-12 bg-transparent border-b focus:outline-none text-center text-lg pb-1"
-              style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              className="w-10 bg-muted/30 border border-border rounded-lg text-center text-lg focus:outline-none focus:border-primary/50"
               maxLength={2}
             />
             <input
               type="text"
-              placeholder="Example: Editing Sessions"
+              placeholder="e.g. Content Creation"
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
-              className="flex-1 bg-transparent border-b focus:outline-none text-sm pb-1"
-              style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              className="flex-1 bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
             />
           </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              onClick={() => setShowCustomForm(false)}
-              className="text-xs font-medium px-3 py-2 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-              style={{ color: 'var(--muted-foreground)' }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddCustom}
-              disabled={!customName.trim()}
-              className="btn-primary text-xs font-medium px-4 py-2 rounded-lg disabled:opacity-50"
-            >
-              Add Tracker
-            </button>
+          <div className="flex justify-end gap-2 mt-1">
+            <AppButton variant="ghost" size="xs" onClick={() => setShowCustomForm(false)}>Cancel</AppButton>
+            <AppButton size="xs" onClick={handleAddCustom} disabled={!customName.trim()}>Add</AppButton>
           </div>
         </div>
       )}
@@ -398,9 +311,6 @@ function Step1Trackers({
   );
 }
 
-// ============================================================================
-// STEP 2: CUSTOM FIELD BUILDER
-// ============================================================================
 function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
   const updateTrackerName = (tId: string, newName: string) => {
     setTrackers(trackers.map((t: Tracker) => (t.id === tId ? { ...t, name: newName } : t)));
@@ -433,79 +343,40 @@ function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
         if (t.id !== tId) return t;
         return {
           ...t,
-          fields: [...t.fields, { id: generateId(), name: 'New Field', type: 'text' }],
+          fields: [...t.fields, { id: generateId(), name: 'New Field', type: 'number' }],
         };
       })
     );
   };
 
   return (
-    <div className="flex flex-col gap-5 max-h-[55vh] overflow-y-auto pb-4 pr-1">
+    <div className="flex flex-col gap-4 max-h-[50vh] overflow-y-auto pr-1 scrollbar-thin">
       {trackers.map((tracker: Tracker) => (
-        <div
-          key={tracker.id}
-          className="flex flex-col gap-4 p-5 rounded-xl border"
-          style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
-        >
-          <div
-            className="flex items-center gap-2 border-b pb-3"
-            style={{ borderColor: 'var(--border)' }}
-          >
+        <div key={tracker.id} className="flex flex-col gap-4 p-5 rounded-xl border border-border bg-card/50">
+          <div className="flex items-center gap-2 border-b border-border pb-3">
             {tracker.emoji && <span className="text-xl">{tracker.emoji}</span>}
             <input
               type="text"
               value={tracker.name}
               onChange={(e) => updateTrackerName(tracker.id, e.target.value)}
-              className="bg-transparent font-bold focus:outline-none text-lg w-full"
-              style={{ color: 'var(--foreground)' }}
+              className="bg-transparent font-bold text-foreground focus:outline-none text-lg w-full"
             />
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {tracker.fields.map((field: Field) => (
               <div key={field.id} className="flex items-center gap-2">
                 <input
                   type="text"
                   value={field.name}
                   onChange={(e) => updateField(tracker.id, field.id, 'name', e.target.value)}
-                  className="flex-1 bg-transparent border rounded-lg px-3 py-2 text-sm focus:outline-none"
-                  style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                  className="flex-1 bg-muted/20 border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary/50"
                 />
-                <select
-                  value={field.type}
-                  onChange={(e) => updateField(tracker.id, field.id, 'type', e.target.value)}
-                  className="w-[105px] bg-transparent border rounded-lg px-2 py-2 text-xs focus:outline-none cursor-pointer"
-                  style={{
-                    borderColor: 'var(--border)',
-                    color: 'var(--foreground)',
-                    backgroundColor: 'var(--background)',
-                  }}
-                >
-                  <option value="number">Number</option>
-                  <option value="text">Text</option>
-                  <option value="currency">Currency</option>
-                  <option value="checkbox">Checkbox</option>
-                  <option value="timer">Timer</option>
-                </select>
                 <button
                   onClick={() => removeField(tracker.id, field.id)}
                   className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
-                  title="Remove Field"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
               </div>
             ))}
@@ -513,10 +384,9 @@ function Step2Fields({ trackers, setTrackers }: Step2FieldsProps) {
 
           <button
             onClick={() => addField(tracker.id)}
-            className="w-full py-2.5 mt-1 rounded-lg border border-dashed text-sm font-medium transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/5"
-            style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
+            className="w-full py-2 mt-1 rounded-lg border border-dashed border-border text-xs font-semibold text-muted-foreground/60 hover:text-foreground hover:border-muted-foreground/40 transition-all duration-200"
           >
-            + Add Custom Field
+            + Add field
           </button>
         </div>
       ))}

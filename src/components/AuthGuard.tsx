@@ -2,47 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
+import Skeleton from './ui/Skeleton';
 
-/**
- * AuthGuard wraps protected pages.
- * If no valid session is found, redirects to /auth (login page).
- * If the user is logged in but hasn't finished onboarding (isNewAccount = true),
- * they're sent to the correct onboarding page rather than being allowed into the dashboard.
- */
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const { user, isLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const sessionString = localStorage.getItem('userSession');
-      if (sessionString) {
-        const session = JSON.parse(sessionString);
-        if (session && session.isLoggedIn === true) {
-          // If the user is mid-onboarding, push them back to the right onboarding step
-          // instead of letting them directly access the dashboard
-          if (session.isNewAccount === true) {
-            console.debug('[AuthGuard] isNewAccount=true — redirecting to onboarding');
-            const path = session.onboardingPath ?? 'ai';
-            router.replace(path === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
-            return;
-          }
-          setIsAuthorized(true);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('[AuthGuard] Error parsing userSession:', error);
+    if (!isLoading && !user) {
+      router.replace('/auth');
     }
+  }, [user, isLoading, router]);
 
-    // Not authenticated — redirect to auth
-    console.debug('[AuthGuard] No valid session — redirecting to /auth');
-    router.replace('/auth');
-  }, [router]);
-
-  if (isAuthorized !== true) {
-    return null;
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+         <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
   }
+
+  if (!user) return null;
 
   return <>{children}</>;
 }

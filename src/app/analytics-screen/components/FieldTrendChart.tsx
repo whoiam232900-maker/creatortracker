@@ -37,12 +37,12 @@ function CustomTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="card shadow-elevated px-3 py-2 text-xs" style={{ minWidth: '100px' }}>
-      <p className="font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
+    <div className="bg-card border border-border/80 rounded-lg shadow-elevated px-3 py-2 text-xs" style={{ minWidth: '100px' }}>
+      <p className="font-bold mb-1 text-foreground">
         {label}
       </p>
-      <p className="tabular-nums" style={{ color: 'var(--primary)' }}>
-        {payload[0].value} {unit}
+      <p className="tabular-nums font-semibold text-primary">
+        {payload[0].value} <span className="text-[10px] text-muted-foreground/60 ml-0.5">{unit}</span>
       </p>
     </div>
   );

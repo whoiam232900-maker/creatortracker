@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export type ThemeMode = 'Dark' | 'Light' | 'System';
 export type UIDensity = 'Comfortable' | 'Compact';
 export type LandingPage = 'Dashboard' | 'Analytics' | 'Settings';
+export type DigestFrequency = 'Daily' | 'Weekly' | 'Never';
 
 export interface AppSettings {
   themeMode: ThemeMode;
@@ -22,6 +23,18 @@ export interface AppSettings {
   dailyResetTime: string;
   enableShortcuts: boolean;
   enableBetaFeatures: boolean;
+  // Notification Settings
+  emailNotifications: boolean;
+  desktopNotifications: boolean;
+  soundAlerts: boolean;
+  dailyReminderTiming: string;
+  digestFrequency: DigestFrequency;
+  notifyProductivity: boolean;
+  notifyGoals: boolean;
+  notifyStreaks: boolean;
+  notifyAIInsights: boolean;
+  notifyWeeklyReports: boolean;
+  notifySystemUpdates: boolean;
 }
 
 const defaultSettings: AppSettings = {
@@ -41,6 +54,18 @@ const defaultSettings: AppSettings = {
   dailyResetTime: '00:00',
   enableShortcuts: true,
   enableBetaFeatures: false,
+  // Notification Defaults
+  emailNotifications: true,
+  desktopNotifications: true,
+  soundAlerts: false,
+  dailyReminderTiming: '09:00',
+  digestFrequency: 'Daily',
+  notifyProductivity: true,
+  notifyGoals: true,
+  notifyStreaks: true,
+  notifyAIInsights: true,
+  notifyWeeklyReports: true,
+  notifySystemUpdates: false,
 };
 
 interface SettingsContextValue {

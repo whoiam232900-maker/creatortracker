@@ -36,19 +36,19 @@ function CustomTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="card shadow-elevated px-3 py-2 text-xs space-y-1">
-      <p className="font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
+    <div className="bg-card border border-border/80 rounded-lg shadow-elevated px-3 py-2 text-xs space-y-1.5">
+      <p className="font-bold mb-1 text-foreground">
         {label}
       </p>
       {payload.map((p, i) => (
         <div key={`tt-${i}`} className="flex items-center gap-2">
           <span
-            className="w-2 h-2 rounded-full inline-block"
+            className="w-1.5 h-1.5 rounded-full inline-block"
             style={{ backgroundColor: p.color }}
           />
-          <span style={{ color: 'var(--muted-foreground)' }}>{p.name}:</span>
-          <span className="tabular-nums font-medium" style={{ color: 'var(--foreground)' }}>
-            {p.value} {unit}
+          <span className="text-muted-foreground/60">{p.name}:</span>
+          <span className="tabular-nums font-semibold text-foreground">
+            {p.value} <span className="text-[10px] text-muted-foreground/40 font-medium ml-0.5">{unit}</span>
           </span>
         </div>
       ))}

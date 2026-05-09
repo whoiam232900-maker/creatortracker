@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUserStorageKey, loadState, saveState } from '@/lib/store';
+import { useUser, SESSION_KEY } from '@/contexts/UserContext';
+import AppButton from '@/components/ui/AppButton';
 
 interface OnboardingAnswers {
   role: string;
@@ -57,6 +59,7 @@ const BASE_STEPS = [
 
 export default function AIOnboardingPage() {
   const router = useRouter();
+  const { user, updateUser } = useUser();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<OnboardingAnswers>({
     role: '',
@@ -66,33 +69,20 @@ export default function AIOnboardingPage() {
     wantsTargets: '',
   });
 
-  // ── Guard: only new accounts may run onboarding ──────────────────────────
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('userSession');
+    console.log('[AIOnboarding] Mounting, user:', user?.email);
+    if (!user) {
+      const raw = localStorage.getItem(SESSION_KEY);
       if (!raw) {
-        console.debug('[onboarding/ai] No session — redirecting to /');
+        console.log('[AIOnboarding] No session, redirecting to landing');
         router.replace('/');
-        return;
       }
-      const session = JSON.parse(raw);
-      if (!session?.isNewAccount) {
-        console.debug(
-          '[onboarding/ai] isNewAccount is false for',
-          session?.email,
-          '— skipping onboarding, redirecting to /dashboard'
-        );
-        router.replace('/dashboard');
-      } else {
-        console.debug('[onboarding/ai] New account detected for', session?.email, '— proceeding');
-      }
-    } catch (e) {
-      console.error('[onboarding/ai] Session read error:', e);
-      router.replace('/');
+    } else if (!user.isNewAccount) {
+      console.log('[AIOnboarding] Not a new account, redirecting to dashboard');
+      router.replace('/dashboard');
     }
-  }, [router]);
+  }, [user, router]);
 
-  // Build steps with dynamic Step 2 options based on selected role
   const steps = BASE_STEPS.map((s) => {
     if (s.id === 2) {
       return { ...s, options: TRACKING_OPTIONS_BY_ROLE[answers.role] ?? [] };
@@ -137,22 +127,9 @@ export default function AIOnboardingPage() {
     if (!canProceed()) return;
 
     if (isLastStep) {
-      // ── Final step: write AI-generated data ─────────────────────────────
       try {
-        const raw = localStorage.getItem('userSession');
-        if (!raw) return;
-        const session = JSON.parse(raw);
-
-        // Double-check guard: never overwrite existing data
-        if (!session?.isNewAccount) {
-          console.warn('[onboarding/ai] isNewAccount is false mid-flow — aborting data write');
-          router.replace('/dashboard');
-          return;
-        }
-
-        const userId = session.email;
-        console.debug('[onboarding/ai] Saving AI-generated data for user:', userId);
-
+        console.log('[AIOnboarding] Finishing setup...');
+        const userId = user?.email || 'guest';
         const isFreelancer = answers.role === 'Freelancer';
         const isStudent = answers.role === 'Student';
 
@@ -224,7 +201,7 @@ export default function AIOnboardingPage() {
         const fieldsToSave: any[] = [];
         const targetsToSave: any[] = [];
         const generateIdStr = () => Math.random().toString(36).substring(2, 9);
-        const colors = ['#2563EB', '#0EA5E9', '#16A34A', '#D97706', '#9333EA', '#DB2777'];
+        const colors = ['#38BDF8', '#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E'];
 
         generatedTrackers.forEach((tracker, idx) => {
           tracker.fields.forEach((f, fIdx) => {
@@ -248,7 +225,6 @@ export default function AIOnboardingPage() {
           });
         });
 
-        // Load existing state (should be empty for a new user) and set fields
         const existingState = loadState(userId);
         const newState = {
           ...existingState,
@@ -256,31 +232,17 @@ export default function AIOnboardingPage() {
           targets: answers.wantsTargets === 'Yes' ? targetsToSave : [],
         };
         saveState(newState, userId);
-
-        // Save onboarding answers scoped to user
         localStorage.setItem(`onboarding_${userId}`, JSON.stringify(answers));
 
-        // Save feature settings scoped to user
-        const timerEnabled = answers.role === 'Student' || answers.role === 'Freelancer';
-        localStorage.setItem(`featureSettings_${userId}`, JSON.stringify({ timerEnabled }));
-
-        // Conditional routing based on 'wantsTargets' answer
         if (answers.wantsTargets === 'Yes') {
-          console.debug('[onboarding/ai] User wants targets — continuing to /onboarding/targets');
           router.push('/onboarding/targets');
         } else {
-          console.debug('[onboarding/ai] User skipped targets — clearing flag and finishing at /dashboard');
-          
-          // Since we skip the targets page (where the flag is usually cleared), 
-          // we MUST clear isNewAccount here to complete the onboarding journey.
-          const updatedSession = { ...session, isNewAccount: false };
-          localStorage.setItem('userSession', JSON.stringify(updatedSession));
-          
+          console.log('[AIOnboarding] Clearing isNewAccount and finishing');
+          updateUser({ isNewAccount: false });
           router.push('/dashboard');
         }
       } catch (e) {
-        console.error('[onboarding/ai] Error saving AI data:', e);
-        // Fallback to dashboard if anything goes wrong
+        console.error('[AIOnboarding] Error finishing:', e);
         router.push('/dashboard');
       }
     } else {
@@ -295,38 +257,31 @@ export default function AIOnboardingPage() {
   const progressPercent = ((currentStep + 1) / steps.length) * 100;
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
-      style={{ backgroundColor: 'var(--background)' }}
-    >
-      <div className="w-full max-w-md flex flex-col gap-8">
-        {/* Header */}
-        <div className="flex flex-col gap-1 text-center">
-          <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 bg-background relative overflow-hidden">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-md flex flex-col gap-8 relative z-10 animate-in fade-in duration-700">
+        <div className="flex flex-col gap-2 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-primary/60">
             Step {currentStep + 1} of {steps.length}
           </p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             {step.question}
           </h1>
           {step.type === 'multi' && (
-            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+            <p className="text-sm text-muted-foreground font-medium">
               Select all that apply
             </p>
           )}
         </div>
 
-        {/* Progress Bar */}
-        <div
-          className="w-full h-1.5 rounded-full overflow-hidden"
-          style={{ backgroundColor: 'var(--border)' }}
-        >
+        <div className="w-full h-1 bg-muted/20 rounded-full overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${progressPercent}%`, backgroundColor: 'var(--primary)' }}
+            className="h-full bg-primary rounded-full transition-all duration-500 shadow-glow-primary"
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        {/* Options */}
         <div className="flex flex-col gap-3">
           {step.options.map((option) => {
             const selected = isOptionSelected(option);
@@ -334,12 +289,11 @@ export default function AIOnboardingPage() {
               <button
                 key={option}
                 onClick={() => handleSelect(option)}
-                className="w-full text-left px-5 py-4 rounded-xl border text-sm font-medium transition-all duration-150 active:scale-[0.98]"
-                style={{
-                  backgroundColor: selected ? 'var(--primary)' : 'var(--card)',
-                  color: selected ? 'var(--primary-foreground)' : 'var(--foreground)',
-                  borderColor: selected ? 'var(--primary)' : 'var(--border)',
-                }}
+                className={`w-full text-left px-5 py-4 rounded-xl border text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  selected 
+                    ? 'bg-primary/10 border-primary text-primary shadow-sm' 
+                    : 'bg-card border-border hover:border-border/80 text-foreground'
+                }`}
               >
                 {option}
               </button>
@@ -347,22 +301,23 @@ export default function AIOnboardingPage() {
           })}
         </div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between gap-3">
-          <button
+        <div className="flex items-center justify-between gap-4 pt-4">
+          <AppButton
+            variant="ghost"
             onClick={handleBack}
             disabled={currentStep === 0}
-            className="btn-secondary px-6 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-6"
           >
             Back
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             onClick={handleNext}
             disabled={!canProceed()}
-            className="btn-primary flex-1 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            fullWidth
+            size="lg"
           >
-            {isLastStep ? 'Continue' : 'Next'}
-          </button>
+            {isLastStep ? 'Complete setup' : 'Continue'}
+          </AppButton>
         </div>
       </div>
     </div>

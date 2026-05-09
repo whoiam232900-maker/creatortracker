@@ -1,11 +1,11 @@
 'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { loadState, saveState, AppState } from '@/lib/store';
-
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useUser } from '@/contexts/UserContext';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -15,44 +15,20 @@ interface AppLayoutProps {
 export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
   const router = useRouter();
   const { settings, updateSetting } = useSettings();
+  const { user } = useUser();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    try {
-      const sessionStr = localStorage.getItem('userSession');
-      if (!sessionStr) {
-        router.push('/auth');
-        return;
-      }
-      const session = JSON.parse(sessionStr);
-      if (!session.isLoggedIn) {
-        router.push('/auth');
-        return;
-      }
-      setIsAuthenticated(true);
-    } catch (e) {
-      router.push('/auth');
-      return;
-    }
-
-    setMounted(true);
-  }, [router]);
 
   const toggleTheme = useCallback(() => {
     updateSetting('themeMode', settings.themeMode === 'Light' ? 'Dark' : 'Light');
   }, [settings.themeMode, updateSetting]);
-
-
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden fade-in"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden animate-in fade-in duration-300"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}

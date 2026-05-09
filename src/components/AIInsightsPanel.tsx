@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, Sparkles, Loader2 } from 'lucide-react';
 import { AppState, getCurrentStreak, DailyEntry } from '@/lib/store';
+import AppCard from './ui/AppCard';
 
 interface AIInsightsPanelProps {
   state: AppState | null;
@@ -38,57 +39,48 @@ export default function AIInsightsPanel({ state }: AIInsightsPanelProps) {
   if (!state) return null;
 
   return (
-    <div className="card p-5 shadow-card h-full flex flex-col relative overflow-hidden group">
+    <AppCard className="h-full flex flex-col relative overflow-hidden group">
       {/* Background glow effect for AI */}
-      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700" style={{ backgroundColor: 'var(--primary)' }} />
+      <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none transition-all duration-700 group-hover:bg-primary/20" />
       
-      <div className="flex items-center gap-2 mb-5 relative z-10">
-        <Sparkles size={18} style={{ color: 'var(--primary)' }} />
-        <h2 className="text-sm font-bold tracking-wide" style={{ color: 'var(--foreground)' }}>
-          AI Insights
+      <div className="flex items-center gap-2 mb-6 relative z-10">
+        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+          <Sparkles size={14} />
+        </div>
+        <h2 className="text-sm font-bold tracking-tight text-foreground">
+          Intelligent Insights
         </h2>
       </div>
       
       <div className="flex-1 relative z-10">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-full py-8 text-center space-y-3">
-            <Loader2 className="animate-spin w-6 h-6" style={{ color: 'var(--primary)' }} />
-            <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>Analyzing tracking data...</p>
+          <div className="flex flex-col items-center justify-center h-full py-10 text-center space-y-3">
+            <Loader2 className="animate-spin w-5 h-5 text-primary/60" />
+            <p className="text-xs font-medium text-muted-foreground/60">Analyzing your performance data...</p>
           </div>
         ) : insights.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-6 text-center">
-            <Lightbulb size={24} className="mb-2 opacity-30" style={{ color: 'var(--muted-foreground)' }} />
-            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Log more entries to unlock personalized AI insights.</p>
+          <div className="flex flex-col items-center justify-center h-full py-10 text-center">
+            <Lightbulb size={20} className="mb-3 text-muted-foreground/20" />
+            <p className="text-xs text-muted-foreground/60 font-medium">Log more entries to unlock personalized insights.</p>
           </div>
         ) : (
           <ul className="space-y-4">
             {insights.map((insight, i) => (
               <li 
                 key={i} 
-                className="flex items-start gap-3 text-sm transition-all animate-in fade-in slide-in-from-bottom-2" 
-                style={{ 
-                  animationDelay: `${i * 150}ms`, 
-                  animationFillMode: 'both',
-                  color: 'var(--foreground)' 
-                }}
+                className="flex items-start gap-3.5 text-[13px] leading-relaxed animate-in fade-in slide-in-from-bottom-2 fill-mode-both" 
+                style={{ animationDelay: `${i * 150}ms` }}
               >
-                <span 
-                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 shadow-sm" 
-                  style={{ 
-                    backgroundColor: 'rgba(37,99,235,0.1)', // Primary tint
-                    color: 'var(--primary)',
-                    border: '1px solid rgba(37,99,235,0.2)'
-                  }}
-                >
+                <div className="flex-shrink-0 w-5 h-5 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary mt-0.5">
                   {i + 1}
-                </span>
-                <span className="leading-relaxed font-medium opacity-90">{insight}</span>
+                </div>
+                <span className="text-muted-foreground/90 font-medium">{insight}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
-    </div>
+    </AppCard>
   );
 }
 
@@ -99,25 +91,28 @@ export default function AIInsightsPanel({ state }: AIInsightsPanelProps) {
  */
 function generateAIInsights(state: AppState): string[] {
   const msgs: string[] = [];
-  const entries = state.entries;
+  const entries = state?.entries || [];
+  const fields = state?.fields || [];
+  const targets = state?.targets || [];
   
   if (entries.length < 3) {
     return ["Log a few more days of data to unlock behavioral insights."];
   }
 
   // Sort entries chronologically by date
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...entries].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   
   // Find numeric fields
-  const numFields = state.fields.filter(f => f.type === 'number');
+  const numFields = fields.filter(f => f.type === 'number');
   if (numFields.length === 0) return ["Add numeric tracking fields to generate productivity insights."];
   
   const primaryField = numFields[0];
-  const dailyTargets = state.targets.filter(t => t.type === 'daily' && t.fieldId === primaryField.id);
+  const dailyTargets = targets.filter(t => t.type === 'daily' && t.fieldId === primaryField.id);
   const targetVal = dailyTargets.length > 0 ? dailyTargets[0].targetValue : null;
 
   // Helper to get primary value
   const getPrimaryVal = (e: DailyEntry) => {
+    if (!e || !e.values) return 0;
     const v = e.values.find(v => v.fieldId === primaryField.id);
     return v ? parseFloat(v.value) || 0 : 0;
   };

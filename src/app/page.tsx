@@ -2,55 +2,25 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
+import AppButton from '@/components/ui/AppButton';
+import { useUser } from '@/contexts/UserContext';
+import { Sparkles, Settings2, ArrowRight } from 'lucide-react';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user } = useUser();
 
-  // If user is already logged in AND has finished onboarding, skip straight to dashboard
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('userSession');
-      if (raw) {
-        const session = JSON.parse(raw);
-        if (session?.isLoggedIn === true && session?.isNewAccount !== true) {
-          // Fully set up user — go to dashboard
-          console.debug('[landing] Already logged in, onboarding complete — to /dashboard');
-          router.replace('/dashboard');
-        }
-        // If isNewAccount is true, stay on landing so user can re-choose setup path
-        // (this happens after an app reset)
-      }
-    } catch (e) {
-      // ignore
+    console.log('[LandingPage] Check redirect:', { hasUser: !!user });
+    if (user) {
+      router.replace('/dashboard');
     }
-  }, [router]);
+  }, [user, router]);
 
   const handleSetupChoice = (path: 'ai' | 'manual') => {
     try {
-      // Check if user is already logged in (e.g. after an app reset)
-      const raw = localStorage.getItem('userSession');
-      if (raw) {
-        const session = JSON.parse(raw);
-        if (session?.isLoggedIn === true && session?.isNewAccount === true) {
-          // Already authenticated but needs to re-onboard (post-reset)
-          const updatedSession = { ...session, onboardingPath: path };
-          localStorage.setItem('userSession', JSON.stringify(updatedSession));
-          localStorage.removeItem('pendingSetupPath');
-          console.debug('[landing] Post-reset: routing directly to /onboarding/', path);
-          router.push(path === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
-          return;
-        }
-      }
-    } catch (e) {
-      // fall through to normal new-user flow
-    }
-    // Normal new-user flow: store chosen path, then go to signup
-    try {
       localStorage.setItem('pendingSetupPath', path);
-      console.debug('[landing] New user: chose setup path:', path);
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
     router.push('/auth?mode=signup');
   };
 
@@ -59,69 +29,64 @@ export default function LandingPage() {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ backgroundColor: 'var(--background)' }}
-    >
-      <div className="flex flex-col items-center gap-8 text-center max-w-sm w-full">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-background relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="flex flex-col items-center gap-10 text-center max-w-md w-full relative z-10">
         {/* Logo */}
-        <div
-          className="flex items-center justify-center w-16 h-16 rounded-2xl shadow-lg"
-          style={{ backgroundColor: 'var(--primary)' }}
-        >
-          <AppLogo className="w-9 h-9" />
+        <div className="p-3 rounded-2xl bg-card border border-white/5 shadow-2xl">
+          <AppLogo size={48} className="drop-shadow-[0_0_15px_rgba(56,189,248,0.2)]" />
         </div>
 
         {/* App name & tagline */}
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
+        <div className="space-y-3">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">
             CreatorTracker
           </h1>
-          <p className="text-base" style={{ color: 'var(--muted-foreground)' }}>
-            Track your work, hit your goals, stay consistent.
+          <p className="text-lg text-muted-foreground font-medium max-w-sm">
+            The intelligent workspace for high-performance creators.
           </p>
         </div>
 
         {/* Setup choices */}
-        <div className="flex flex-col gap-3 w-full mt-2">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--muted-foreground)' }}>
-            How would you like to set up?
-          </p>
-
-          <button
-            className="btn-primary w-full py-3 text-base font-semibold flex items-center justify-center gap-2"
+        <div className="flex flex-col gap-4 w-full">
+          <AppButton
+            size="lg"
+            fullWidth
+            icon={Sparkles}
             onClick={() => handleSetupChoice('ai')}
           >
-            <span>✨</span>
-            Set up with AI
-          </button>
+            Configure with AI
+          </AppButton>
 
-          <button
-            className="btn-secondary w-full py-3 text-base font-semibold flex items-center justify-center gap-2"
+          <AppButton
+            variant="secondary"
+            size="lg"
+            fullWidth
+            icon={Settings2}
             onClick={() => handleSetupChoice('manual')}
           >
-            <span>🛠️</span>
-            Set up Manually
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 w-full">
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
-          <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-            or
-          </span>
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+            Manual Configuration
+          </AppButton>
         </div>
 
         {/* Sign in */}
-        <button
-          className="text-sm font-medium hover:underline transition-all"
-          style={{ color: 'var(--primary)' }}
-          onClick={handleSignIn}
-        >
-          Already have an account? Sign in →
-        </button>
+        <div className="flex flex-col items-center gap-4 mt-2">
+          <div className="flex items-center gap-3 w-32">
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest">or</span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+          
+          <button
+            className="text-sm font-semibold text-primary hover:text-primary/80 transition-all flex items-center gap-2 group"
+            onClick={handleSignIn}
+          >
+            Already have an account? Sign in 
+            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
       </div>
     </div>
   );

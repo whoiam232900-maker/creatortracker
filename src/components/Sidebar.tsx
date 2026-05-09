@@ -1,4 +1,5 @@
 'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -31,47 +32,37 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
   const [isHovered, setIsHovered] = React.useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   
-  // If hover expand is disabled, hover should not affect collapsed state
   const effectivelyHovered = settings.hoverExpandSidebar ? isHovered : false;
   const isEffectivelyCollapsed = collapsed && !effectivelyHovered && !isDropdownOpen;
 
   return (
     <>
-      {/* Desktop sidebar placeholder to prevent layout shifting */}
       <div 
         className={[
           'hidden lg:block flex-shrink-0 h-screen sidebar-transition',
-          collapsed ? 'w-16' : 'w-60',
+          collapsed ? 'w-[var(--sidebar-collapsed)]' : 'w-[var(--sidebar-width)]',
         ].join(' ')}
       />
 
-      {/* Desktop sidebar actual visual element */}
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={[
-          'hidden lg:flex flex-col h-screen border-r sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
-          (!isEffectivelyCollapsed && collapsed) ? 'shadow-2xl' : '',
-          isEffectivelyCollapsed ? 'w-16' : 'w-60',
+          'hidden lg:flex flex-col h-screen border-r border-white/[0.05] sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
+          (!isEffectivelyCollapsed && collapsed) ? 'shadow-[0_0_50px_rgba(0,0,0,0.5)]' : '',
+          isEffectivelyCollapsed ? 'w-[var(--sidebar-collapsed)]' : 'w-[var(--sidebar-width)]',
         ].join(' ')}
-        style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
-        }}
+        style={{ backgroundColor: 'var(--card)' }}
       >
         <SidebarContent collapsed={isEffectivelyCollapsed} onClose={undefined} onDropdownOpenChange={setIsDropdownOpen} />
       </aside>
 
-      {/* Mobile sidebar */}
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-50 flex flex-col w-64 lg:hidden sidebar-transition border-r',
+          'fixed inset-y-0 left-0 z-50 flex flex-col w-64 lg:hidden transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] border-r border-white/[0.05]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
-        style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
-        }}
+        style={{ backgroundColor: 'var(--card)' }}
       >
         <SidebarContent collapsed={false} onClose={onMobileClose} />
       </aside>
@@ -81,19 +72,16 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
 
 function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapsed: boolean; onClose?: () => void; onDropdownOpenChange?: (open: boolean) => void }) {
   const pathname = usePathname();
-  const { settings } = useSettings();
 
   return (
     <div className="flex flex-col h-full">
-      <WorkspaceSwitcher collapsed={collapsed} onClose={onClose} onDropdownOpenChange={onDropdownOpenChange} />
+      <div className="px-3 pt-4">
+        <WorkspaceSwitcher collapsed={collapsed} onClose={onClose} onDropdownOpenChange={onDropdownOpenChange} />
+      </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 px-3 py-8 space-y-1.5 overflow-y-auto scrollbar-none">
         {!collapsed && (
-          <p
-            className="px-3 mb-2 text-xs font-semibold uppercase tracking-widest"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
+          <p className="px-3 mb-4 text-[11px] font-semibold text-muted-foreground/40 tracking-wide">
             Workspace
           </p>
         )}
@@ -104,52 +92,46 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
             <Link
               key={`nav-${item.href}`}
               href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={[
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group',
-                collapsed ? 'justify-center' : '',
-                isActive ? 'text-primary' : 'hover:bg-muted',
-              ].join(' ')}
-              style={
-                isActive
-                  ? {
-                      backgroundColor: 'rgba(37,99,235,0.08)',
-                      color: 'var(--primary)',
-                    }
-                  : { color: 'var(--muted-foreground)' }
-              }
+              className={`
+                flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 relative group
+                ${collapsed ? 'justify-center' : ''}
+                ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground'}
+              `}
             >
-              <NavIcon size={18} className="flex-shrink-0" />
+              <NavIcon size={18} className={`flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive ? 'text-primary' : ''}`} />
               {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
               {!collapsed && item.badge != null && item.badge > 0 && (
-                <span
-                  className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: 'var(--primary)',
-                    color: 'var(--primary-foreground)',
-                  }}
-                >
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">
                   {item.badge}
                 </span>
               )}
-              {/* Collapsed tooltip */}
-              {collapsed && !settings.iconOnlyMinimized && (
-                <span
-                  className="absolute left-full ml-2 px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 shadow-elevated"
-                  style={{
-                    backgroundColor: 'var(--foreground)',
-                    color: 'var(--background)',
-                  }}
-                >
-                  {item.label}
-                </span>
+              {isActive && (
+                <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-primary rounded-full" />
               )}
             </Link>
           );
         })}
       </nav>
 
-
+      {!collapsed && (
+        <div className="p-4 mt-auto">
+           <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 relative overflow-hidden group cursor-pointer hover:bg-primary/10 transition-all duration-300">
+              <div className="absolute -top-1 -right-1 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
+                 <Shield size={48} />
+              </div>
+              <p className="text-[11px] font-bold text-primary mb-1 tracking-wide">Pro Plan</p>
+              <p className="text-xs font-medium text-muted-foreground leading-snug">Unlock advanced analytics and AI insights.</p>
+           </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Shield({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+    </svg>
   );
 }

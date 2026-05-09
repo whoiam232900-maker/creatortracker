@@ -1,255 +1,194 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronDown, Check, LogOut, Settings, CreditCard, User, Building, Crown, X, HelpCircle } from 'lucide-react';
-import AppLogo from '@/components/ui/AppLogo';
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  ChevronDown, Plus, Settings, Check, 
+  Search
+} from 'lucide-react';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useUser } from '@/contexts/UserContext';
 import SettingsModal from './SettingsModal';
+import CreateWorkspaceModal from './CreateWorkspaceModal';
 
 interface WorkspaceSwitcherProps {
-  collapsed: boolean;
+  collapsed?: boolean;
   onClose?: () => void;
-  onDropdownOpenChange?: (isOpen: boolean) => void;
+  onDropdownOpenChange?: (open: boolean) => void;
 }
 
 export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenChange }: WorkspaceSwitcherProps) {
+  const { user } = useUser();
+  const { workspaces, activeWorkspace, setActiveWorkspace, isLoading } = useWorkspace();
   const [isOpen, setIsOpen] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState('Workspace');
-  const [plan, setPlan] = useState('Free');
-  const [email, setEmail] = useState('user@creatortracker.app');
-  const [mounted, setMounted] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 260 });
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState('Billing & Plans');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState('Account');
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const leaveTimeoutRef = useRef<NodeJS.Timeout>(undefined);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (onDropdownOpenChange) {
-      onDropdownOpenChange(isOpen);
-    }
+    onDropdownOpenChange?.(isOpen);
   }, [isOpen, onDropdownOpenChange]);
 
-  const handleMouseEnter = () => {
-    if (leaveTimeoutRef.current) {
-      clearTimeout(leaveTimeoutRef.current);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    leaveTimeoutRef.current = setTimeout(() => {
-      setIsOpen(false);
-    }, 150);
-  };
-
   useEffect(() => {
-    setMounted(true);
-    try {
-      const sessionStr = localStorage.getItem('userSession');
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        if (session.workspaceName) setWorkspaceName(session.workspaceName);
-        if (session.plan) setPlan(session.plan);
-        if (session.email) setEmail(session.email);
-      }
-    } catch (e) {}
-
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside both the trigger button and the dropdown portal
-      const isOutsideTrigger = triggerRef.current && !triggerRef.current.contains(event.target as Node);
-      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(event.target as Node);
-      
-      if (isOutsideTrigger && isOutsideDropdown) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && 
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const updatePosition = () => {
-    if (triggerRef.current && isOpen) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: collapsed ? rect.top : rect.bottom + 12,
-        left: collapsed ? rect.right + 16 : rect.left + 4,
-        width: 300,
-      });
-    }
+  const filteredWorkspaces = workspaces.filter(ws => 
+    ws.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const openSettings = (tab: string) => {
+    setActiveSettingsTab(tab);
+    setIsSettingsOpen(true);
+    setIsOpen(false);
   };
 
-  useEffect(() => {
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    return () => window.removeEventListener('resize', updatePosition);
-  }, [isOpen, collapsed]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('userSession');
-    window.location.href = '/auth';
-  };
+  if (!activeWorkspace && !isLoading) return null;
 
   return (
-    <div className="relative border-b" style={{ borderColor: 'var(--border)' }}>
-      <div className="flex items-center w-full">
-        <button
-          ref={triggerRef}
-          onClick={() => setIsOpen(!isOpen)}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={[
-            'flex-1 flex items-center gap-3 p-3 transition-all duration-200 outline-none hover:bg-muted/50 group',
-            isOpen ? 'bg-muted/50' : '',
-            collapsed ? 'justify-center m-2 rounded-xl p-2' : 'm-2 rounded-xl'
-          ].join(' ')}
-        >
-          <div className="relative flex-shrink-0">
-            {/* Logo/Avatar Wrapper with premium glass/glow effect */}
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm ring-1 ring-border group-hover:ring-primary/30 transition-all overflow-hidden relative">
-               <AppLogo size={20} />
-               {/* Hover glow effect */}
-               <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`
+          flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200 group
+          ${isOpen ? 'bg-secondary border-border/60' : 'hover:bg-secondary/60 border-transparent'}
+          border ${collapsed ? 'w-10 h-10 justify-center px-0' : 'w-full'}
+        `}
+      >
+        <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs flex-shrink-0 transition-transform group-hover:scale-105">
+          {activeWorkspace?.icon || activeWorkspace?.name.substring(0, 1).toUpperCase()}
+        </div>
+        {!collapsed && (
+          <>
+            <div className="text-left flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-foreground leading-tight truncate">
+                {activeWorkspace?.name || 'Select Workspace'}
+              </p>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                {activeWorkspace?.plan || 'Free'} Plan
+              </p>
             </div>
-            {/* Premium badge dot if Pro or Max */}
-            {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max') && (
-               <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-yellow-500 rounded-full border-2 border-card flex items-center justify-center shadow-sm z-10">
-                 <Crown size={8} className="text-white" />
-               </div>
+            <ChevronDown size={14} className={`text-muted-foreground/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+          </>
+        )}
+      </button>
+
+      {isOpen && (
+        <div 
+          ref={dropdownRef}
+          className={`
+            absolute top-12 left-0 w-64 bg-card border border-border/80 rounded-xl shadow-modal z-[100] overflow-hidden animate-in zoom-in-95 duration-200 origin-top-left
+            ${collapsed ? 'left-0' : 'left-0'}
+          `}
+        >
+          {/* Search */}
+          <div className="p-2 border-b border-border/50 bg-muted/30">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+              <input 
+                type="text"
+                placeholder="Search workspaces..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-input border border-border/40 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:border-primary/50 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="max-h-[280px] overflow-y-auto scrollbar-thin p-1.5">
+            <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground/40 tracking-wider">Your Workspaces</div>
+            {filteredWorkspaces.map((ws) => {
+              const userRole = (ws.members && Array.isArray(ws.members)) 
+                ? (ws.members.find(m => m.email === user?.email)?.role || 'Viewer')
+                : 'Viewer';
+              return (
+                <button
+                  key={ws.id}
+                  onClick={() => {
+                    setActiveWorkspace(ws.id);
+                    setIsOpen(false);
+                    onClose?.();
+                  }}
+                  className={`
+                    w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 group
+                    ${activeWorkspace?.id === ws.id ? 'bg-primary/5' : 'hover:bg-muted/50'}
+                  `}
+                >
+                  <div className={`w-7 h-7 rounded flex items-center justify-center font-bold text-xs border transition-all ${
+                    activeWorkspace?.id === ws.id ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-muted border-border/40 text-muted-foreground'
+                  }`}>
+                    {ws.icon || ws.name.substring(0, 1).toUpperCase()}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className={`text-[12px] font-semibold truncate ${activeWorkspace?.id === ws.id ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                      {ws.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60">{userRole}</p>
+                  </div>
+                  {activeWorkspace?.id === ws.id && (
+                    <Check size={12} className="text-primary" />
+                  )}
+                </button>
+              );
+            })}
+
+            {filteredWorkspaces.length === 0 && (
+              <div className="py-6 text-center px-4">
+                <p className="text-xs text-muted-foreground italic">No results found</p>
+              </div>
             )}
           </div>
 
-          {!collapsed && (
-            <div className="flex-1 min-w-0 flex items-center justify-between">
-              <div className="flex flex-col items-start min-w-0 text-left">
-                <span className="font-semibold text-sm truncate text-foreground w-full">
-                  {workspaceName}
-                </span>
-                <span className="text-xs text-muted-foreground truncate w-full flex items-center gap-1">
-                  {plan}
-                </span>
+          {/* Actions */}
+          <div className="p-1.5 border-t border-border/50 bg-muted/30 space-y-0.5">
+            <button 
+              onClick={() => {
+                setIsCreateModalOpen(true);
+                setIsOpen(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200 text-xs font-semibold group"
+            >
+              <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                <Plus size={14} />
               </div>
-              <ChevronDown size={14} className="text-muted-foreground flex-shrink-0 ml-1 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
-            </div>
-          )}
-        </button>
-
-        {/* Mobile close button (if passed and not collapsed) */}
-        {!collapsed && onClose && (
-          <button 
-            onClick={onClose} 
-            className="btn-ghost p-1.5 mr-3 rounded-lg flex-shrink-0" 
-            aria-label="Close sidebar"
-          >
-            <X size={18} />
-          </button>
-        )}
-      </div>
-
-      {/* Notion-style Dropdown Menu using Portal to escape overflow-hidden */}
-      {mounted && isOpen && createPortal(
-        <div 
-          ref={dropdownRef}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className="fixed z-[100] rounded-2xl overflow-hidden scale-in origin-top-left"
-          style={{ 
-            backgroundColor: 'color-mix(in srgb, var(--card) 96%, transparent)', 
-            border: '1px solid color-mix(in srgb, var(--border) 80%, transparent)',
-            boxShadow: '0 20px 40px -8px rgba(0,0,0,0.15), 0 0 0 1px color-mix(in srgb, var(--border) 50%, transparent)',
-            top: `${dropdownPos.top}px`,
-            left: `${dropdownPos.left}px`,
-            width: `${dropdownPos.width}px`,
-            backdropFilter: 'blur(20px)',
-          }}
-        >
-          {/* Header area - Top section */}
-          <div className="p-4 border-b bg-transparent" style={{ borderColor: 'color-mix(in srgb, var(--border) 50%, transparent)' }}>
-             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5">Current Workspace</p>
-             <div className="flex items-start gap-3 mt-1">
-               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm ring-1 ring-border flex-shrink-0 mt-0.5 relative">
-                 <AppLogo size={22} />
-                 {/* Premium badge in dropdown */}
-                 {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max') && (
-                   <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-yellow-500 rounded-full border-2 border-card flex items-center justify-center shadow-sm">
-                     <Crown size={9} className="text-white" />
-                   </div>
-                 )}
-               </div>
-               <div className="min-w-0 flex-1">
-                 <div className="flex items-center gap-2">
-                   <p className="text-sm font-bold text-foreground truncate">{workspaceName}</p>
-                 </div>
-                 <p className="text-xs font-medium text-muted-foreground truncate">{plan} Plan</p>
-                 <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{email}</p>
-               </div>
-               <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                 <Check size={12} className="text-primary" />
-               </div>
-             </div>
-          </div>
-
-          {/* Menu items - Middle section */}
-          <div className="p-2 space-y-0.5 bg-transparent">
-            <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">
-               Account
-            </div>
-            <button className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group">
-              <User size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span>Profile Settings</span>
+              <span>Create Workspace</span>
             </button>
+            
             <button 
-              onClick={() => { setIsOpen(false); setActiveSettingsTab('Billing & Plans'); setIsSettingsModalOpen(true); }}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+              onClick={() => openSettings('Workspace')}
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-muted transition-all duration-200 text-xs font-semibold group text-muted-foreground hover:text-foreground"
             >
-              <CreditCard size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span>Billing & Plan</span>
-            </button>
-            <button 
-              onClick={() => { setIsOpen(false); setActiveSettingsTab('Preferences'); setIsSettingsModalOpen(true); }}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
-            >
-              <Settings size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span>Preferences</span>
-            </button>
-            <button className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group">
-              <HelpCircle size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span>Help & Support</span>
-            </button>
-            
-            <div className="h-px w-full my-1.5" style={{ backgroundColor: 'var(--border)' }}></div>
-            
-            <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-               Workspace
-            </div>
-            <button className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group">
-              <Building size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span>Switch Workspace</span>
-            </button>
-            
-            <div className="h-px w-full my-1.5" style={{ backgroundColor: 'var(--border)' }}></div>
-            
-            {/* Bottom section */}
-            <button 
-              onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-danger/10 text-danger transition-colors text-left group"
-            >
-              <LogOut size={16} className="text-danger/80 group-hover:text-danger transition-colors" />
-              <span>Log out</span>
+              <div className="w-7 h-7 rounded bg-muted flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Settings size={14} />
+              </div>
+              <span>Settings</span>
             </button>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
 
-      {mounted && (
-        <SettingsModal 
-          isOpen={isSettingsModalOpen} 
-          onClose={() => setIsSettingsModalOpen(false)} 
-          currentPlan={plan}
-          initialTab={activeSettingsTab}
-        />
-      )}
+      {/* Modals */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        initialTab={activeSettingsTab}
+      />
+      <CreateWorkspaceModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 }

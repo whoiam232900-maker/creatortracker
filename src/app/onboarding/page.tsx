@@ -2,45 +2,30 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 
-/**
- * The /onboarding route is no longer the setup-choice page.
- * Setup choices (AI vs Manual) are now on the landing page (/).
- * This page simply redirects to the right place:
- *   - Logged-in new accounts → should already be on /onboarding/ai or /onboarding/manual
- *   - Not logged in → landing page
- *   - Existing accounts → dashboard
- */
 export default function OnboardingIndexPage() {
   const router = useRouter();
+  const { user } = useUser();
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('userSession');
-      if (!raw) {
-        console.debug('[onboarding/index] No session — to landing');
-        router.replace('/');
-        return;
-      }
-      const session = JSON.parse(raw);
-      if (!session?.isLoggedIn) {
-        router.replace('/');
-        return;
-      }
-      if (session?.isNewAccount) {
-        // Resume onboarding from the correct path
-        const path = session?.onboardingPath ?? 'ai';
-        console.debug('[onboarding/index] isNewAccount=true, resuming:', path);
-        router.replace(path === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
-      } else {
-        // Existing user — go to dashboard
-        console.debug('[onboarding/index] Existing user — to dashboard');
-        router.replace('/dashboard');
-      }
-    } catch (e) {
+    console.log('[OnboardingIndex] Checking state...', { hasUser: !!user, isNew: user?.isNewAccount });
+    if (!user) {
       router.replace('/');
+      return;
     }
-  }, [router]);
 
-  return null;
+    if (user.isNewAccount) {
+      const setupChoice = localStorage.getItem('pendingSetupPath');
+      router.replace(setupChoice === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
+    } else {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 }

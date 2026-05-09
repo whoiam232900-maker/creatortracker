@@ -1,8 +1,13 @@
 'use client';
+
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Save } from 'lucide-react';
+import { Save, Calendar as CalendarIcon } from 'lucide-react';
 import { TrackingField, DailyEntry, generateId, getTodayString } from '@/lib/store';
+import AppModal from '@/components/ui/AppModal';
+import AppInput from '@/components/ui/AppInput';
+import AppTextarea from '@/components/ui/AppTextarea';
+import AppButton from '@/components/ui/AppButton';
 
 interface EntryFormModalProps {
   fields: TrackingField[];
@@ -40,7 +45,6 @@ export default function EntryFormModal({
 
   useEffect(() => {
     reset(defaultValues);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingEntry]);
 
   const onSubmit = (data: FormValues) => {
@@ -58,127 +62,62 @@ export default function EntryFormModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in"
-      style={{ 
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        backdropFilter: 'blur(var(--blur-intensity, 0px))',
-      }}
-      onClick={onClose}
+    <AppModal 
+      isOpen={true} 
+      onClose={onClose} 
+      title={existingEntry ? 'Edit daily entry' : 'New daily entry'}
+      description="Log your progress for the day to keep your tracking up to date."
+      maxWidth="max-w-2xl"
     >
-      <div
-        className="card shadow-modal w-full max-w-lg scale-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <h2 className="text-base font-semibold" style={{ color: 'var(--foreground)' }}>
-            {existingEntry ? 'Edit Entry' : 'Log Entry'}
-          </h2>
-          <button onClick={onClose} className="btn-ghost p-1.5" aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in fade-in duration-500">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="sm:col-span-2">
+            <AppInput 
+              label="Date" 
+              type="date" 
+              icon={CalendarIcon}
+              error={errors['__date__']?.message}
+              {...register('__date__', { required: 'Date is required' })}
+            />
+          </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="px-6 py-5 space-y-4">
-            {/* Date */}
-            <div>
-              <label className="label" htmlFor="entry-date">
-                Date
-              </label>
-              <input
-                id="entry-date"
-                type="date"
-                className="input-field"
-                {...register('__date__', { required: 'Date is required' })}
-              />
-              {errors['__date__'] && <p className="error-text">{errors['__date__']?.message}</p>}
-            </div>
-
-            {/* Dynamic fields */}
-            {fields.map((field) => (
-              <div key={`form-field-${field.id}`}>
-                <label className="label" htmlFor={`field-${field.id}`}>
-                  {field.name}
-                  {field.unit && (
-                    <span
-                      className="ml-1 text-xs font-normal"
-                      style={{ color: 'var(--muted-foreground)' }}
-                    >
-                      ({field.unit})
-                    </span>
-                  )}
-                </label>
+           {fields.map((field) => (
+             <div key={field.id} className="space-y-3">
                 {field.type === 'number' ? (
-                  <input
-                    id={`field-${field.id}`}
+                  <AppInput 
+                    label={`${field.name}${field.unit ? ` (${field.unit})` : ''}`}
                     type="number"
                     step="0.01"
                     min="0"
-                    className="input-field"
-                    placeholder={`Enter ${field.name.toLowerCase()}`}
+                    placeholder="0.00"
+                    error={errors[field.id]?.message}
                     {...register(field.id, {
                       validate: (v) => {
                         if (v === '' || v === undefined) return true;
                         const n = parseFloat(v);
-                        if (isNaN(n)) return 'Must be a valid number';
-                        if (n < 0) return 'Must be 0 or greater';
+                        if (isNaN(n)) return 'Invalid value';
+                        if (n < 0) return 'Must be positive';
                         return true;
                       },
                     })}
                   />
                 ) : (
-                  <textarea
-                    id={`field-${field.id}`}
-                    rows={2}
-                    className="input-field resize-none"
-                    placeholder={`Enter ${field.name.toLowerCase()}`}
+                  <AppTextarea 
+                    label={field.name}
+                    placeholder={`Details for ${field.name.toLowerCase()}...`}
+                    rows={3}
                     {...register(field.id)}
                   />
                 )}
-                {errors[field.id] && <p className="error-text">{errors[field.id]?.message}</p>}
-              </div>
-            ))}
-          </div>
+             </div>
+           ))}
+        </div>
 
-          {/* Footer */}
-          <div
-            className="flex items-center justify-end gap-3 px-6 py-4 border-t"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting} className="btn-primary min-w-[100px]">
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Saving...
-                </span>
-              ) : (
-                <>
-                  <Save size={14} />
-                  Save Entry
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
+           <AppButton variant="ghost" size="md" type="button" onClick={onClose}>Cancel</AppButton>
+           <AppButton variant="primary" size="md" type="submit" isLoading={isSubmitting} icon={Save}>Save entry</AppButton>
+        </div>
+      </form>
+    </AppModal>
   );
 }
