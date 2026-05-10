@@ -3,11 +3,12 @@ import Modal from './ui/Modal';
 import { 
   Check, Sparkles, Zap, Shield, User, Building, 
   CreditCard, Settings, Bell, HelpCircle, X, ChevronRight,
-  LogOut, Trash2, Monitor, Globe, Mail, Lock, Camera, Edit2
+  LogOut, Trash2, Monitor, Globe, Mail, Lock, Camera, Edit2, ShieldAlert
 } from 'lucide-react';
 import { useSettings, ThemeMode, UIDensity, LandingPage } from '@/contexts/SettingsContext';
 import SupportTab from './SupportTab';
 import AccountTab from './AccountTab';
+import AdminReportsTab from './AdminReportsTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -23,6 +24,10 @@ const SIDEBAR_ITEMS = [
   { label: 'Preferences', icon: Settings },
   { label: 'Notifications', icon: Bell },
   { label: 'Help & Support', icon: HelpCircle },
+];
+
+const ADMIN_ITEMS = [
+  { label: 'Admin: Reports', icon: ShieldAlert },
 ];
 
 const PLANS = [
@@ -177,7 +182,12 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
   const [activeTab, setActiveTab] = useState(initialTab);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
   const [region, setRegion] = useState<'Global' | 'India'>('Global');
-  const [session, setSession] = useState<{ email?: string; isAdmin?: boolean; plan?: string } | null>(null);
+  const [session, setSession] = useState<{ email?: string; isAdmin?: boolean; plan?: string; role?: string } | null>(null);
+
+  // Combined sidebar items based on role
+  const visibleSidebarItems = session?.role === 'admin' 
+    ? [...SIDEBAR_ITEMS, ...ADMIN_ITEMS] 
+    : SIDEBAR_ITEMS;
 
   // Sync initial tab when modal opens
   React.useEffect(() => {
@@ -227,7 +237,7 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
             <h2 className="text-lg font-bold tracking-tight text-foreground">Settings</h2>
           </div>
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-            {SIDEBAR_ITEMS.map((item) => {
+            {visibleSidebarItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
@@ -240,7 +250,7 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                   }`}
                 >
                   <Icon size={16} className={`transition-colors ${activeTab === item.label ? 'text-foreground' : 'group-hover:text-foreground'}`} />
-                  <span>{item.label}</span>
+                  <span className={item.label.startsWith('Admin:') ? 'text-primary font-bold' : ''}>{item.label}</span>
                 </button>
               );
             })}
@@ -666,10 +676,13 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
 
             {activeTab === 'Help & Support' && <SupportTab />}
 
+            {activeTab === 'Admin: Reports' && session?.role === 'admin' && <AdminReportsTab />}
+
             {activeTab !== 'Account' && 
              activeTab !== 'Billing & Plans' && 
              activeTab !== 'Preferences' && 
-             activeTab !== 'Help & Support' && (
+             activeTab !== 'Help & Support' && 
+             activeTab !== 'Admin: Reports' && (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Settings size={48} className="text-muted-foreground/30 mb-4" />
                 <h2 className="text-xl font-bold text-muted-foreground mb-2">{activeTab}</h2>

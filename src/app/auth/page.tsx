@@ -49,8 +49,8 @@ function AuthForm() {
 
   const isPasswordValid = password.length >= 8;
   const isConfirmMatch = password === confirmPassword;
-  const canSubmit = isSignUp 
-    ? (fullName && email && isPasswordValid && isConfirmMatch) 
+  const canSubmit = isSignUp
+    ? (fullName && email && isPasswordValid && isConfirmMatch)
     : (email && password);
 
   const handleAuth = async () => {
@@ -72,7 +72,7 @@ function AuthForm() {
       await new Promise(resolve => setTimeout(resolve, 800));
 
       // ── Admin credential check ───────────────────────────────────────────
-      const isAdminLogin = email === 'Kabenix_is_admin' && password === '****New****Tracker';
+      const isAdminLogin = email === 'kabenix_is_admin' && password === '****New****Tracker';
 
       if (isAdminLogin) {
         const sessionData = {
@@ -178,7 +178,7 @@ function AuthForm() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-2 shadow-lg shadow-primary/5">
-             <ShieldCheck className="text-primary" size={24} />
+            <ShieldCheck className="text-primary" size={24} />
           </div>
           <h1 className="text-2xl font-bold text-center" style={{ color: 'var(--foreground)' }}>
             CreatorTracker
@@ -219,7 +219,7 @@ function AuthForm() {
                 />
               </div>
             )}
-            
+
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Email</label>
               <input
@@ -250,14 +250,14 @@ function AuthForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
                 />
-                <button 
+                <button
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              
+
               {isSignUp && password && (
                 <div className="flex items-center gap-2 ml-1 mt-1 transition-all duration-300">
                   {isPasswordValid ? (
@@ -285,7 +285,7 @@ function AuthForm() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
                   />
-                  <button 
+                  <button
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1"
                   >
@@ -306,8 +306,8 @@ function AuthForm() {
 
             {!isSignUp && (
               <div className="flex items-center gap-2 ml-1">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="remember"
                   className="w-3.5 h-3.5 rounded border-white/10 bg-white/5 text-primary focus:ring-offset-background"
                   checked={keepMeSignedIn}
@@ -320,7 +320,7 @@ function AuthForm() {
             )}
           </div>
 
-          <button 
+          <button
             className="btn-primary w-full py-3 text-[13px] font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
             onClick={handleAuth}
             disabled={isLoading || !canSubmit}
@@ -350,13 +350,13 @@ function AuthForm() {
             </button>
           </p>
         </div>
-        
+
         <div className="mt-8 flex flex-col items-center gap-4">
           <p className="text-[10px] text-muted-foreground/30 uppercase tracking-[0.2em] font-bold flex items-center gap-2">
             <ShieldCheck size={12} className="opacity-40" />
             Secure & Encrypted
           </p>
-          
+
           <button
             className="text-[11px] font-bold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
             onClick={() => router.push('/')}

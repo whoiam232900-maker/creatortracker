@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Settings, ShieldCheck } from 'lucide-react';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { useSettings } from '@/contexts/SettingsContext';
 
@@ -82,6 +82,19 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
 function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapsed: boolean; onClose?: () => void; onDropdownOpenChange?: (open: boolean) => void }) {
   const pathname = usePathname();
   const { settings } = useSettings();
+  const [session, setSession] = React.useState<{ role?: string } | null>(null);
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem('userSession');
+      if (raw) setSession(JSON.parse(raw));
+    } catch(e) {}
+  }, []);
+
+  const navItems = [...NAV_ITEMS];
+  if (session?.role === 'admin') {
+    navItems.push({ label: 'Admin Hub', href: '/dashboard', icon: ShieldCheck });
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -97,18 +110,21 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
             Workspace
           </p>
         )}
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href;
           const NavIcon = item.icon;
+          const isAdminItem = item.label === 'Admin Hub';
+
           return (
             <Link
-              key={`nav-${item.href}`}
+              key={`nav-${item.label}-${item.href}`}
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group',
                 collapsed ? 'justify-center' : '',
                 isActive ? 'text-primary' : 'hover:bg-muted',
+                isAdminItem ? 'mt-4 border border-primary/10 bg-primary/5' : '',
               ].join(' ')}
               style={
                 isActive
@@ -116,22 +132,16 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
                       backgroundColor: 'rgba(37,99,235,0.08)',
                       color: 'var(--primary)',
                     }
-                  : { color: 'var(--muted-foreground)' }
+                  : { color: isAdminItem ? 'var(--primary)' : 'var(--muted-foreground)' }
               }
             >
               <NavIcon size={18} className="flex-shrink-0" />
-              {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-              {!collapsed && item.badge != null && item.badge > 0 && (
-                <span
-                  className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: 'var(--primary)',
-                    color: 'var(--primary-foreground)',
-                  }}
-                >
-                  {item.badge}
-                </span>
+              {!collapsed && <span className="flex-1 truncate font-semibold">{item.label}</span>}
+              
+              {collapsed && isAdminItem && (
+                <div className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full translate-x-1/2 -translate-y-1/2 shadow-lg" />
               )}
+
               {/* Collapsed tooltip */}
               {collapsed && !settings.iconOnlyMinimized && (
                 <span

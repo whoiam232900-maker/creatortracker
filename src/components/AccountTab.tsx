@@ -120,7 +120,8 @@ export default function AccountTab() {
     avatar: '',
     verified: false,
     passwordLastChanged: null as string | null,
-    twoFactorEnabled: false
+    twoFactorEnabled: false,
+    role: 'user'
   });
 
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
