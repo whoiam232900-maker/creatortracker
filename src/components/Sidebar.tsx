@@ -3,66 +3,85 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, BarChart3, Settings } from 'lucide-react';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { 
+  LayoutDashboard, 
+  BarChart3, 
+  Settings, 
+  ChevronLeft, 
+  Sparkles,
+  Layers,
+  Calendar,
+  Zap,
+  Clock,
+  Command,
+  Plus
+} from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  badge?: number;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Analytics', href: '/analytics-screen', icon: BarChart3 },
-  { label: 'Settings', href: '/settings-screen', icon: Settings },
+const PRIMARY_NAV: NavItem[] = [
+  { label: 'Today', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Work', href: '/projects', icon: Layers },
+  { label: 'Trends', href: '/analytics-screen', icon: BarChart3 },
+  { label: 'Events', href: '/planner', icon: Calendar },
+];
+
+const SECONDARY_NAV: NavItem[] = [
+  { label: 'Preferences', href: '/settings-screen', icon: Settings },
 ];
 
 interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
-  activeRoute?: string;
   onMobileClose: () => void;
 }
 
 export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: SidebarProps) {
-  const { settings } = useSettings();
+  const { settings, updateSetting } = useSettings();
   const [isHovered, setIsHovered] = React.useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   
   const effectivelyHovered = settings.hoverExpandSidebar ? isHovered : false;
-  const isEffectivelyCollapsed = collapsed && !effectivelyHovered && !isDropdownOpen;
+  const isEffectivelyCollapsed = collapsed && !effectivelyHovered;
+
+  const toggleCollapse = () => {
+    updateSetting('autoCollapseSidebar', !collapsed);
+  };
 
   return (
     <>
+      {/* Desktop Spacer */}
       <div 
-        className={[
-          'hidden lg:block flex-shrink-0 h-screen sidebar-transition',
-          collapsed ? 'w-[var(--sidebar-collapsed)]' : 'w-[var(--sidebar-width)]',
-        ].join(' ')}
+        className={`hidden lg:block flex-shrink-0 sidebar-transition ${
+          isEffectivelyCollapsed ? 'w-[72px]' : 'w-[240px]'
+        }`}
       />
 
+      {/* Desktop Sidebar */}
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={[
-          'hidden lg:flex flex-col h-screen border-r border-white/[0.05] sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
-          (!isEffectivelyCollapsed && collapsed) ? 'shadow-[0_0_50px_rgba(0,0,0,0.5)]' : '',
-          isEffectivelyCollapsed ? 'w-[var(--sidebar-collapsed)]' : 'w-[var(--sidebar-width)]',
-        ].join(' ')}
-        style={{ backgroundColor: 'var(--card)' }}
+        className={`
+          hidden lg:flex flex-col h-screen border-r border-white/[0.04] sidebar-transition overflow-hidden fixed left-0 top-0 z-40 bg-[#06070a]
+          ${isEffectivelyCollapsed ? 'w-[72px]' : 'w-[240px]'}
+        `}
       >
-        <SidebarContent collapsed={isEffectivelyCollapsed} onClose={undefined} onDropdownOpenChange={setIsDropdownOpen} />
+        <SidebarContent 
+          collapsed={isEffectivelyCollapsed} 
+          onToggleCollapse={toggleCollapse}
+        />
       </aside>
 
+      {/* Mobile Sidebar */}
       <aside
-        className={[
-          'fixed inset-y-0 left-0 z-50 flex flex-col w-64 lg:hidden transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] border-r border-white/[0.05]',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
-        ].join(' ')}
-        style={{ backgroundColor: 'var(--card)' }}
+        className={`
+          fixed inset-y-0 left-0 z-50 flex flex-col w-[260px] lg:hidden transition-transform duration-500 ease-premium-ease border-r border-white/[0.04] bg-[#06070a]
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
       >
         <SidebarContent collapsed={false} onClose={onMobileClose} />
       </aside>
@@ -70,68 +89,120 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
   );
 }
 
-function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapsed: boolean; onClose?: () => void; onDropdownOpenChange?: (open: boolean) => void }) {
+function SidebarContent({ 
+  collapsed, 
+  onClose, 
+  onToggleCollapse
+}: { 
+  collapsed: boolean; 
+  onClose?: () => void;
+  onToggleCollapse?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-3 pt-4">
-        <WorkspaceSwitcher collapsed={collapsed} onClose={onClose} onDropdownOpenChange={onDropdownOpenChange} />
+    <div className="flex flex-col h-full py-8">
+      
+      {/* App Branding */}
+      <div className={`px-6 mb-10 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded bg-white/[0.02] border border-white/[0.05] flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <Sparkles size={14} className="text-white/30" />
+          </div>
+          {!collapsed && (
+            <span className="text-xs font-bold tracking-tight text-white/60">CreatorTracker</span>
+          )}
+        </div>
       </div>
 
-      <nav className="flex-1 px-3 py-8 space-y-1.5 overflow-y-auto scrollbar-none">
-        {!collapsed && (
-          <p className="px-3 mb-4 text-[11px] font-semibold text-muted-foreground/40 tracking-wide">
-            Workspace
-          </p>
-        )}
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
-          const NavIcon = item.icon;
-          return (
-            <Link
-              key={`nav-${item.href}`}
-              href={item.href}
-              className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 relative group
-                ${collapsed ? 'justify-center' : ''}
-                ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground'}
-              `}
-            >
-              <NavIcon size={18} className={`flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive ? 'text-primary' : ''}`} />
-              {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-              {!collapsed && item.badge != null && item.badge > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">
-                  {item.badge}
-                </span>
-              )}
-              {isActive && (
-                <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-primary rounded-full" />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Main Navigation */}
+      <div className="flex-1 px-4 space-y-10 overflow-y-auto scrollbar-none">
+        
+        {/* Workspace Section */}
+        <section className="space-y-1">
+          {!collapsed && (
+            <div className="px-3 mb-3">
+              <span className="text-[9px] font-bold text-white/10 uppercase tracking-[0.25em]">Personal</span>
+            </div>
+          )}
+          {PRIMARY_NAV.map((item) => (
+            <SidebarLink 
+              key={item.href}
+              item={item} 
+              isActive={pathname === item.href} 
+              collapsed={collapsed} 
+              onClick={onClose}
+            />
+          ))}
+        </section>
 
+        {/* System Section */}
+        <section className="space-y-1">
+          {!collapsed && (
+            <div className="px-3 mb-3">
+              <span className="text-[9px] font-bold text-white/10 uppercase tracking-[0.25em]">System</span>
+            </div>
+          )}
+          {SECONDARY_NAV.map((item) => (
+            <SidebarLink 
+              key={item.href}
+              item={item} 
+              isActive={pathname === item.href} 
+              collapsed={collapsed} 
+              onClick={onClose}
+            />
+          ))}
+        </section>
+      </div>
+
+      {/* Sidebar Footer - Minimal */}
       {!collapsed && (
-        <div className="p-4 mt-auto">
-           <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 relative overflow-hidden group cursor-pointer hover:bg-primary/10 transition-all duration-300">
-              <div className="absolute -top-1 -right-1 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
-                 <Shield size={48} />
-              </div>
-              <p className="text-[11px] font-bold text-primary mb-1 tracking-wide">Pro Plan</p>
-              <p className="text-xs font-medium text-muted-foreground leading-snug">Unlock advanced analytics and AI insights.</p>
-           </div>
+        <div className="px-7 mt-auto pt-8">
+          <div className="space-y-1">
+            <p className="text-[11px] font-bold text-white/10 tracking-widest uppercase">Personal Space</p>
+            <p className="text-[10px] text-white/20 font-medium">Logged in as Creator</p>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function Shield({ size }: { size: number }) {
+function SidebarLink({ 
+  item, 
+  isActive, 
+  collapsed, 
+  onClick 
+}: { 
+  item: NavItem, 
+  isActive: boolean, 
+  collapsed: boolean,
+  onClick?: () => void 
+}) {
+  const Icon = item.icon;
+  
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-    </svg>
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={`
+        flex items-center gap-3 px-3 py-2 rounded-md text-[12px] font-semibold transition-all duration-300 relative group
+        ${collapsed ? 'justify-center' : ''}
+        ${isActive 
+          ? 'text-white/90 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]' 
+          : 'text-white/20 hover:text-white/60 hover:bg-white/[0.01]'}
+      `}
+    >
+      <div className={`
+        flex items-center justify-center transition-all duration-300
+        ${isActive ? 'text-slate-400 scale-100' : 'text-white/10 group-hover:text-white/30 group-hover:scale-100'}
+      `}>
+        <Icon size={15} />
+      </div>
+      {!collapsed && <span className="flex-1 truncate tracking-tight">{item.label}</span>}
+      {isActive && !collapsed && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-slate-500/40 rounded-full" />
+      )}
+    </Link>
   );
 }

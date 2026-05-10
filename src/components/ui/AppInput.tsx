@@ -21,24 +21,24 @@ export default function AppInput({
   return (
     <div className="space-y-1.5 w-full">
       {label && (
-        <label className="text-xs font-medium text-muted-foreground ml-1 block">
+        <label className="text-[11px] font-semibold text-muted-foreground/60 tracking-wider uppercase ml-1 block">
           {label}
         </label>
       )}
       <div className="relative group">
         {Icon && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-            <Icon size={16} />
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors pointer-events-none">
+            <Icon size={14} />
           </div>
         )}
         <input
           className={`
-            w-full bg-input border border-border/40 text-sm rounded-xl transition-all 
-            placeholder:text-muted-foreground/30 outline-none
-            focus:border-primary/40 focus:bg-input-focus focus:ring-4 focus:ring-primary/5 hover:border-border/60
+            w-full bg-white/[0.02] border border-white/[0.05] text-[13px] font-medium rounded-lg transition-all 
+            placeholder:text-muted-foreground/20 outline-none
+            focus:border-primary/40 focus:bg-white/[0.04] focus:shadow-glow-sm hover:border-white/[0.1]
             disabled:opacity-50 disabled:cursor-not-allowed
-            ${Icon ? 'pl-11 pr-4' : 'px-4'} 
-            ${error ? 'border-danger/50 focus:border-danger focus:ring-danger/5' : ''}
+            ${Icon ? 'pl-10 pr-4' : 'px-4'} 
+            ${error ? 'border-danger/50 focus:border-danger' : ''}
             py-2.5
             ${className}
           `}
@@ -46,14 +46,15 @@ export default function AppInput({
         />
       </div>
       {error ? (
-        <p className="text-[11px] text-danger font-medium ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
+        <p className="text-[10px] text-danger font-medium ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
           {error}
         </p>
       ) : helperText ? (
-        <p className="text-[11px] text-muted-foreground/60 ml-1 italic">
+        <p className="text-[10px] text-muted-foreground/40 ml-1 italic">
           {helperText}
         </p>
       ) : null}
     </div>
   );
 }
+

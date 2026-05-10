@@ -29,23 +29,24 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-background relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[#050506] relative overflow-hidden">
+      {/* Background decoration - Cinematic Atmosphere */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl h-[500px] bg-slate-900/[0.05] rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute -top-[10%] -left-[10%] w-96 h-96 bg-blue-900/[0.03] rounded-full blur-[120px] pointer-events-none" />
       
       <div className="flex flex-col items-center gap-10 text-center max-w-md w-full relative z-10">
         {/* Logo */}
-        <div className="p-3 rounded-2xl bg-card border border-white/5 shadow-2xl">
-          <AppLogo size={48} className="drop-shadow-[0_0_15px_rgba(56,189,248,0.2)]" />
+        <div className="p-4 rounded-3xl bg-card border border-white/[0.03] shadow-premium shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <AppLogo size={48} className="text-white/80" />
         </div>
 
         {/* App name & tagline */}
         <div className="space-y-3">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">
+          <h1 className="text-4xl font-bold tracking-tighter text-white/90">
             CreatorTracker
           </h1>
-          <p className="text-lg text-muted-foreground font-medium max-w-sm">
-            The intelligent workspace for high-performance creators.
+          <p className="text-sm text-white/30 font-semibold tracking-wide uppercase">
+            Advanced Productivity Operating System
           </p>
         </div>
 

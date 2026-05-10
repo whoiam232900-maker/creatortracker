@@ -5,7 +5,7 @@ module.exports = {
   theme: {
     container: {
       center: true,
-      padding: '1rem',
+      padding: '2rem',
     },
     extend: {
       colors: {
@@ -34,47 +34,36 @@ module.exports = {
           foreground: 'rgb(var(--card-foreground-rgb) / <alpha-value>)',
         },
         border: {
-          DEFAULT: 'rgb(var(--border-rgb) / <alpha-value>)',
-          soft: 'rgb(var(--border-soft-rgb) / <alpha-value>)',
-        },
-        input: {
-          DEFAULT: 'rgb(var(--input-rgb) / <alpha-value>)',
-          focus: 'rgb(var(--input-focus-rgb) / <alpha-value>)',
+          DEFAULT: 'rgba(255, 255, 255, 0.06)',
+          soft: 'rgba(255, 255, 255, 0.03)',
         },
         ring: 'rgb(var(--ring-rgb) / <alpha-value>)',
-        success: {
-          DEFAULT: 'rgb(var(--success-rgb) / <alpha-value>)',
-          bg: 'rgb(var(--success-bg-rgb) / <alpha-value>)',
-        },
-        warning: {
-          DEFAULT: 'rgb(var(--warning-rgb) / <alpha-value>)',
-          bg: 'rgb(var(--warning-bg-rgb) / <alpha-value>)',
-        },
-        danger: {
-          DEFAULT: 'rgb(var(--danger-rgb) / <alpha-value>)',
-          bg: 'rgb(var(--danger-bg-rgb) / <alpha-value>)',
-        },
       },
       borderRadius: {
-        sm: 'calc(var(--radius) - 4px)',
+        sm: 'calc(var(--radius) - 6px)',
         DEFAULT: 'var(--radius)',
         md: 'var(--radius)',
         lg: 'calc(var(--radius) + 4px)',
-        xl: 'calc(var(--radius) + 8px)',
-        '2xl': 'calc(var(--radius) + 16px)',
-        '3xl': 'calc(var(--radius) + 24px)',
+        xl: 'calc(var(--radius) + 12px)',
+        '2xl': 'calc(var(--radius) + 20px)',
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
-        elevated: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
-        modal: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-        'glow-primary': '0 0 20px -5px rgba(56, 189, 248, 0.2)',
+        premium: '0 0 0 1px rgba(255, 255, 255, 0.06), 0 20px 50px -12px rgba(0, 0, 0, 0.7)',
+        glow: '0 0 30px -5px rgba(59, 130, 246, 0.25)',
+        'glow-sm': '0 0 15px -3px rgba(59, 130, 246, 0.15)',
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'premium-gradient': 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)',
+      },
+      transitionTimingFunction: {
+        'premium-ease': 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },
-  plugins: [require('@tailwindcss/typography')],
+  plugins: [require('@tailwindcss/typography'), require('tailwindcss-animate')],
 };
