@@ -112,7 +112,7 @@ export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenCh
                <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
             {/* Premium badge dot if Pro or Max */}
-            {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max') && (
+            {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max' || plan.toLowerCase() === 'studio') && (
                <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-yellow-500 rounded-full border-2 border-card flex items-center justify-center shadow-sm z-10">
                  <Crown size={8} className="text-white" />
                </div>
@@ -170,7 +170,7 @@ export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenCh
                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm ring-1 ring-border flex-shrink-0 mt-0.5 relative">
                  <AppLogo size={22} />
                  {/* Premium badge in dropdown */}
-                 {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max') && (
+                 {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max' || plan.toLowerCase() === 'studio') && (
                    <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-yellow-500 rounded-full border-2 border-card flex items-center justify-center shadow-sm">
                      <Crown size={9} className="text-white" />
                    </div>
@@ -194,7 +194,10 @@ export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenCh
             <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">
                Account
             </div>
-            <button className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group">
+            <button 
+              onClick={() => { setIsOpen(false); setActiveSettingsTab('Account'); setIsSettingsModalOpen(true); }}
+              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+            >
               <User size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
               <span>Profile Settings</span>
             </button>
@@ -212,7 +215,10 @@ export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenCh
               <Settings size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
               <span>Preferences</span>
             </button>
-            <button className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group">
+            <button 
+              onClick={() => { setIsOpen(false); setActiveSettingsTab('Help & Support'); setIsSettingsModalOpen(true); }}
+              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+            >
               <HelpCircle size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
               <span>Help & Support</span>
             </button>

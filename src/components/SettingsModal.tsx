@@ -6,6 +6,8 @@ import {
   LogOut, Trash2, Monitor, Globe, Mail, Lock, Camera, Edit2
 } from 'lucide-react';
 import { useSettings, ThemeMode, UIDensity, LandingPage } from '@/contexts/SettingsContext';
+import SupportTab from './SupportTab';
+import AccountTab from './AccountTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,11 +28,8 @@ const SIDEBAR_ITEMS = [
 const PLANS = [
   {
     name: 'Free',
-    price: '$0',
-    priceYearly: '$0',
-    period: 'forever',
-    description: 'Perfect for getting started with basic tracking.',
     icon: Shield,
+    description: 'Perfect for getting started with basic tracking.',
     features: [
       'Up to 3 active trackers',
       'Basic analytics dashboard',
@@ -45,11 +44,8 @@ const PLANS = [
   },
   {
     name: 'Pro',
-    price: '$12',
-    priceYearly: '$9',
-    period: 'per month',
-    description: 'Advanced analytics and unlimited tracking for creators.',
     icon: Zap,
+    description: 'Advanced analytics and unlimited tracking for creators.',
     isRecommended: true,
     features: [
       'Unlimited trackers & targets',
@@ -65,12 +61,9 @@ const PLANS = [
     borderHighlight: 'rgba(37, 99, 235, 0.3)',
   },
   {
-    name: 'Max',
-    price: '$29',
-    priceYearly: '$24',
-    period: 'per month',
-    description: 'The ultimate toolkit for agency teams and power users.',
+    name: 'Studio',
     icon: Sparkles,
+    description: 'The ultimate toolkit for agency teams and power users.',
     features: [
       'Everything in Pro',
       'Multiple workspaces',
@@ -78,7 +71,7 @@ const PLANS = [
       'API access & webhooks',
       'Dedicated account manager',
     ],
-    cta: 'Upgrade to Max',
+    cta: 'Upgrade to Studio',
     ctaPrimary: false,
     color: '#8b5cf6', // purple
     bgHighlight: 'linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(139, 92, 246, 0.01) 100%)',
@@ -86,15 +79,30 @@ const PLANS = [
   },
 ];
 
+const PRICING_DATA = {
+  Global: {
+    symbol: '$',
+    Free: { monthly: 0, yearly: 0, originalMonthly: 0, originalYearly: 0 },
+    Pro: { monthly: 4.99, yearly: 3.49, originalMonthly: 8.99, originalYearly: 6.99 },
+    Studio: { monthly: 9.99, yearly: 6.99, originalMonthly: 16.99, originalYearly: 12.99 },
+  },
+  India: {
+    symbol: '₹',
+    Free: { monthly: 0, yearly: 0, originalMonthly: 0, originalYearly: 0 },
+    Pro: { monthly: 199, yearly: 149, originalMonthly: 399, originalYearly: 299 },
+    Studio: { monthly: 399, yearly: 299, originalMonthly: 799, originalYearly: 599 },
+  }
+};
+
 const COMPARISON_FEATURES = [
-  { name: 'Active Trackers', free: '3', pro: 'Unlimited', max: 'Unlimited' },
-  { name: 'Data History', free: '7 Days', pro: 'Unlimited', max: 'Unlimited' },
-  { name: 'AI Behavioral Insights', free: '-', pro: 'Included', max: 'Included' },
-  { name: 'Custom Dashboards', free: '-', pro: 'Included', max: 'Included' },
-  { name: 'Multiple Workspaces', free: '-', pro: '-', max: 'Included' },
-  { name: 'Team Members', free: '1', pro: '1', max: 'Up to 5' },
-  { name: 'API Access', free: '-', pro: '-', max: 'Included' },
-  { name: 'Support Level', free: 'Community', pro: 'Priority Email', max: 'Dedicated' },
+  { name: 'Active Trackers', free: '3', pro: 'Unlimited', studio: 'Unlimited' },
+  { name: 'Data History', free: '7 Days', pro: 'Unlimited', studio: 'Unlimited' },
+  { name: 'AI Behavioral Insights', free: '-', pro: 'Included', studio: 'Included' },
+  { name: 'Custom Dashboards', free: '-', pro: 'Included', studio: 'Included' },
+  { name: 'Multiple Workspaces', free: '-', pro: '-', studio: 'Included' },
+  { name: 'Team Members', free: '1', pro: '1', studio: 'Up to 5' },
+  { name: 'API Access', free: '-', pro: '-', studio: 'Included' },
+  { name: 'Support Level', free: 'Community', pro: 'Priority Email', studio: 'Dedicated' },
 ];
 
 function Toggle({ active, onChange }: { active: boolean, onChange: (val: boolean) => void }) {
@@ -168,6 +176,7 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
+  const [region, setRegion] = useState<'Global' | 'India'>('Global');
   const [session, setSession] = useState<{ email?: string; isAdmin?: boolean; plan?: string } | null>(null);
 
   // Sync initial tab when modal opens
@@ -245,132 +254,145 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
             {activeTab === 'Billing & Plans' && (
               <>
                 {/* Header / Status Section */}
-                <div className="mb-12">
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Billing & Plans</h1>
-                  <p className="text-muted-foreground text-base">
+                <div className="mb-8">
+                  <h1 className="text-xl font-bold tracking-tight mb-1">Billing & Plans</h1>
+                  <p className="text-muted-foreground text-[13px]">
                     Manage your subscription, billing history, and workspace usage.
                   </p>
                 </div>
 
                 {/* Current Plan Summary Card */}
                 <div 
-                  className="rounded-2xl border p-6 mb-12 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+                  className="rounded-xl border p-5 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                   style={{ 
-                    borderColor: 'color-mix(in srgb, var(--border) 60%, transparent)',
-                    backgroundColor: 'color-mix(in srgb, var(--muted) 20%, transparent)' 
+                    borderColor: 'rgba(255, 255, 255, 0.06)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.015)',
                   }}
                 >
-                  <div>
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Active Plan</p>
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-2xl font-bold">{currentPlan} Plan</h2>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-[0.15em] mb-1">Current Subscription</p>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-lg font-semibold text-white">{currentPlan} Plan</h2>
                       {currentPlan.toLowerCase() !== 'free' && (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/15 text-primary">
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary/5 text-primary/80 border border-primary/10 uppercase tracking-widest">
                           Active
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {currentPlan.toLowerCase() === 'free' 
-                        ? 'You are currently on the Free tier. Upgrade to unlock more power.'
-                        : 'Your subscription is active and will auto-renew.'}
-                    </p>
                   </div>
-                  <div className="flex gap-3 w-full sm:w-auto">
+                  <div className="flex gap-2.5 w-full sm:w-auto">
                     {currentPlan.toLowerCase() !== 'free' && (
-                      <button className="px-4 py-2 rounded-lg text-sm font-semibold border hover:bg-muted transition-colors whitespace-nowrap">
+                      <button className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-200 whitespace-nowrap">
                         Manage Billing
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Pricing Cards */}
-                <div className="mb-16">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold">Available Plans</h3>
-                    <Segment<'Monthly' | 'Yearly'> 
-                      options={['Monthly', 'Yearly']} 
-                      active={billingInterval} 
-                      onChange={setBillingInterval} 
-                    />
+                {/* Pricing Cards Section */}
+                <div className="mb-12">
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+                    <h3 className="text-sm font-semibold text-muted-foreground/70 uppercase tracking-widest">Available Plans</h3>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-1.5 py-1 bg-white/[0.02] rounded-lg border border-white/[0.04]">
+                        <Globe size={11} className="text-muted-foreground/40 ml-1" />
+                        <Segment<'Global' | 'India'>
+                          options={['Global', 'India']}
+                          active={region}
+                          onChange={setRegion}
+                        />
+                      </div>
+                      <Segment<'Monthly' | 'Yearly'> 
+                        options={['Monthly', 'Yearly']} 
+                        active={billingInterval} 
+                        onChange={setBillingInterval} 
+                      />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {PLANS.map((plan) => {
                       const isCurrent = currentPlan.toLowerCase() === plan.name.toLowerCase();
                       const Icon = plan.icon;
+                      const pricing = PRICING_DATA[region][plan.name as keyof typeof PRICING_DATA['Global']];
+                      const isYearly = billingInterval === 'Yearly';
+                      
+                      const displayPrice = isYearly ? pricing.yearly : pricing.monthly;
+                      const originalPrice = isYearly ? pricing.originalYearly : pricing.originalMonthly;
+                      const hasDiscount = originalPrice > displayPrice;
                       
                       return (
                         <div 
                           key={plan.name}
-                          className={`relative flex flex-col rounded-2xl border transition-all duration-300 ${
+                          className={`relative flex flex-col rounded-xl border transition-all duration-300 group/card ${
                             plan.isRecommended 
-                              ? 'shadow-[0_12px_40px_rgb(37,99,235,0.08)] -translate-y-1' 
-                              : 'shadow-sm hover:border-border/80 hover:shadow-md'
+                              ? 'border-primary/20 bg-white/[0.02]' 
+                              : 'border-white/[0.05] bg-white/[0.01]'
                           }`}
-                          style={{
-                            borderColor: plan.isRecommended ? plan.borderHighlight : 'color-mix(in srgb, var(--border) 50%, transparent)',
-                            background: plan.bgHighlight !== 'transparent' ? plan.bgHighlight : 'color-mix(in srgb, var(--card) 95%, transparent)',
-                          }}
                         >
-                          {plan.isRecommended && (
-                            <div className="absolute -top-3 inset-x-0 flex justify-center">
-                              <span 
-                                className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-sm"
-                                style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
-                              >
-                                Recommended
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="p-6 xl:p-8 flex-1 flex flex-col">
-                            <div className="flex items-center gap-3 mb-5">
-                              <div 
-                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${plan.color}15`, color: plan.color }}
-                              >
-                                <Icon size={20} />
+                          <div className="p-5 flex-1 flex flex-col">
+                            <div className="flex items-center justify-between mb-5">
+                              <div className="flex items-center gap-2.5">
+                                <div 
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                                  style={{ 
+                                    backgroundColor: 'rgba(255,255,255,0.03)', 
+                                    color: plan.isRecommended ? 'var(--primary)' : 'var(--muted-foreground)',
+                                    border: '1px solid rgba(255,255,255,0.05)'
+                                  }}
+                                >
+                                  <Icon size={16} strokeWidth={1.5} />
+                                </div>
+                                <h4 className="text-sm font-semibold text-white/90">{plan.name}</h4>
                               </div>
-                              <h4 className="text-xl font-bold">{plan.name}</h4>
-                            </div>
-
-                            <div className="mb-4">
-                              <div className="flex items-baseline gap-1.5 min-h-[48px]">
-                                <span className="text-4xl font-extrabold tracking-tight transition-all duration-300">
-                                  {billingInterval === 'Yearly' && plan.name !== 'Free' ? plan.priceYearly : plan.price}
+                              {plan.isRecommended && (
+                                <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest px-1.5 py-0.5 rounded border border-primary/10">
+                                  Founder
                                 </span>
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium text-muted-foreground">
-                                    / {plan.name === 'Free' ? 'forever' : 'mo'}
-                                  </span>
-                                  {billingInterval === 'Yearly' && plan.name !== 'Free' && (
-                                    <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-wide mt-0.5">
-                                      Billed yearly
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {billingInterval === 'Yearly' && plan.name !== 'Free' && (
-                                <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-bold border border-green-500/20">
-                                  Save 20%
-                                </div>
-                              )}
-                              {billingInterval !== 'Yearly' && plan.name !== 'Free' && (
-                                <div className="mt-2 h-5" /> // spacing placeholder to prevent layout jump
                               )}
                             </div>
 
-                            <p className="text-sm text-muted-foreground mb-8 min-h-[40px] leading-relaxed">
+                            <div className="mb-5">
+                              <div className="flex items-baseline gap-1.5 min-h-[32px]">
+                                <span className="text-2xl font-semibold text-white">
+                                  {PRICING_DATA[region].symbol}{displayPrice}
+                                </span>
+                                <span className="text-[11px] font-medium text-muted-foreground/60">
+                                  /{plan.name === 'Free' ? 'forever' : 'mo'}
+                                </span>
+                                {hasDiscount && (
+                                  <span className="ml-1 text-[11px] font-medium text-muted-foreground/30 line-through">
+                                    {PRICING_DATA[region].symbol}{originalPrice}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-2 mt-1">
+                                {isYearly && plan.name !== 'Free' && (
+                                  <span className="text-[9px] font-bold text-emerald-500/60 uppercase tracking-wider">
+                                    Billed yearly
+                                  </span>
+                                )}
+                                {hasDiscount && (
+                                  <span className="text-[9px] font-bold text-primary/60 uppercase tracking-wider">
+                                    {isYearly && '• '}Launch price
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-[12px] text-muted-foreground/80 mb-6 min-h-[36px] leading-relaxed">
                               {plan.description}
                             </p>
 
                             <div className="flex-1">
-                              <ul className="space-y-3.5 mb-8">
+                              <ul className="space-y-2.5 mb-8">
                                 {plan.features.map((feature, i) => (
-                                  <li key={i} className="flex items-start gap-3 text-sm font-medium">
-                                    <Check size={16} className="flex-shrink-0 mt-0.5 opacity-80" style={{ color: plan.color }} />
-                                    <span className="text-foreground/90">{feature}</span>
+                                  <li key={i} className="flex items-start gap-2.5 text-[12px] group/feat">
+                                    <div className={`mt-0.5 ${plan.isRecommended ? 'text-primary/60' : 'text-muted-foreground/30'}`}>
+                                      <Check size={13} strokeWidth={2.5} />
+                                    </div>
+                                    <span className="text-muted-foreground/70 group-hover/feat:text-white/80 transition-colors">{feature}</span>
                                   </li>
                                 ))}
                               </ul>
@@ -378,12 +400,12 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
 
                             <button
                               disabled={isCurrent}
-                              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 ${
+                              className={`w-full py-2 px-4 rounded-lg font-semibold text-[11px] transition-all duration-200 ${
                                 isCurrent 
-                                  ? 'bg-muted/50 text-muted-foreground cursor-not-allowed opacity-80 border border-border/30'
-                                  : plan.ctaPrimary
-                                    ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-sm active:scale-[0.98]'
-                                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 active:scale-[0.98]'
+                                  ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/[0.04]'
+                                  : plan.isRecommended
+                                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
+                                    : 'bg-white/5 text-white/80 hover:bg-white/10 border border-white/5'
                               }`}
                             >
                               {isCurrent ? 'Current Plan' : plan.cta}
@@ -396,26 +418,26 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                 </div>
 
                 {/* Comparison Table */}
-                <div>
-                  <h3 className="text-xl font-bold mb-6">Compare Features</h3>
-                  <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'color-mix(in srgb, var(--border) 50%, transparent)' }}>
+                <div className="pb-8">
+                  <h3 className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-4">Comparison</h3>
+                  <div className="rounded-xl border border-white/[0.05] overflow-hidden bg-white/[0.01]">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm whitespace-nowrap">
+                      <table className="w-full text-left text-[11px] whitespace-nowrap">
                         <thead>
-                          <tr className="border-b bg-muted/20" style={{ borderColor: 'color-mix(in srgb, var(--border) 50%, transparent)' }}>
-                            <th className="px-6 py-4 font-semibold text-muted-foreground w-2/5">Feature</th>
-                            <th className="px-6 py-4 font-semibold text-foreground w-1/5">Free</th>
-                            <th className="px-6 py-4 font-bold text-primary w-1/5">Pro</th>
-                            <th className="px-6 py-4 font-bold" style={{ color: '#8b5cf6' }}>Max</th>
+                          <tr className="border-b border-white/[0.03] bg-white/[0.02]">
+                            <th className="px-5 py-3 font-semibold text-muted-foreground/40 uppercase tracking-widest text-[9px] w-2/5">Feature</th>
+                            <th className="px-5 py-3 font-semibold text-white/60 w-1/5">Free</th>
+                            <th className="px-5 py-3 font-semibold text-primary/80 w-1/5">Pro</th>
+                            <th className="px-5 py-3 font-semibold text-white/60 w-1/5">Studio</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border/30">
+                        <tbody className="divide-y divide-white/[0.02]">
                           {COMPARISON_FEATURES.map((feat, idx) => (
-                            <tr key={idx} className="hover:bg-muted/10 transition-colors">
-                              <td className="px-6 py-4 font-medium text-foreground">{feat.name}</td>
-                              <td className="px-6 py-4 text-muted-foreground">{feat.free}</td>
-                              <td className="px-6 py-4 text-foreground font-medium">{feat.pro}</td>
-                              <td className="px-6 py-4 text-foreground font-medium">{feat.max}</td>
+                            <tr key={idx} className="hover:bg-white/[0.01] transition-colors group/row">
+                              <td className="px-5 py-2.5 font-medium text-muted-foreground/60 group-hover/row:text-white/80 transition-colors">{feat.name}</td>
+                              <td className="px-5 py-2.5 text-muted-foreground/40">{feat.free}</td>
+                              <td className="px-5 py-2.5 text-white/70 font-medium">{feat.pro}</td>
+                              <td className="px-5 py-2.5 text-white/70 font-medium">{feat.studio}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -640,193 +662,14 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
               </div>
             )}
 
-            {activeTab === 'Account' && (
-              <div className="pb-12 max-w-3xl">
-                <div className="mb-10">
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Account</h1>
-                  <p className="text-muted-foreground text-base">
-                    Manage your personal profile, security settings, and connected accounts.
-                  </p>
-                </div>
+            {activeTab === 'Account' && <AccountTab />}
 
-                <div className="space-y-10">
-                  {/* 1. Profile Section */}
-                  <section>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Profile</h3>
-                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                      <div className="relative group">
-                        <div className="w-24 h-24 rounded-full bg-muted border-2 border-border/50 flex items-center justify-center overflow-hidden">
-                          <User size={40} className="text-muted-foreground opacity-50" />
-                        </div>
-                        <button className="absolute bottom-0 right-0 p-1.5 bg-primary text-primary-foreground rounded-full shadow-md hover:scale-105 transition-transform">
-                          <Camera size={14} />
-                        </button>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h2 className="text-xl font-bold text-foreground">
-                            {session?.email ? session.email.split('@')[0] : 'User'}
-                          </h2>
-                          {session?.isAdmin && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8b5cf6]/15 text-[#8b5cf6] border border-[#8b5cf6]/20">
-                              Admin
-                            </span>
-                          )}
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary border border-primary/20">
-                            {session?.plan || currentPlan} Member
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-4">{session?.email || 'user@example.com'}</p>
-                        <div className="flex gap-3">
-                          <button className="px-4 py-2 rounded-lg text-sm font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
-                            Change Photo
-                          </button>
-                          <button className="px-4 py-2 rounded-lg text-sm font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
-                            Edit Profile
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
+            {activeTab === 'Help & Support' && <SupportTab />}
 
-                  {/* 2. Account Information */}
-                  <section>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Account Information</h3>
-                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
-                        <p className="text-sm font-medium text-muted-foreground">Username</p>
-                        <p className="text-sm font-semibold text-foreground/90">{session?.email ? session.email.split('@')[0] : 'User'}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
-                        <p className="text-sm font-medium text-muted-foreground">Email</p>
-                        <p className="text-sm font-semibold text-foreground/90">{session?.email || 'user@example.com'}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
-                        <p className="text-sm font-medium text-muted-foreground">Workspace</p>
-                        <p className="text-sm font-semibold text-foreground/90">Personal Workspace</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-white/[0.02] transition-colors gap-2">
-                        <p className="text-sm font-medium text-muted-foreground">Subscription</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground/90">{session?.plan || currentPlan}</p>
-                          <button onClick={() => setActiveTab('Billing & Plans')} className="text-xs text-primary hover:underline font-medium ml-2">Upgrade</button>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* 3. Security Section */}
-                  <section>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Security & Access</h3>
-                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
-                      <div className="flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
-                        <div className="flex gap-3 items-center">
-                          <Lock size={18} className="text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-semibold text-foreground/90">Password</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Last changed 3 months ago</p>
-                          </div>
-                        </div>
-                        <button className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
-                          Change
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors">
-                        <div className="flex gap-3 items-center">
-                          <Shield size={18} className="text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-semibold text-foreground/90">Two-Factor Authentication</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Add an extra layer of security</p>
-                          </div>
-                        </div>
-                        <Toggle active={false} onChange={() => {}} />
-                      </div>
-                      <div className="p-5">
-                        <p className="text-sm font-semibold text-foreground/90 mb-4">Active Sessions</p>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-muted/20">
-                            <div className="flex gap-3 items-center">
-                              <Monitor size={16} className="text-primary" />
-                              <div>
-                                <p className="text-sm font-medium text-foreground">Windows PC • Chrome</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Current session • IP: 192.168.1.1</p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] uppercase tracking-wider font-bold text-primary/80">Active</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* 4. Connected Accounts */}
-                  <section>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">Connected Accounts</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-card border border-border/60 rounded-2xl p-5 flex flex-col gap-4 hover:border-border/80 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <Mail size={20} className="text-red-500" />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-foreground">Google</p>
-                            <p className="text-xs text-muted-foreground">Not connected</p>
-                          </div>
-                        </div>
-                        <button className="w-full py-2 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
-                          Connect
-                        </button>
-                      </div>
-                      <div className="bg-card border border-border/60 rounded-2xl p-5 flex flex-col gap-4 hover:border-border/80 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <Globe size={20} className="text-foreground" />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-foreground">GitHub</p>
-                            <p className="text-xs text-muted-foreground">Not connected</p>
-                          </div>
-                        </div>
-                        <button className="w-full py-2 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 transition-colors">
-                          Connect
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* 5. Danger Zone */}
-                  <section>
-                    <h3 className="text-xs font-bold text-red-500/80 uppercase tracking-widest mb-4 pl-1">Danger Zone</h3>
-                    <div className="bg-card border border-red-500/20 rounded-2xl shadow-sm overflow-hidden">
-                      <div className="flex items-center justify-between p-5 hover:bg-red-500/5 transition-colors group">
-                        <div className="flex gap-3 items-center">
-                          <LogOut size={18} className="text-muted-foreground group-hover:text-red-500/70 transition-colors" />
-                          <div>
-                            <p className="text-sm font-medium text-foreground group-hover:text-red-500/90 transition-colors">Log out of all devices</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">You will be logged out of all active sessions.</p>
-                          </div>
-                        </div>
-                        <button className="px-4 py-2 rounded-lg text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-red-500 hover:text-white border border-border/50 hover:border-red-500 transition-colors">
-                          Log Out All
-                        </button>
-                      </div>
-                      <div className="border-t border-red-500/10"></div>
-                      <div className="flex items-center justify-between p-5 hover:bg-red-500/5 transition-colors group">
-                        <div className="flex gap-3 items-center">
-                          <Trash2 size={18} className="text-muted-foreground group-hover:text-red-500/70 transition-colors" />
-                          <div>
-                            <p className="text-sm font-medium text-foreground group-hover:text-red-500/90 transition-colors">Delete account</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Permanently remove your account and all data.</p>
-                          </div>
-                        </div>
-                        <button className="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 transition-colors">
-                          Delete Account
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-
-                </div>
-              </div>
-            )}
-
-            {activeTab !== 'Account' && activeTab !== 'Billing & Plans' && activeTab !== 'Preferences' && (
+            {activeTab !== 'Account' && 
+             activeTab !== 'Billing & Plans' && 
+             activeTab !== 'Preferences' && 
+             activeTab !== 'Help & Support' && (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Settings size={48} className="text-muted-foreground/30 mb-4" />
                 <h2 className="text-xl font-bold text-muted-foreground mb-2">{activeTab}</h2>

@@ -17,7 +17,14 @@ A modern Next.js 15 application built with TypeScript and Tailwind CSS.
   yarn install
   ```
 
-2. Start the development server:
+2. Environment Setup:
+   Create a `.env` file in the root directory and add the following:
+   ```env
+   DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
+   ```
+   *Note: This is required for the Help & Support system to function.*
+
+3. Start the development server:
   ```bash
   npm run dev
   # or
