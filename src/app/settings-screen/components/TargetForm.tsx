@@ -128,7 +128,7 @@ export default function TargetForm({ field, existingTarget, onSave, onDelete }: 
         {watchedValue && parseFloat(watchedValue) > 0 && (
           <div className="rounded-lg px-3 py-2 text-xs" style={{ backgroundColor: 'var(--muted)' }}>
             <span style={{ color: 'var(--muted-foreground)' }}>Goal: </span>
-            <span className="font-semibold tabular-nums" style={{ color: 'var(--foreground)' }}>
+            <span className="font-semibold tabular-nums font-numbers" style={{ color: 'var(--foreground)' }}>
               {watchedValue} {field.unit}
             </span>
             <span style={{ color: 'var(--muted-foreground)' }}> per {watchedType}</span>

@@ -22,7 +22,8 @@ export default function Topbar({
         </button>
       </div>
 
-      {/* Theme toggle - absolute positioned to avoid layout spacing */}
+      {/* Theme toggle - temporarily disabled for stabilization */}
+      {/* 
       <div className="absolute top-4 right-4 lg:right-6 z-30">
         <button
           onClick={onThemeToggle}
@@ -33,6 +34,7 @@ export default function Topbar({
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
         </button>
       </div>
+      */}
     </>
   );
 }

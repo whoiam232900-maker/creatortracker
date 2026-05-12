@@ -31,26 +31,10 @@ import {
   FileLock,
   Database
 } from 'lucide-react';
+import { ADMIN_EMAIL, validateCredentials } from '@/lib/auth-utils';
+import bcrypt from 'bcryptjs';
 
 // --- Types ---
-
-interface SecurityAlert {
-  id: string;
-  message: string;
-  type: 'info' | 'warning' | 'success';
-  time: string;
-}
-
-interface ConnectedAccount {
-  provider: 'google' | 'discord';
-  connected: boolean;
-  email?: string;
-  name?: string;
-  connectedAt?: string;
-}
-
-// --- Stable Sub-components ---
-
 interface SecurityCardProps {
   id: string;
   icon: any;
@@ -59,59 +43,53 @@ interface SecurityCardProps {
   status?: string;
   actionLabel: string;
   action: () => void;
-  isExpanded: boolean;
+  isExpanded?: boolean;
   children?: React.ReactNode;
-  loading?: boolean;
-  danger?: boolean;
-  disabled?: boolean;
 }
 
-const SecurityCard = memo(({ 
-  id, icon: Icon, title, description, status, actionLabel, action, isExpanded, children, loading = false, danger = false, disabled = false 
-}: SecurityCardProps) => {
-  return (
-    <div className={`card bg-white/[0.01] border-white/[0.05] transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-1 ring-primary/20 bg-white/[0.02]' : 'hover:border-white/[0.08]'} ${disabled ? 'opacity-50 grayscale-[0.5]' : ''}`}>
-      <div className="p-4 flex items-start gap-4">
-        <div className={`p-2 rounded-xl bg-white/[0.02] border border-white/[0.05] flex-shrink-0 ${danger ? 'text-red-500/70' : 'text-muted-foreground/60'}`}>
-          <Icon size={16} />
+const SecurityCard = ({ 
+  icon: Icon, 
+  title, 
+  description, 
+  status, 
+  actionLabel, 
+  action, 
+  isExpanded, 
+  children 
+}: SecurityCardProps) => (
+  <div className={`card p-4 transition-all duration-300 ${isExpanded ? 'bg-white/[0.02] border-primary/20 ring-1 ring-primary/10' : 'bg-white/[0.005] border-white/[0.05] hover:bg-white/[0.01]'}`}>
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start gap-4 flex-1">
+        <div className={`p-2 rounded-xl border transition-colors ${isExpanded ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-white/[0.02] border-white/[0.05] text-muted-foreground/20'}`}>
+          <Icon size={16} strokeWidth={1.5} />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-0.5">
-            <h4 className="text-[12px] font-bold text-foreground/90">{title}</h4>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="text-[13px] font-medium text-foreground/70 tracking-tight">{title}</h4>
             {status && (
-              <span className={`text-[9px] font-bold uppercase tracking-wider ${status.includes('Active') || status.includes('Verified') || status.includes('today') ? 'text-emerald-500/80' : 'text-amber-500/80'}`}>
+              <span className={`px-1.5 py-0.5 rounded text-[8px] font-medium uppercase tracking-[0.15em] ${status.includes('Active') || status.includes('Verified') ? 'bg-emerald-500/10 text-emerald-500/60' : 'bg-white/5 text-muted-foreground/20'}`}>
                 {status}
               </span>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground/50 leading-relaxed mb-3">{description}</p>
-          <button 
-            type="button"
-            onClick={(e) => { e.stopPropagation(); action(); }}
-            disabled={loading || disabled}
-            className={`w-full py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${
-              danger 
-                ? 'bg-red-500/5 text-red-500/60 hover:bg-red-500/10' 
-                : 'bg-white/[0.03] text-foreground/60 hover:bg-white/[0.05]'
-            } ${disabled ? 'cursor-not-allowed' : ''}`}
-          >
-            {loading ? <Loader2 size={10} className="animate-spin mx-auto" /> : actionLabel}
-          </button>
+          <p className="text-[11px] text-muted-foreground/30 leading-relaxed font-medium">{description}</p>
         </div>
       </div>
-      
-      <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
-         <div className="px-4 pb-4 border-t border-white/[0.05] pt-4">
-            {children}
-         </div>
-      </div>
+      <button 
+        type="button" 
+        onClick={action}
+        className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase tracking-[0.2em] transition-all ${isExpanded ? 'bg-white/10 text-white/80' : 'text-primary/60 hover:text-primary/80 hover:bg-primary/5'}`}
+      >
+        {actionLabel}
+      </button>
     </div>
-  );
-});
-
-SecurityCard.displayName = 'SecurityCard';
-
-// --- Main Component ---
+    {isExpanded && children && (
+      <div className="mt-4 pt-4 border-t border-white/[0.05] animate-in slide-in-from-top-2 duration-300">
+        {children}
+      </div>
+    )}
+  </div>
+);
 
 export default function AccountTab() {
   const [user, setUser] = useState({
@@ -124,34 +102,34 @@ export default function AccountTab() {
     role: 'user'
   });
 
+  // --- Profile State ---
+  const [isEditProfileMode, setIsEditProfileMode] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
-  const [isConnecting, setIsConnecting] = useState<string | null>(null);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
-  
-  const [activeSecuritySection, setActiveSecuritySection] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Security State ---
+  const [securityAlerts, setSecurityAlerts] = useState<{ id: string; message: string; type: 'success' | 'warning' | 'info'; time: string }[]>([]);
+  const [activeSecuritySection, setActiveSecuritySection] = useState<'password' | '2fa' | 'email' | null>(null);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const [isEditProfileMode, setIsEditProfileMode] = useState(false);
-  const [editUsername, setEditUsername] = useState('');
-
+  // --- 2FA State ---
   const [twoFactorStep, setTwoFactorStep] = useState<'closed' | 'confirm-password' | 'qr-code' | 'verify-code'>('closed');
   const [twoFactorPassword, setTwoFactorPassword] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
   const [showDisable2FAConfirm, setShowDisable2FAConfirm] = useState(false);
 
-  const [disconnectTarget, setDisconnectProvider] = useState<'google' | 'discord' | null>(null);
+  // --- Linked Accounts State ---
+  const [disconnectTarget, setDisconnectTarget] = useState<string | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
-  const [securityAlerts, setSecurityAlerts] = useState<SecurityAlert[]>([]);
-
-  // Account Termination States
+  // --- Deletion State ---
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     try {
@@ -159,12 +137,13 @@ export default function AccountTab() {
       if (raw) {
         const session = JSON.parse(raw);
         const initialUser = {
-          username: session.username || session.email?.split('@')[0] || 'User',
+          username: session.username || session.fullName || session.email?.split('@')[0] || 'User',
           email: session.email || 'user@example.com',
           avatar: session.avatar || '',
           verified: session.verified === true,
           passwordLastChanged: session.passwordLastChanged || null,
-          twoFactorEnabled: session.twoFactorEnabled === true
+          twoFactorEnabled: session.twoFactorEnabled === true,
+          role: session.role || 'user'
         };
         setUser(initialUser);
         setEditUsername(initialUser.username);
@@ -186,33 +165,92 @@ export default function AccountTab() {
     } catch (e) {}
   };
 
-  const addAlert = (message: string, type: 'info' | 'warning' | 'success') => {
-    const newAlert: SecurityAlert = { id: Date.now().toString(), message, type, time: 'Just now' };
-    const updated = [newAlert, ...securityAlerts].slice(0, 3);
-    setSecurityAlerts(updated);
-    localStorage.setItem('security_alerts_v3', JSON.stringify(updated));
+  // --- Handlers ---
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast({ type: 'error', title: 'File Too Large', description: 'Maximum avatar size is 2MB.' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      persistUser({ avatar: base64String });
+      showToast({ type: 'success', title: 'Avatar Updated', description: 'Your profile picture has been saved.' });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdateProfile = async () => {
     if (!editUsername.trim()) return;
     setIsUpdatingProfile(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(r => setTimeout(r, 800));
     persistUser({ username: editUsername });
-    showToast({ type: 'success', title: 'Profile Updated', description: 'Changes saved successfully.' });
-    setIsUpdatingProfile(false);
     setIsEditProfileMode(false);
+    setIsUpdatingProfile(false);
+    showToast({ type: 'success', title: 'Profile Updated', description: 'Your username has been changed.' });
   };
 
   const handleVerifyEmail = async () => {
     setIsVerifyingEmail(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    showToast({ 
-      type: 'info', 
-      title: 'Verification Sent', 
-      description: 'Verification link sent successfully to ' + user.email 
-    });
+    await new Promise(r => setTimeout(r, 1500));
+    persistUser({ verified: true });
     setIsVerifyingEmail(false);
+    showToast({ type: 'success', title: 'Email Verified', description: 'Your account is now fully verified.' });
   };
+
+  const addAlert = (message: string, type: 'success' | 'warning' | 'info' = 'info') => {
+    const newAlert = {
+      id: Math.random().toString(36).substr(2, 9),
+      message,
+      type,
+      time: 'Just now'
+    };
+    setSecurityAlerts(prev => [newAlert, ...prev].slice(0, 5));
+  };
+
+  // --- 2FA Handlers ---
+  const start2FASetup = () => setTwoFactorStep('confirm-password');
+
+  const handle2FAPasswordConfirm = async () => {
+    setIsTwoFactorLoading(true);
+    const isValid = await validateCredentials(user.email, twoFactorPassword);
+    setIsTwoFactorLoading(false);
+    if (isValid) setTwoFactorStep('qr-code');
+    else showToast({ type: 'error', title: 'Invalid Password', description: 'Please enter your correct password.' });
+  };
+
+  const handle2FACodeVerify = async () => {
+    setIsTwoFactorLoading(true);
+    await new Promise(r => setTimeout(r, 1000));
+    setIsTwoFactorLoading(false);
+    persistUser({ twoFactorEnabled: true });
+    setTwoFactorStep('closed');
+    addAlert('Two-Factor Authentication enabled', 'success');
+    showToast({ type: 'success', title: '2FA Active', description: 'Your account is now more secure.' });
+  };
+
+  const disable2FA = async () => {
+    setIsTwoFactorLoading(true);
+    await new Promise(r => setTimeout(r, 800));
+    setIsTwoFactorLoading(false);
+    persistUser({ twoFactorEnabled: false });
+    setShowDisable2FAConfirm(false);
+    addAlert('Two-Factor Authentication disabled', 'warning');
+    showToast({ type: 'info', title: '2FA Disabled', description: 'Security layer removed.' });
+  };
+
+  const handleDisconnect = async () => {
+    if (!disconnectTarget) return;
+    setIsDisconnecting(true);
+    await new Promise(r => setTimeout(r, 1000));
+    setIsDisconnecting(false);
+    setDisconnectTarget(null);
+    showToast({ type: 'success', title: 'Account Disconnected', description: `Your ${disconnectTarget} account is no longer linked.` });
+  };
+
+  const setDisconnectProvider = (val: null) => setDisconnectTarget(val);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,17 +263,25 @@ export default function AccountTab() {
       return;
     }
     setIsUpdatingPassword(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     try {
-      const usersRaw = localStorage.getItem('users');
-      const users = usersRaw ? JSON.parse(usersRaw) : {};
-      if (!users[user.email] || users[user.email].password !== passwordForm.current) {
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const userData = await validateCredentials(user.email, passwordForm.current);
+      if (!userData) {
         showToast({ type: 'error', title: 'Auth Failed', description: 'Current password is incorrect.' });
         setIsUpdatingPassword(false);
         return;
       }
-      users[user.email].password = passwordForm.new;
+
+      const usersRaw = localStorage.getItem('users');
+      const users = usersRaw ? JSON.parse(usersRaw) : {};
+      
+      // Update password with hash
+      users[user.email].password = bcrypt.hashSync(passwordForm.new, 10);
       localStorage.setItem('users', JSON.stringify(users));
+
       const now = new Date().toISOString();
       persistUser({ passwordLastChanged: now });
       addAlert('Password updated successfully', 'success');
@@ -243,76 +289,55 @@ export default function AccountTab() {
       setPasswordForm({ current: '', new: '', confirm: '' });
       setActiveSecuritySection(null);
     } catch (err) {
+      console.error('[account] Password update error:', err);
       showToast({ type: 'error', title: 'System Error', description: 'Unable to update password.' });
     } finally {
       setIsUpdatingPassword(false);
     }
   };
 
-  const start2FASetup = () => {
-    if (!user.verified) {
-      showToast({ type: 'warning', title: 'Action Required', description: 'Please verify your email before enabling 2FA.' });
+  const handleDeleteAccount = async () => {
+    // PROTECTION: Prevent admin account deletion from the UI
+    if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      showToast({ 
+        type: 'error', 
+        title: 'Action Denied', 
+        description: 'System administrator accounts cannot be deleted via the console.' 
+      });
+      setShowDeleteConfirm(false);
       return;
     }
-    setTwoFactorStep('confirm-password');
-  };
 
-  const handle2FAPasswordConfirm = async () => {
-    setIsTwoFactorLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setIsTwoFactorLoading(false);
-    setTwoFactorStep('qr-code');
-  };
-
-  const handle2FACodeVerify = async () => {
-    if (twoFactorCode.length < 6) return;
-    setIsTwoFactorLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    persistUser({ twoFactorEnabled: true });
-    addAlert('2FA enabled', 'success');
-    showToast({ type: 'success', title: '2FA Enabled', description: 'Your account is now protected.' });
-    setIsTwoFactorLoading(false);
-    setTwoFactorStep('closed');
-    setTwoFactorCode('');
-    setTwoFactorPassword('');
-  };
-
-  const disable2FA = async () => {
-    setIsTwoFactorLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    persistUser({ twoFactorEnabled: false });
-    addAlert('2FA disabled', 'warning');
-    showToast({ type: 'warning', title: '2FA Disabled', description: 'Security level decreased.' });
-    setIsTwoFactorLoading(false);
-    setShowDisable2FAConfirm(false);
-  };
-
-  const handleDisconnect = async () => {
-    if (!disconnectTarget) return;
-    setIsDisconnecting(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    showToast({ type: 'info', title: 'Account Unlinked', description: `${disconnectTarget} has been disconnected.` });
-    setIsDisconnecting(false);
-    setDisconnectProvider(null);
-  };
-
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        persistUser({ avatar: reader.result as string });
-        showToast({ type: 'success', title: 'Avatar Applied', description: 'Profile picture updated.' });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
     setIsDeleting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    localStorage.clear();
-    window.location.href = '/auth';
+    try {
+      // Simulate verification of password before delete
+      const userData = await validateCredentials(user.email, deletePassword);
+      if (!userData) {
+        showToast({ type: 'error', title: 'Verification Failed', description: 'Incorrect password.' });
+        setIsDeleting(false);
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Remove specific user instead of nuclear localStorage.clear()
+      const usersRaw = localStorage.getItem('users');
+      if (usersRaw) {
+        const users = JSON.parse(usersRaw);
+        delete users[user.email];
+        localStorage.setItem('users', JSON.stringify(users));
+      }
+
+      // Also clear their specific tracker data
+      localStorage.removeItem(`creator_tracker_${user.email}`);
+      localStorage.removeItem('userSession');
+      
+      showToast({ type: 'success', title: 'Account Terminated', description: 'Your data has been erased.' });
+      window.location.href = '/auth';
+    } catch (e) {
+      showToast({ type: 'error', title: 'Deletion Failed', description: 'An error occurred during termination.' });
+      setIsDeleting(false);
+    }
   };
 
   const getTimeAgo = (isoDate: string | null) => {
@@ -407,7 +432,7 @@ export default function AccountTab() {
         <div className="card p-3.5 flex items-center gap-4 bg-white/[0.005] border-white/[0.05]">
           <div className="p-2 rounded-xl bg-primary/5 text-primary/70 ring-1 ring-primary/10"><Monitor size={14} /></div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5"><span className="text-[11px] font-bold text-foreground/80">Current Session</span><span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold text-[7px] uppercase tracking-tighter">Active Now</span></div>
+            <div className="flex items-center gap-2 mb-0.5"><span className="text-[11px] font-semibold text-foreground/80 tracking-tight">Current Session</span><span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold text-[7px] uppercase tracking-tighter">Active Now</span></div>
             <p className="text-[10px] text-muted-foreground/30 font-medium">This device is currently active and secure.</p>
           </div>
         </div>

@@ -36,15 +36,33 @@ export default function EntryFormModal({
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    watch,
+    setValue,
   } = useForm<FormValues>({ defaultValues });
+
+  const watchedDate = watch('__date__');
 
   useEffect(() => {
     reset(defaultValues);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingEntry]);
 
+  useEffect(() => {
+    if (watchedDate && watchedDate > today) {
+      // Auto-reset after a short delay to allow the user to see the validation state
+      const timer = setTimeout(() => {
+        setValue('__date__', today, { shouldValidate: true });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [watchedDate, today, setValue]);
+
   const onSubmit = (data: FormValues) => {
     const dateVal = data['__date__'] || today;
+    
+    // Final safety check
+    if (dateVal > today) return;
+
     const entry: DailyEntry = {
       id: baseEntry?.id || generateId('entry'),
       date: dateVal,
@@ -93,10 +111,14 @@ export default function EntryFormModal({
               <input
                 id="entry-date"
                 type="date"
-                className="input-field"
-                {...register('__date__', { required: 'Date is required' })}
+                className={`input-field ${errors['__date__'] ? 'border-danger ring-1 ring-danger/10' : ''}`}
+                max={today}
+                {...register('__date__', { 
+                  required: 'Date is required',
+                  validate: (v) => v <= today || 'Future dates are not allowed. You can only log completed work sessions.'
+                })}
               />
-              {errors['__date__'] && <p className="error-text">{errors['__date__']?.message}</p>}
+              {errors['__date__'] && <p className="error-text">{errors['__date__']?.message as string}</p>}
             </div>
 
             {/* Dynamic fields */}

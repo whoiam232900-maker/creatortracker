@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { loadState, AppState, getFieldTotal, getCurrentStreak } from '@/lib/store';
 import {
@@ -10,6 +10,9 @@ import {
   ChevronDown,
   BarChart2,
   Lightbulb,
+  Zap,
+  Target,
+  Crown,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 
@@ -25,6 +28,7 @@ export default function AnalyticsContent() {
   const [state, setState] = useState<AppState | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const s = loadState();
@@ -49,15 +53,11 @@ export default function AnalyticsContent() {
     if (!state) return [];
     const days = rangeDays[dateRange];
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+    cutoff.setHours(0, 0, 0, 0);
     const cutoffStr = cutoff.toISOString().split('T')[0];
     return state.entries.filter((e) => e.date >= cutoffStr);
   }, [state, dateRange]);
-
-  const allTimeTotal = useMemo(() => {
-    if (!state || !selectedFieldId) return 0;
-    return getFieldTotal(state.entries, selectedFieldId);
-  }, [state, selectedFieldId]);
 
   const rangeTotal = useMemo(() => {
     if (!selectedFieldId) return 0;
@@ -83,6 +83,17 @@ export default function AnalyticsContent() {
     return best;
   }, [rangeEntries, selectedFieldId]);
 
+  const peakSession = useMemo(() => (bestDay ? bestDay.value : 0), [bestDay]);
+
+  const consistencyScore = useMemo(() => {
+    if (rangeEntries.length === 0) return 0;
+    const activeDays = rangeEntries.filter((e) => {
+      const v = e.values.find((vv) => vv.fieldId === selectedFieldId);
+      return v && parseFloat(v.value) > 0;
+    }).length;
+    return Math.round((activeDays / rangeDays[dateRange]) * 100);
+  }, [rangeEntries, selectedFieldId, dateRange]);
+
   const streak = useMemo(() => (state ? getCurrentStreak(state.entries) : 0), [state]);
 
   const trendData = useMemo(() => {
@@ -100,20 +111,7 @@ export default function AnalyticsContent() {
       const parts = dateStr.split('-');
       const month = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       result.push({
         date: dateStr,
         value: isNaN(n) ? 0 : n,
@@ -123,21 +121,23 @@ export default function AnalyticsContent() {
     return result;
   }, [rangeEntries, selectedFieldId, dateRange]);
 
-  const weeklyData = useMemo(() => {
-    if (!selectedFieldId) return [];
+  const comparisonData = useMemo(() => {
+    if (!selectedFieldId || !state) return [];
     const today = new Date();
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const fullDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
     // This week (Mon–Sun)
     const thisWeekStart = new Date(today);
     const dayOfWeek = today.getDay();
     thisWeekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    thisWeekStart.setHours(0, 0, 0, 0);
 
     // Last week
     const lastWeekStart = new Date(thisWeekStart);
     lastWeekStart.setDate(thisWeekStart.getDate() - 7);
 
-    return days.map((day, i) => {
+    return [1, 2, 3, 4, 5, 6, 0].map((dow, i) => {
       const thisDate = new Date(thisWeekStart);
       thisDate.setDate(thisWeekStart.getDate() + i);
       const thisStr = thisDate.toISOString().split('T')[0];
@@ -146,97 +146,150 @@ export default function AnalyticsContent() {
       lastDate.setDate(lastWeekStart.getDate() + i);
       const lastStr = lastDate.toISOString().split('T')[0];
 
-      const thisEntry = state?.entries.find((e) => e.date === thisStr);
-      const lastEntry = state?.entries.find((e) => e.date === lastStr);
+      const thisEntry = state.entries.find((e) => e.date === thisStr);
+      const lastEntry = state.entries.find((e) => e.date === lastStr);
 
       const thisVal = thisEntry?.values.find((v) => v.fieldId === selectedFieldId);
       const lastVal = lastEntry?.values.find((v) => v.fieldId === selectedFieldId);
 
-      const thisN = thisVal ? parseFloat(thisVal.value) : 0;
-      const lastN = lastVal ? parseFloat(lastVal.value) : 0;
-
       return {
-        day,
-        thisWeek: isNaN(thisN) ? 0 : thisN,
-        lastWeek: isNaN(lastN) ? 0 : lastN,
+        day: days[i],
+        fullDay: fullDays[i],
+        thisWeek: thisVal ? parseFloat(thisVal.value) || 0 : 0,
+        lastWeek: lastVal ? parseFloat(lastVal.value) || 0 : 0,
       };
     });
   }, [state, selectedFieldId]);
 
+  const strongestDay = useMemo(() => {
+    if (comparisonData.length === 0) return '—';
+    const sorted = [...comparisonData].sort((a, b) => b.thisWeek + b.lastWeek - (a.thisWeek + a.lastWeek));
+    return sorted[0].fullDay;
+  }, [comparisonData]);
 
+  const mostImprovedDay = useMemo(() => {
+    if (comparisonData.length === 0) return '—';
+    let best = comparisonData[0];
+    let maxDiff = -Infinity;
+    comparisonData.forEach(d => {
+      const diff = d.thisWeek - d.lastWeek;
+      if (diff > maxDiff) {
+        maxDiff = diff;
+        best = d;
+      }
+    });
+    return maxDiff > 0 ? best.fullDay : '—';
+  }, [comparisonData]);
+
+  const weeklyMomentum = useMemo(() => {
+    if (comparisonData.length === 0) return 0;
+    const thisTotal = comparisonData.reduce((s, d) => s + d.thisWeek, 0);
+    const lastTotal = comparisonData.reduce((s, d) => s + d.lastWeek, 0);
+    if (lastTotal === 0) return thisTotal > 0 ? 100 : 0;
+    return Math.round(((thisTotal - lastTotal) / lastTotal) * 100);
+  }, [comparisonData]);
 
   if (!state) return <AnalyticsSkeleton />;
 
-  if (numberFields.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-          style={{ backgroundColor: 'rgba(37,99,235,0.08)' }}
-        >
-          <BarChart2 size={24} style={{ color: 'var(--primary)' }} />
-        </div>
-        <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-          No numeric fields to analyze
-        </h2>
-        <p className="text-sm text-center max-w-sm" style={{ color: 'var(--muted-foreground)' }}>
-          Analytics requires at least one numeric tracking field. Add fields in Settings, then start
-          logging entries.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 fade-in">
+    <div className="max-w-[1400px] mx-auto space-y-12 fade-in pb-20 px-4 sm:px-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>
-            Analytics
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pt-12">
+        <div className="space-y-1.5">
+          <h1 className="text-[26px] font-[450] tracking-[-0.025em] text-foreground/85 leading-tight">
+            Performance Insights
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-            Track trends, spot patterns, and understand your output
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/25">
+            {selectedField?.name ?? 'Select a field'} &middot; {dateRange} analysis
           </p>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Field selector */}
-          <div className="relative">
-            <select
-              value={selectedFieldId}
-              onChange={(e) => setSelectedFieldId(e.target.value)}
-              className="input-field pr-8 text-sm appearance-none cursor-pointer"
-              style={{ minWidth: '160px' }}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Field Dropdown */}
+          <div className="relative" style={{ zIndex: 60 }}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center justify-between gap-3 px-4 h-9 bg-white/[0.02] border border-white/[0.06] rounded-xl text-[12px] font-medium backdrop-blur-2xl shadow-[0_2px_16px_-4px_rgba(0,0,0,0.5)] hover:bg-white/[0.04] hover:border-white/[0.10] transition-all duration-500 min-w-[200px] group active:scale-[0.98]"
             >
-              {numberFields.map((f) => (
-                <option key={`field-opt-${f.id}`} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-              style={{ color: 'var(--muted-foreground)' }}
-            />
+              <span className="truncate text-foreground/50 group-hover:text-foreground/75 transition-colors duration-400 tracking-[-0.01em] font-[450]">
+                {selectedField?.name ?? 'Choose field'}
+              </span>
+              <ChevronDown
+                size={11}
+                className={`shrink-0 transition-transform duration-500 text-muted-foreground/20 group-hover:text-muted-foreground/50 ${isDropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {isDropdownOpen && (
+              <div
+                className="absolute top-[calc(100%+6px)] right-0 w-full overflow-hidden rounded-[14px] border border-white/[0.05] animate-in fade-in slide-in-from-top-1 duration-300 ease-out"
+                style={{
+                  zIndex: 70,
+                  background: 'rgba(2, 8, 23, 0.92)',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.03)',
+                }}
+              >
+                <div className="p-1.5 space-y-px">
+                  {numberFields.map((f) => {
+                    const isSelected = selectedFieldId === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          setSelectedFieldId(f.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2.5 text-[12px] rounded-[10px] flex items-center justify-between group/item relative overflow-hidden transition-colors duration-200 ease-out ${
+                          isSelected
+                            ? 'text-foreground/90 font-[500]'
+                            : 'text-muted-foreground/40 font-[450] hover:text-foreground/65'
+                        }`}
+                      >
+                        <div
+                          className={`absolute inset-0 rounded-[10px] transition-opacity duration-200 ease-out pointer-events-none ${
+                            isSelected ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'
+                          }`}
+                          style={{
+                            background: isSelected
+                              ? 'rgba(255,255,255,0.06)'
+                              : 'rgba(255,255,255,0.03)',
+                          }}
+                        />
+                        <span className="relative z-10 truncate pr-4 tracking-[-0.01em]">
+                          {f.name}
+                        </span>
+                        {isSelected && (
+                          <span className="w-[5px] h-[5px] rounded-full bg-foreground/30 relative z-10 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Date range */}
-          <div
-            className="flex items-center rounded-lg border overflow-hidden"
-            style={{ borderColor: 'var(--border)' }}
-          >
+          {/* Segmented Date Range Control */}
+          <div className="flex p-[3px] bg-white/[0.015] border border-white/[0.06] rounded-xl h-9 relative isolate min-w-[240px]">
+            {/* Sliding pill */}
+            <div
+              className="absolute inset-y-[3px] bg-white/[0.05] border border-white/[0.07] rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-300 ease-out pointer-events-none"
+              style={{
+                width: 'calc(25% - 6px)',
+                left: `calc(${['7d', '14d', '30d', '90d'].indexOf(dateRange) * 25}% + 3px)`,
+                zIndex: 0,
+              }}
+            />
             {(['7d', '14d', '30d', '90d'] as DateRange[]).map((r) => (
               <button
-                key={`range-${r}`}
+                key={r}
                 onClick={() => setDateRange(r)}
-                className="px-3 py-2 text-xs font-medium transition-colors duration-150"
-                style={{
-                  backgroundColor: dateRange === r ? 'var(--primary)' : 'var(--card)',
-                  color: dateRange === r ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
-                }}
+                className={`flex-1 text-[10px] font-semibold uppercase tracking-[0.16em] flex items-center justify-center relative transition-colors duration-300 ease-out ${
+                  dateRange === r
+                    ? 'text-foreground/80'
+                    : 'text-foreground/20 hover:text-foreground/45'
+                }`}
+                style={{ zIndex: 1 }}
               >
                 {r}
               </button>
@@ -245,325 +298,265 @@ export default function AnalyticsContent() {
         </div>
       </div>
 
-      {/* Stat cards — 4 cards → grid-cols-2 lg:grid-cols-4 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <AnalyticsStatCard
-          label="All-Time Total"
-          value={String(Math.round(allTimeTotal * 10) / 10)}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+        <MetricCard
+          label="Range Total"
+          value={formatNumber(rangeTotal)}
           unit={selectedField?.unit ?? ''}
-          icon={<TrendingUp size={18} style={{ color: 'var(--primary)' }} />}
-          bg="rgba(37,99,235,0.08)"
+          icon={<Activity size={16} strokeWidth={1.5} />}
+          color="#3b82f6"
+          atmosphere="blue"
         />
-        <AnalyticsStatCard
-          label={`Total in ${dateRange}`}
-          value={String(Math.round(rangeTotal * 10) / 10)}
+        <MetricCard
+          label="Best Day"
+          value={formatNumber(bestDay?.value ?? 0)}
           unit={selectedField?.unit ?? ''}
-          icon={<Activity size={18} style={{ color: 'var(--accent)' }} />}
-          bg="rgba(14,165,233,0.08)"
+          sub={bestDay ? formatShortDate(bestDay.date) : '—'}
+          icon={<Crown size={16} strokeWidth={1.5} />}
+          color="#f59e0b"
+          atmosphere="gold"
         />
-        <AnalyticsStatCard
+        <MetricCard
           label="Daily Average"
-          value={String(avgPerDay)}
+          value={formatNumber(avgPerDay)}
           unit={selectedField?.unit ?? ''}
-          icon={<BarChart2 size={18} style={{ color: '#9333EA' }} />}
-          bg="rgba(147,51,234,0.08)"
+          icon={<TrendingUp size={16} strokeWidth={1.5} />}
+          color="#06b6d4"
+          atmosphere="cyan"
         />
-        <AnalyticsStatCard
-          label="Best Single Day"
-          value={bestDay ? String(Math.round(bestDay.value * 10) / 10) : '—'}
-          unit={bestDay ? (selectedField?.unit ?? '') : ''}
-          sub={bestDay ? formatShortDate(bestDay.date) : 'no data'}
-          icon={<Award size={18} style={{ color: '#D97706' }} />}
-          bg="var(--warning-bg)"
+        <MetricCard
+          label="Peak Session"
+          value={formatNumber(peakSession)}
+          unit={selectedField?.unit ?? ''}
+          icon={<Zap size={16} strokeWidth={1.5} />}
+          color="#a855f7"
+          atmosphere="purple"
+        />
+        <MetricCard
+          label="Consistency"
+          value={`${consistencyScore}%`}
+          unit="score"
+          icon={<Target size={16} strokeWidth={1.5} />}
+          color="#10b981"
+          atmosphere="emerald"
+        />
+        <MetricCard
+          label="Streak"
+          value={String(streak)}
+          unit="days"
+          icon={<Flame size={16} strokeWidth={1.5} />}
+          color="#f97316"
+          atmosphere="orange"
+          isStreak
         />
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-        {/* Trend chart — takes 3 cols */}
-        <div className="card p-5 shadow-card xl:col-span-3">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-              {selectedField?.name} — Daily Trend
-            </h2>
-            <Badge variant="neutral">{dateRange}</Badge>
+      {/* Main Analysis Sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 card p-10 border border-white/[0.02] bg-[#ffffff01] backdrop-blur-3xl shadow-sm transition-all duration-700 hover:border-white/[0.05] relative overflow-hidden group rounded-[24px]">
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-transparent pointer-events-none" />
+          <div className="flex flex-col mb-12 relative z-10">
+            <h2 className="text-[13px] font-[500] text-foreground/75 tracking-[-0.01em]">Activity Trend</h2>
+            <p className="text-[10px] font-semibold text-muted-foreground/22 uppercase tracking-[0.22em] mt-2">
+              Historical volume analysis
+            </p>
           </div>
-          <FieldTrendChart
-            data={trendData}
-            fieldName={selectedField?.name ?? ''}
-            unit={selectedField?.unit ?? ''}
-            color={selectedField?.color ?? 'var(--primary)'}
-          />
+          <div className="h-[360px] relative z-10">
+            <FieldTrendChart
+              data={trendData}
+              fieldName={selectedField?.name ?? ''}
+              unit={selectedField?.unit ?? ''}
+              color={selectedField?.color ?? 'var(--primary)'}
+            />
+          </div>
         </div>
 
-        {/* Weekly comparison — 2 cols */}
-        <div className="card p-5 shadow-card xl:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-              This Week vs Last Week
-            </h2>
-            <div
-              className="flex items-center gap-3 text-xs"
-              style={{ color: 'var(--muted-foreground)' }}
-            >
-              <span className="flex items-center gap-1">
-                <span
-                  className="w-2 h-2 rounded-full inline-block"
-                  style={{ backgroundColor: selectedField?.color ?? 'var(--primary)' }}
-                />
-                This week
-              </span>
-              <span className="flex items-center gap-1">
-                <span
-                  className="w-2 h-2 rounded-full inline-block"
-                  style={{ backgroundColor: 'var(--border)' }}
-                />
-                Last week
-              </span>
+        <div className="card p-10 border border-white/[0.02] bg-[#ffffff01] backdrop-blur-3xl shadow-sm transition-all duration-700 hover:border-white/[0.05] flex flex-col relative overflow-hidden group rounded-[24px]">
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-transparent pointer-events-none" />
+          <div className="flex items-center gap-4 mb-12 relative z-10">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.02] flex items-center justify-center text-muted-foreground/15 border border-white/[0.03]">
+              <BarChart2 size={14} strokeWidth={1.2} />
+            </div>
+            <div>
+              <h2 className="text-[13px] font-[500] text-foreground/75 tracking-[-0.01em]">Weekly Pulse</h2>
+              <p className="text-[10px] font-semibold text-muted-foreground/22 uppercase tracking-[0.22em] mt-1">
+                Momentum tracking
+              </p>
             </div>
           </div>
-          <WeeklyComparisonChart
-            data={weeklyData}
-            color={selectedField?.color ?? 'var(--primary)'}
-            unit={selectedField?.unit ?? ''}
-          />
-        </div>
-      </div>
 
-      {/* Streak + Insights */}
-      {(settings.showStreaks || settings.showAIInsights) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Streak card */}
-          {settings.showStreaks && (
-            <div
-              className={`card p-5 shadow-card flex flex-col items-center justify-center text-center ${!settings.showAIInsights ? 'lg:col-span-3' : ''}`}
-              style={{
-                backgroundColor: streak >= 7 ? 'var(--warning-bg)' : 'var(--card)',
-              }}
-            >
-              <Flame
-                size={32}
-                className="mb-3"
-                style={{ color: streak >= 7 ? 'var(--warning)' : 'var(--muted-foreground)' }}
-              />
-              <div
-                className="text-5xl font-bold tabular-nums mb-1"
-                style={{ color: streak >= 7 ? 'var(--warning)' : 'var(--foreground)' }}
+          <div className="flex-1 min-h-[260px] relative z-10">
+            <WeeklyComparisonChart
+              data={comparisonData}
+              color={selectedField?.color ?? 'var(--primary)'}
+              unit={selectedField?.unit ?? ''}
+            />
+          </div>
+
+          <div className="mt-12 pt-12 border-t border-white/[0.04] space-y-5 relative z-10">
+            <div className="flex justify-between items-center group/item">
+              <span className="text-[11px] font-[450] text-muted-foreground/25 group-hover/item:text-muted-foreground/45 tracking-[-0.005em] transition-colors duration-300">
+                Strongest day
+              </span>
+              <span className="text-[11px] font-[500] text-foreground/55 tracking-[-0.01em]">{strongestDay}</span>
+            </div>
+            <div className="flex justify-between items-center group/item">
+              <span className="text-[11px] font-[450] text-muted-foreground/25 group-hover/item:text-muted-foreground/45 tracking-[-0.005em] transition-colors duration-300">
+                Most improved
+              </span>
+              <span className="text-[11px] font-[500] text-foreground/55 tracking-[-0.01em]">{mostImprovedDay}</span>
+            </div>
+            <div className="flex justify-between items-center group/item">
+              <span className="text-[11px] font-[450] text-muted-foreground/25 group-hover/item:text-muted-foreground/45 tracking-[-0.005em] transition-colors duration-300">
+                Weekly momentum
+              </span>
+              <span
+                className={`text-[10px] font-[600] tracking-[-0.01em] tabular-nums ${
+                  weeklyMomentum >= 0 ? 'text-emerald-400/45' : 'text-red-400/45'
+                }`}
               >
-                {streak}
-              </div>
-              <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-                Day Streak
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-                {streak >= 7
-                  ? 'Excellent consistency!'
-                  : streak >= 3
-                    ? 'Building momentum'
-                    : streak === 0
-                      ? 'Start a streak today'
-                      : 'Keep it going!'}
-              </p>
+                {weeklyMomentum > 0 ? '+' : ''}{weeklyMomentum}%
+              </span>
             </div>
-          )}
-
-          {/* AI Insights panel */}
-          {settings.showAIInsights && (
-            <div className={`${!settings.showStreaks ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
-              <AIInsightsPanel state={state} />
-            </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* Per-field summary table */}
-      {numberFields.length > 1 && (
-        <div className="card shadow-card overflow-hidden">
-          <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-              All Fields — Summary
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {[
-                    'Field',
-                    'Unit',
-                    'All-Time Total',
-                    `Total (${dateRange})`,
-                    'Daily Avg',
-                    'Best Day',
-                  ].map((h) => (
-                    <th
-                      key={`analytics-th-${h}`}
-                      className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: 'var(--muted-foreground)' }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {numberFields.map((field) => {
-                  const total = getFieldTotal(state.entries, field.id);
-                  const rangeT = getFieldTotal(rangeEntries, field.id);
-                  const days = rangeDays[dateRange];
-                  const avg = Math.round((rangeT / days) * 100) / 100;
-                  let best: number | null = null;
-                  rangeEntries.forEach((e) => {
-                    const v = e.values.find((vv) => vv.fieldId === field.id);
-                    if (!v) return;
-                    const n = parseFloat(v.value);
-                    if (!isNaN(n) && (best === null || n > best)) best = n;
-                  });
-                  return (
-                    <tr
-                      key={`summary-row-${field.id}`}
-                      className="transition-colors duration-100"
-                      style={{ borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
-                          'var(--muted)';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
-                          'transparent';
-                      }}
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: field.color }}
-                          />
-                          <span className="font-medium" style={{ color: 'var(--foreground)' }}>
-                            {field.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant="neutral">{field.unit || '—'}</Badge>
-                      </td>
-                      <td className="px-5 py-3 tabular-nums" style={{ color: 'var(--foreground)' }}>
-                        {Math.round(total * 10) / 10}
-                      </td>
-                      <td className="px-5 py-3 tabular-nums" style={{ color: 'var(--foreground)' }}>
-                        {Math.round(rangeT * 10) / 10}
-                      </td>
-                      <td
-                        className="px-5 py-3 tabular-nums"
-                        style={{ color: 'var(--muted-foreground)' }}
-                      >
-                        {avg}
-                      </td>
-                      <td
-                        className="px-5 py-3 tabular-nums font-medium"
-                        style={{ color: 'var(--foreground)' }}
-                      >
-                        {best !== null ? Math.round(best * 10) / 10 : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      {/* AI Insights */}
+      {settings.showAIInsights && (
+        <div className="pt-4 animate-in fade-in slide-in-from-bottom-2 duration-1000">
+          <AIInsightsPanel state={state} />
         </div>
       )}
     </div>
   );
 }
 
-function AnalyticsStatCard({
+function MetricCard({
   label,
   value,
   unit,
   sub,
+  isStreak,
   icon,
-  bg,
+  color,
+  atmosphere,
 }: {
   label: string;
   value: string;
   unit: string;
   sub?: string;
-  icon: React.ReactNode;
-  bg: string;
+  isStreak?: boolean;
+  icon: React.ReactElement;
+  color: string;
+  atmosphere?: string;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    cardRef.current.style.setProperty('--mouse-x', `${x}px`);
+    cardRef.current.style.setProperty('--mouse-y', `${y}px`);
+  };
+
   return (
-    <div className="card p-4 shadow-card">
-      <div className="flex items-center justify-between mb-3">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: bg }}
-        >
-          {icon}
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      className="card p-6 border border-white/[0.02] bg-[#ffffff01] backdrop-blur-3xl shadow-sm transition-all duration-700 hover:border-white/[0.05] group relative overflow-hidden flex flex-col justify-between min-h-[140px] rounded-[24px]"
+    >
+      <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-transparent pointer-events-none" />
+
+      <div
+        className="absolute inset-0 opacity-[0.005] group-hover:opacity-[0.015] transition-opacity duration-1000 pointer-events-none"
+        style={{
+          background: `radial-gradient(300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${color}, transparent 80%)`
+        }}
+      />
+
+      <div className="relative space-y-5">
+        <div className="flex items-center justify-between">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center border border-white/[0.02] transition-all duration-700 group-hover:border-white/[0.05] bg-white/[0.01]"
+            style={{ color: color }}
+          >
+            {React.cloneElement(icon as React.ReactElement<any>, { size: 14, strokeWidth: 1.5 })}
+          </div>
+          {isStreak && parseInt(value) >= 7 && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-500/[0.02] border border-orange-500/[0.06]">
+              <span className="w-[5px] h-[5px] rounded-full bg-orange-500/25 animate-pulse" />
+              <span className="text-[9px] font-[600] text-orange-500/30 uppercase tracking-[0.12em]">Active</span>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <p className="text-[9.5px] font-[600] uppercase tracking-[0.2em] text-muted-foreground/22 group-hover:text-muted-foreground/42 transition-colors duration-300">
+            {label}
+          </p>
+          <div className="flex items-baseline gap-1.5 mt-1.5">
+            <span className="text-[22px] font-[350] tracking-[-0.02em] text-foreground/78 tabular-nums leading-none">
+              {value}
+            </span>
+            <span className="text-[10px] font-[500] text-muted-foreground/20 tracking-wide">{unit}</span>
+          </div>
+          {sub && (
+            <p className="text-[9px] font-[450] mt-1.5 text-muted-foreground/18 tracking-[-0.005em]">{sub}</p>
+          )}
         </div>
       </div>
-      <div
-        className="text-2xl font-bold tabular-nums mb-0.5"
-        style={{ color: 'var(--foreground)' }}
-      >
-        {value}
-        {unit && (
-          <span className="text-sm font-normal ml-1" style={{ color: 'var(--muted-foreground)' }}>
-            {unit}
-          </span>
-        )}
-      </div>
-      {sub && (
-        <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-          {sub}
-        </p>
-      )}
-      <p className="text-xs font-medium mt-1" style={{ color: 'var(--muted-foreground)' }}>
-        {label}
-      </p>
     </div>
   );
 }
 
+
+
+
+function formatNumber(n: number): string {
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return String(Math.round(n * 10) / 10);
+}
+
 function AnalyticsSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-8 w-40 rounded-lg" style={{ backgroundColor: 'var(--muted)' }} />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={`askel-${i}`}
-            className="card h-24"
-            style={{ backgroundColor: 'var(--muted)' }}
-          />
+    <div className="space-y-10 animate-pulse">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <div className="h-10 w-64 rounded-2xl bg-muted/20" />
+          <div className="h-4 w-48 rounded bg-muted/10" />
+        </div>
+        <div className="flex gap-4">
+          <div className="h-12 w-[220px] rounded-2xl bg-muted/20" />
+          <div className="h-12 w-48 rounded-2xl bg-muted/20" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="h-32 rounded-2xl bg-muted/10 border border-border/20" />
         ))}
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-        <div className="card h-72 xl:col-span-3" style={{ backgroundColor: 'var(--muted)' }} />
-        <div className="card h-72 xl:col-span-2" style={{ backgroundColor: 'var(--muted)' }} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="lg:col-span-3 h-[480px] rounded-2xl bg-muted/5 border border-border/20" />
+        <div className="h-[480px] rounded-2xl bg-muted/5 border border-border/20" />
       </div>
+
+      <div className="h-64 rounded-2xl bg-muted/5 border border-border/20" />
     </div>
   );
 }
+
 
 function formatShortDate(dateStr: string): string {
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const month = parseInt(parts[1], 10) - 1;
   const day = parseInt(parts[2], 10);
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${months[month]} ${day}`;
 }

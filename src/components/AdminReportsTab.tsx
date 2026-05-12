@@ -16,7 +16,9 @@ import {
   Search,
   Filter,
   ArrowUpRight,
-  ChevronDown
+  ChevronDown,
+  Loader2,
+  Mail
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 

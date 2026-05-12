@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Check, LogOut, Settings, CreditCard, User, Building, Crown, X, HelpCircle } from 'lucide-react';
 import AppLogo from '@/components/ui/AppLogo';
 import SettingsModal from './SettingsModal';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface WorkspaceSwitcherProps {
   collapsed: boolean;
@@ -11,14 +12,13 @@ interface WorkspaceSwitcherProps {
 }
 
 export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenChange }: WorkspaceSwitcherProps) {
+  const { isSettingsModalOpen, setIsSettingsModalOpen, activeSettingsTab, setActiveSettingsTab } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('Workspace');
   const [plan, setPlan] = useState('Free');
   const [email, setEmail] = useState('user@creatortracker.app');
   const [mounted, setMounted] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 260 });
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState('Billing & Plans');
   
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -152,95 +152,93 @@ export default function WorkspaceSwitcher({ collapsed, onClose, onDropdownOpenCh
           ref={dropdownRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="fixed z-[100] rounded-2xl overflow-hidden scale-in origin-top-left"
+          className="fixed z-[100] rounded-2xl overflow-hidden scale-in origin-top-left border border-white/[0.05]"
           style={{ 
-            backgroundColor: 'color-mix(in srgb, var(--card) 96%, transparent)', 
-            border: '1px solid color-mix(in srgb, var(--border) 80%, transparent)',
-            boxShadow: '0 20px 40px -8px rgba(0,0,0,0.15), 0 0 0 1px color-mix(in srgb, var(--border) 50%, transparent)',
+            backgroundColor: 'rgba(10, 10, 10, 0.3)', 
+            boxShadow: '0 32px 64px -16px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02)',
             top: `${dropdownPos.top}px`,
             left: `${dropdownPos.left}px`,
             width: `${dropdownPos.width}px`,
-            backdropFilter: 'blur(20px)',
-          }}
-        >
+            backdropFilter: 'blur(40px) saturate(1.5)',
+          }}        >
           {/* Header area - Top section */}
-          <div className="p-4 border-b bg-transparent" style={{ borderColor: 'color-mix(in srgb, var(--border) 50%, transparent)' }}>
-             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5">Current Workspace</p>
+          <div className="p-4 border-b bg-transparent" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+             <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.2em] mb-3">Current Workspace</p>
              <div className="flex items-start gap-3 mt-1">
-               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm ring-1 ring-border flex-shrink-0 mt-0.5 relative">
+               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.02] shadow-sm ring-1 ring-white/[0.05] flex-shrink-0 mt-0.5 relative overflow-hidden">
                  <AppLogo size={22} />
                  {/* Premium badge in dropdown */}
                  {(plan.toLowerCase() === 'pro' || plan.toLowerCase() === 'max' || plan.toLowerCase() === 'studio') && (
-                   <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-yellow-500 rounded-full border-2 border-card flex items-center justify-center shadow-sm">
+                   <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-yellow-500 rounded-full border-2 border-[#0a0a0a] flex items-center justify-center shadow-sm">
                      <Crown size={9} className="text-white" />
                    </div>
                  )}
                </div>
                <div className="min-w-0 flex-1">
                  <div className="flex items-center gap-2">
-                   <p className="text-sm font-bold text-foreground truncate">{workspaceName}</p>
+                   <p className="text-[13px] font-semibold text-foreground/90 truncate">{workspaceName}</p>
                  </div>
-                 <p className="text-xs font-medium text-muted-foreground truncate">{plan} Plan</p>
-                 <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{email}</p>
+                 <p className="text-[11px] font-medium text-muted-foreground/40 truncate">{plan} Plan</p>
+                 <p className="text-[11px] text-muted-foreground/20 truncate mt-0.5">{email}</p>
                </div>
                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                 <Check size={12} className="text-primary" />
+                 <Check size={12} className="text-primary/60" />
                </div>
              </div>
           </div>
 
           {/* Menu items - Middle section */}
-          <div className="p-2 space-y-0.5 bg-transparent">
-            <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">
+          <div className="p-1.5 space-y-0.5 bg-transparent">
+            <div className="px-3 py-2 text-[9px] font-bold text-muted-foreground/20 uppercase tracking-[0.15em] mt-1">
                Account
             </div>
             <button 
               onClick={() => { setIsOpen(false); setActiveSettingsTab('Account'); setIsSettingsModalOpen(true); }}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-lg hover:bg-white/[0.05] text-foreground/70 transition-all text-left group"
             >
-              <User size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+              <User size={14} className="text-muted-foreground/30 group-hover:text-foreground/50 transition-colors" />
               <span>Profile Settings</span>
             </button>
             <button 
               onClick={() => { setIsOpen(false); setActiveSettingsTab('Billing & Plans'); setIsSettingsModalOpen(true); }}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-lg hover:bg-white/[0.05] text-foreground/70 transition-all text-left group"
             >
-              <CreditCard size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+              <CreditCard size={14} className="text-muted-foreground/30 group-hover:text-foreground/50 transition-colors" />
               <span>Billing & Plan</span>
             </button>
             <button 
               onClick={() => { setIsOpen(false); setActiveSettingsTab('Preferences'); setIsSettingsModalOpen(true); }}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-lg hover:bg-white/[0.05] text-foreground/70 transition-all text-left group"
             >
-              <Settings size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+              <Settings size={14} className="text-muted-foreground/30 group-hover:text-foreground/50 transition-colors" />
               <span>Preferences</span>
             </button>
             <button 
               onClick={() => { setIsOpen(false); setActiveSettingsTab('Help & Support'); setIsSettingsModalOpen(true); }}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-lg hover:bg-white/[0.05] text-foreground/70 transition-all text-left group"
             >
-              <HelpCircle size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+              <HelpCircle size={14} className="text-muted-foreground/30 group-hover:text-foreground/50 transition-colors" />
               <span>Help & Support</span>
             </button>
             
-            <div className="h-px w-full my-1.5" style={{ backgroundColor: 'var(--border)' }}></div>
+            <div className="h-px w-full my-2 bg-white/[0.03]"></div>
             
-            <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <div className="px-3 py-2 text-[9px] font-bold text-muted-foreground/20 uppercase tracking-[0.15em]">
                Workspace
             </div>
-            <button className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-muted text-foreground transition-colors text-left group">
-              <Building size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-lg hover:bg-white/[0.05] text-foreground/70 transition-all text-left group">
+              <Building size={14} className="text-muted-foreground/30 group-hover:text-foreground/50 transition-colors" />
               <span>Switch Workspace</span>
             </button>
             
-            <div className="h-px w-full my-1.5" style={{ backgroundColor: 'var(--border)' }}></div>
+            <div className="h-px w-full my-2 bg-white/[0.03]"></div>
             
             {/* Bottom section */}
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm font-medium rounded-md hover:bg-danger/10 text-danger transition-colors text-left group"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-lg hover:bg-red-500/[0.08] text-red-500/60 transition-all text-left group"
             >
-              <LogOut size={16} className="text-danger/80 group-hover:text-danger transition-colors" />
+              <LogOut size={14} className="text-red-500/40 group-hover:text-red-500/60 transition-colors" />
               <span>Log out</span>
             </button>
           </div>

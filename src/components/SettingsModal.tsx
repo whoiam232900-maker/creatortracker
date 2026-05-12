@@ -234,23 +234,23 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
           }}
         >
           <div className="p-6 pb-2">
-            <h2 className="text-lg font-bold tracking-tight text-foreground">Settings</h2>
+            <h2 className="text-[17px] font-light tracking-tight text-foreground/80">Settings</h2>
           </div>
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
+          <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-thin">
             {visibleSidebarItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
                   key={item.label}
                   onClick={() => setActiveTab(item.label)}
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group ${
                     activeTab === item.label
-                      ? 'bg-white/[0.04] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.1)] border border-white/[0.05]' 
-                      : 'text-muted-foreground hover:bg-white/[0.02] hover:text-foreground border border-transparent'
+                      ? 'bg-white/[0.04] text-foreground/90 shadow-[0_1px_2px_rgba(0,0,0,0.1)] border border-white/[0.05]' 
+                      : 'text-muted-foreground/40 hover:bg-white/[0.01] hover:text-foreground/70 border border-transparent'
                   }`}
                 >
-                  <Icon size={16} className={`transition-colors ${activeTab === item.label ? 'text-foreground' : 'group-hover:text-foreground'}`} />
-                  <span className={item.label.startsWith('Admin:') ? 'text-primary font-bold' : ''}>{item.label}</span>
+                  <Icon size={14} className={`transition-colors duration-300 ${activeTab === item.label ? 'text-primary/60' : 'text-muted-foreground/20 group-hover:text-muted-foreground/30'}`} strokeWidth={1.5} />
+                  <span className={`tracking-tight ${item.label.startsWith('Admin:') ? 'text-primary/60 font-semibold' : ''}`}>{item.label}</span>
                 </button>
               );
             })}
@@ -264,29 +264,32 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
             {activeTab === 'Billing & Plans' && (
               <>
                 {/* Header / Status Section */}
-                <div className="mb-8">
-                  <h1 className="text-xl font-bold tracking-tight mb-1">Billing & Plans</h1>
-                  <p className="text-muted-foreground text-[13px]">
-                    Manage your subscription, billing history, and workspace usage.
+                <div className="mb-10">
+                  <h1 className="text-2xl font-light tracking-tight mb-2 text-foreground/90">Subscription</h1>
+                  <p className="text-muted-foreground/40 text-[13px] font-medium">
+                    Manage your workspace membership and billing details.
                   </p>
                 </div>
 
                 {/* Current Plan Summary Card */}
                 <div 
-                  className="rounded-xl border p-5 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                  className="rounded-[22px] border p-6 mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                   style={{ 
-                    borderColor: 'rgba(255, 255, 255, 0.06)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+                    borderColor: 'rgba(255, 255, 255, 0.04)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.01)',
                   }}
                 >
                   <div className="flex-1">
-                    <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-[0.15em] mb-1">Current Subscription</p>
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-lg font-semibold text-white">{currentPlan} Plan</h2>
+                    <p className="text-[10px] font-medium text-muted-foreground/20 uppercase tracking-[0.25em] mb-2.5">Active Membership</p>
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-[17px] font-light text-foreground/80">{currentPlan} Plan</h2>
                       {currentPlan.toLowerCase() !== 'free' && (
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary/5 text-primary/80 border border-primary/10 uppercase tracking-widest">
-                          Active
-                        </span>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/[0.03] border border-primary/10">
+                          <span className="w-1 h-1 rounded-full bg-primary/40" />
+                          <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-widest">
+                            Active
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -479,11 +482,12 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                           <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Theme Mode</p>
                           <p className="text-xs text-muted-foreground mt-0.5">Select your interface color scheme.</p>
                         </div>
-                        <Segment<ThemeMode> 
-                          options={['Dark', 'Light', 'System']} 
-                          active={settings.themeMode} 
-                          onChange={(val) => updateSetting('themeMode', val)} 
-                        />
+                        <div className="flex items-center gap-3">
+                          <div className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-bold uppercase tracking-wider">
+                            Dark Mode Only
+                          </div>
+                          <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-tight">Light mode coming soon</span>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
@@ -647,6 +651,14 @@ export default function SettingsModal({ isOpen, onClose, currentPlan = 'Free', i
                           <p className="text-xs text-muted-foreground mt-0.5">Use shortcuts for quick navigation and logging.</p>
                         </div>
                         <Toggle active={settings.enableShortcuts} onChange={(val) => updateSetting('enableShortcuts', val)} />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">Workflow Tracking</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Manage operational workflows and production pipelines.</p>
+                        </div>
+                        <Toggle active={settings.enableWorkflowTracking} onChange={(val) => updateSetting('enableWorkflowTracking', val)} />
                       </div>
 
                     </div>

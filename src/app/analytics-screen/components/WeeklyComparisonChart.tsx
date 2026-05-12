@@ -15,6 +15,7 @@ interface WeeklyDataPoint {
   day: string;
   thisWeek: number;
   lastWeek: number;
+  fullDay: string;
 }
 
 interface WeeklyComparisonChartProps {
@@ -30,28 +31,34 @@ function CustomTooltip({
   unit,
 }: {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ name: string; value: number; color: string; payload: WeeklyDataPoint }>;
   label?: string;
   unit: string;
 }) {
   if (!active || !payload || payload.length === 0) return null;
+  const data = payload[0].payload;
+  
   return (
-    <div className="card shadow-elevated px-3 py-2 text-xs space-y-1">
-      <p className="font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
-        {label}
+    <div className="card shadow-2xl border border-border/40 px-5 py-4 min-w-[180px] animate-in fade-in zoom-in-95 duration-200 bg-card/90 backdrop-blur-xl">
+      <p className="text-[10px] uppercase tracking-[0.15em] font-medium mb-3 text-muted-foreground/40">
+        {data.fullDay}
       </p>
-      {payload.map((p, i) => (
-        <div key={`tt-${i}`} className="flex items-center gap-2">
-          <span
-            className="w-2 h-2 rounded-full inline-block"
-            style={{ backgroundColor: p.color }}
-          />
-          <span style={{ color: 'var(--muted-foreground)' }}>{p.name}:</span>
-          <span className="tabular-nums font-medium" style={{ color: 'var(--foreground)' }}>
-            {p.value} {unit}
-          </span>
-        </div>
-      ))}
+      <div className="space-y-3">
+        {payload.map((p, i) => (
+          <div key={`tt-${i}`} className="flex items-center justify-between gap-6 group">
+            <div className="flex items-center gap-2.5">
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: p.color, opacity: 0.6 }}
+              />
+              <span className="text-[11px] font-medium text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">{p.name}</span>
+            </div>
+            <span className="text-xs font-medium tabular-nums font-numbers text-foreground/80">
+              {p.value} {unit}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -59,11 +66,8 @@ function CustomTooltip({
 export default function WeeklyComparisonChart({ data, color, unit }: WeeklyComparisonChartProps) {
   if (data.length === 0) {
     return (
-      <div
-        className="flex items-center justify-center h-56 text-sm"
-        style={{ color: 'var(--muted-foreground)' }}
-      >
-        No weekly data available
+      <div className="flex items-center justify-center h-48 text-[11px] font-medium text-muted-foreground/20 uppercase tracking-[0.2em]">
+        No Comparison Data
       </div>
     );
   }
@@ -73,34 +77,35 @@ export default function WeeklyComparisonChart({ data, color, unit }: WeeklyCompa
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 4, right: 4, bottom: 0, left: -16 }}
+          margin={{ top: 10, right: 0, bottom: 0, left: -25 }}
           barCategoryGap="30%"
-          barGap={2}
+          barGap={6}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border)" strokeOpacity={0.2} />
           <XAxis
             dataKey="day"
-            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+            tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 500, opacity: 0.4 }}
             tickLine={false}
             axisLine={false}
+            dy={15}
           />
           <YAxis
-            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+            tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 500, opacity: 0.4 }}
             tickLine={false}
             axisLine={false}
           />
           <Tooltip
             content={<CustomTooltip unit={unit} />}
-            cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
+            cursor={{ fill: 'var(--foreground)', opacity: 0.02 }}
           />
-          <Bar dataKey="lastWeek" name="Last week" radius={[3, 3, 0, 0]} fill="var(--border)">
+          <Bar dataKey="lastWeek" name="Last Week" radius={[2, 2, 0, 0]} fill="var(--border)" fillOpacity={0.2}>
             {data.map((_, i) => (
-              <Cell key={`lw-cell-${i}`} fill="var(--border)" />
+              <Cell key={`lw-cell-${i}`} fill="var(--border)" fillOpacity={0.2} />
             ))}
           </Bar>
-          <Bar dataKey="thisWeek" name="This week" radius={[3, 3, 0, 0]}>
+          <Bar dataKey="thisWeek" name="Current Week" radius={[2, 2, 0, 0]} fill={color} fillOpacity={0.5}>
             {data.map((_, i) => (
-              <Cell key={`tw-cell-${i}`} fill={color} />
+              <Cell key={`tw-cell-${i}`} fill={color} fillOpacity={0.5} />
             ))}
           </Bar>
         </BarChart>
@@ -108,3 +113,4 @@ export default function WeeklyComparisonChart({ data, color, unit }: WeeklyCompa
     </div>
   );
 }
+

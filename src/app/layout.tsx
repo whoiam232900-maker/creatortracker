@@ -1,12 +1,19 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Montserrat } from 'next/font/google';
+import { Inter, Montserrat } from 'next/font/google';
 import '../styles/tailwind.css';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-numbers',
+  display: 'swap',
+});
+
 const montserrat = Montserrat({
   subsets: ['latin'],
-  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-sans',
   display: 'swap',
 });
@@ -27,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${montserrat.variable} dark`}>
+    <html lang="en" className={`${montserrat.variable} ${inter.variable} dark`}>
       <body className={montserrat.className}>
         <SettingsProvider>
           {children}

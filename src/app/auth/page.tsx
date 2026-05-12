@@ -3,6 +3,8 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Eye, EyeOff, Loader2, Check, X, ShieldCheck } from 'lucide-react';
+import { seedAdminAccount, validateCredentials, clearAllSessions, ADMIN_EMAIL } from '@/lib/auth-utils';
+import bcrypt from 'bcryptjs';
 
 // ── Inner component that uses useSearchParams (must be inside Suspense) ─────
 function AuthForm() {
@@ -30,7 +32,17 @@ function AuthForm() {
   };
 
   useEffect(() => {
+    // Ensure admin account exists on load
+    seedAdminAccount();
+
     const mode = searchParams?.get('mode');
+    const reset = searchParams?.get('reset');
+    
+    if (reset === 'true') {
+      clearAllSessions();
+      console.debug('[auth] Sessions cleared via reset flag');
+    }
+
     if (mode === 'signup') setIsSignUp(true);
     if (mode === 'signin') setIsSignUp(false);
 
@@ -71,32 +83,6 @@ function AuthForm() {
       // Simulate network delay for premium feel
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      // ── Admin credential check ───────────────────────────────────────────
-      const isAdminLogin = email === 'kabenix_is_admin' && password === '****New****Tracker';
-
-      if (isAdminLogin) {
-        const sessionData = {
-          isLoggedIn: true,
-          isAdmin: true,
-          plan: 'Studio',
-          email,
-          fullName: 'Admin User',
-          isNewAccount: false,
-          onboardingPath: null,
-          remember: keepMeSignedIn
-        };
-        localStorage.setItem('userSession', JSON.stringify(sessionData));
-        localStorage.removeItem('pendingSetupPath');
-        router.push(getLandingRoute());
-        return;
-      }
-
-      // ── Regular user ─────────────────────────────────────────────────────
-      const usersRaw = localStorage.getItem('users');
-      const users: Record<string, { password: string, fullName?: string }> = usersRaw
-        ? JSON.parse(usersRaw)
-        : {};
-
       if (isSignUp) {
         if (!isPasswordValid) {
           setError('Password must be at least 8 characters');
@@ -108,14 +94,31 @@ function AuthForm() {
           setIsLoading(false);
           return;
         }
+
+        const usersRaw = localStorage.getItem('users');
+        const users = usersRaw ? JSON.parse(usersRaw) : {};
+
         if (users[email]) {
           setError('An account with this email already exists');
           setIsLoading(false);
           return;
         }
 
-        // Register new user
-        users[email] = { password, fullName };
+        // PROTECTION: Prevent creating a new account with the admin email via signup
+        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+          setError('This email is reserved for system administration');
+          setIsLoading(false);
+          return;
+        }
+
+        // Register new user with hashed password
+        const hashedPassword = bcrypt.hashSync(password, 10);
+        users[email] = { 
+          password: hashedPassword, 
+          fullName, 
+          role: 'user', 
+          createdAt: new Date().toISOString() 
+        };
         localStorage.setItem('users', JSON.stringify(users));
 
         const pendingSetupPath = localStorage.getItem('pendingSetupPath') ?? 'ai';
@@ -123,7 +126,7 @@ function AuthForm() {
 
         const sessionData = {
           isLoggedIn: true,
-          isAdmin: false,
+          role: 'user',
           plan: 'Free',
           email,
           fullName,
@@ -139,31 +142,31 @@ function AuthForm() {
           router.push('/onboarding/ai');
         }
       } else {
-        if (!users[email]) {
-          setError('No account found with this email');
-          setIsLoading(false);
-          return;
-        }
-        if (users[email].password !== password) {
-          setError('Incorrect password');
+        // Sign In
+        const userData = await validateCredentials(email, password);
+
+        if (!userData) {
+          setError('Invalid email or password');
           setIsLoading(false);
           return;
         }
 
         const sessionData = {
           isLoggedIn: true,
-          isAdmin: false,
-          plan: 'Free',
+          role: userData.role,
+          plan: userData.role === 'admin' ? 'Studio' : 'Free',
           email,
-          fullName: users[email].fullName || email.split('@')[0],
+          fullName: userData.fullName || email.split('@')[0],
           isNewAccount: false,
           onboardingPath: null,
           remember: keepMeSignedIn
         };
+        
         localStorage.setItem('userSession', JSON.stringify(sessionData));
         router.push(getLandingRoute());
       }
     } catch (err) {
+      console.error('[auth] Authentication error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);

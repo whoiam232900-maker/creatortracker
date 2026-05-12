@@ -33,10 +33,29 @@ export interface TimerState {
   startedAt: number | null;
 }
 
+export type WorkflowStatus = 'Pending' | 'In Progress' | 'Review' | 'Completed' | 'Delivered';
+
+export interface WorkflowCheckpoint {
+  id: string;
+  label: string;
+  isCompleted: boolean;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  status: WorkflowStatus;
+  checkpoints: WorkflowCheckpoint[];
+  timeLoggedMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppState {
   fields: TrackingField[];
   entries: DailyEntry[];
   targets: TargetConfig[];
+  workflows?: Workflow[];
   theme: 'light' | 'dark';
 }
 
@@ -241,18 +260,25 @@ export function loadState(userId?: string): AppState {
       return { fields: [], entries: [], targets: [], theme: 'light' };
     }
     const parsed = JSON.parse(raw) as Partial<AppState>;
+    const today = getTodayString();
+    
+    // Filter out any future dates for data integrity
+    const validEntries = (Array.isArray(parsed.entries) ? parsed.entries : [])
+      .filter((e) => e.date <= today);
+
     console.debug(
       '[store] loadState() — loaded',
       (parsed.fields ?? []).length,
       'fields,',
-      (parsed.entries ?? []).length,
+      validEntries.length,
       'entries for key:',
       key
     );
     return {
       fields: Array.isArray(parsed.fields) ? parsed.fields : [],
-      entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+      entries: validEntries,
       targets: Array.isArray(parsed.targets) ? parsed.targets : [],
+      workflows: Array.isArray(parsed.workflows) ? parsed.workflows : [],
       theme: parsed.theme === 'dark' ? 'dark' : 'light',
     };
   } catch (e) {
@@ -304,6 +330,7 @@ export function initializeStarterData(userId?: string): AppState {
     fields: DEFAULT_FIELDS,
     entries: generateSampleEntries(DEFAULT_FIELDS),
     targets: DEFAULT_TARGETS,
+    workflows: [],
     theme: 'light',
   };
   saveState(initial, userId);
@@ -392,7 +419,10 @@ export function getWeekDates(): string[] {
 }
 
 export function getFieldTotal(entries: DailyEntry[], fieldId: string, dates?: string[]): number {
-  const filtered = dates ? entries.filter((e) => dates.includes(e.date)) : entries;
+  const today = getTodayString();
+  const filtered = (dates ? entries.filter((e) => dates.includes(e.date)) : entries)
+    .filter((e) => e.date <= today);
+  
   return filtered.reduce((sum, entry) => {
     const val = entry.values.find((v) => v.fieldId === fieldId);
     if (!val) return sum;
@@ -403,27 +433,32 @@ export function getFieldTotal(entries: DailyEntry[], fieldId: string, dates?: st
 
 export function getCurrentStreak(entries: DailyEntry[]): number {
   if (entries.length === 0) return 0;
-  const today = getAdjustedDate();
-  let streak = 0;
-  const checkDate = new Date(today);
+  const today = getTodayString();
+  const validEntries = entries.filter((e) => e.date <= today);
+  if (validEntries.length === 0) return 0;
 
-  while (true) {
+  const adjustedToday = getAdjustedDate();
+  let streak = 0;
+  const checkDate = new Date(adjustedToday);
+
+  for (let i = 0; i < 366; i++) {
     const dateStr = checkDate.toISOString().split('T')[0];
-    const hasEntry = entries.some((e) => e.date === dateStr);
+    const hasEntry = validEntries.some((e) => {
+      const hasData = e.values.some((v) => v.value !== '' && v.value !== '0' && v.value !== '0.00');
+      return e.date === dateStr && hasData;
+    });
+
     if (!hasEntry) {
-      if (streak === 0) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        const yestStr = checkDate.toISOString().split('T')[0];
-        if (!entries.some((e) => e.date === yestStr)) break;
-        streak++;
+      // If we are checking "today" and there's no entry, streak might still be alive from yesterday
+      if (i === 0) {
         checkDate.setDate(checkDate.getDate() - 1);
         continue;
       }
       break;
     }
+
     streak++;
     checkDate.setDate(checkDate.getDate() - 1);
-    if (streak > 365) break;
   }
   return streak;
 }

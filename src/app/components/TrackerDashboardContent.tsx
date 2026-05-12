@@ -7,6 +7,7 @@ import {
   getTodayString,
   getWeekDates,
   getFieldTotal,
+  getCurrentStreak,
   generateId,
   AppState,
   TrackingField,
@@ -36,6 +37,7 @@ import Link from 'next/link';
 import EntryFormModal from './EntryFormModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
 import { useSettings } from '@/contexts/SettingsContext';
+import WorkflowModule from '@/components/WorkflowModule';
 
 export default function TrackerDashboardContent() {
   const { settings } = useSettings();
@@ -283,7 +285,7 @@ export default function TrackerDashboardContent() {
   const recentEntries = [...state.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
 
   // Streak
-  const streak = computeStreak(state.entries);
+  const streak = getCurrentStreak(state.entries);
 
   // Daily completion rate
   const numFields = state.fields.filter((f) => f.type === 'number');
@@ -442,7 +444,7 @@ export default function TrackerDashboardContent() {
               </div>
 
               <div
-                className="text-4xl font-bold tabular-nums text-center py-4 mb-4 rounded-lg"
+                className="text-4xl font-bold tabular-nums font-numbers text-center py-4 mb-4 rounded-lg"
                 style={{
                   color: timerRunning ? 'var(--primary)' : 'var(--foreground)',
                   backgroundColor: timerRunning ? 'rgba(37,99,235,0.06)' : 'var(--muted)',
@@ -555,6 +557,9 @@ export default function TrackerDashboardContent() {
               <AIInsightsPanel state={state} />
             </div>
           )}
+
+          {/* Workflow Module */}
+          <WorkflowModule state={state} setState={setState} userId={userId} />
 
           {/* Recent Entries Table */}
           <div className="card shadow-card overflow-hidden">
@@ -719,7 +724,7 @@ function StatCard({
         {trend === 'up' && <TrendingUp size={14} style={{ color: 'var(--success)' }} />}
       </div>
       <div
-        className="text-2xl font-bold tabular-nums mb-0.5"
+        className="text-2xl font-bold tabular-nums font-numbers mb-0.5"
         style={{ color: 'var(--foreground)' }}
       >
         {value}
@@ -769,7 +774,7 @@ function TargetProgressRow({
             <AlertCircle size={14} style={{ color: 'var(--danger)' }} />
           ) : null}
           <span
-            className="text-xs font-semibold tabular-nums"
+            className="text-xs font-semibold tabular-nums font-numbers"
             style={{ color: 'var(--foreground)' }}
           >
             {Math.round(current * 10) / 10} / {target.targetValue} {field.unit}
@@ -848,7 +853,7 @@ function EntryRow({
           <td key={`cell-${entry.id}-${field.id}`} className="px-4 py-3">
             <div className="flex items-center gap-1.5">
               <span
-                className="text-sm tabular-nums"
+                className="text-sm tabular-nums font-numbers"
                 style={{
                   color: metTarget ? 'var(--success)' : 'var(--foreground)',
                   fontWeight: metTarget ? 600 : 400,
@@ -959,30 +964,4 @@ function getFieldValueForEntry(entry: DailyEntry | undefined, fieldId: string): 
   if (!val) return 0;
   const n = parseFloat(val.value);
   return isNaN(n) ? 0 : n;
-}
-
-function computeStreak(entries: DailyEntry[]): number {
-  if (entries.length === 0) return 0;
-  const today = new Date();
-  let streak = 0;
-  const checkDate = new Date(today);
-
-  for (let i = 0; i < 366; i++) {
-    const dateStr = checkDate.toISOString().split('T')[0];
-    const hasEntry = entries.some((e) => {
-      const vals = e.values;
-      const hasData = vals.some((v) => v.value !== '' && v.value !== '0');
-      return e.date === dateStr && hasData;
-    });
-    if (!hasEntry) {
-      if (i === 0) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        continue;
-      }
-      break;
-    }
-    streak++;
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-  return streak;
 }

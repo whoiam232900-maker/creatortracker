@@ -1,268 +1,222 @@
 'use client';
+import React from 'react';
+import { Sparkles, Brain } from 'lucide-react';
+import { AppState, DailyEntry } from '@/lib/store';
 
-import React, { useState, useEffect } from 'react';
-import { Lightbulb, Sparkles, Loader2 } from 'lucide-react';
-import { AppState, getCurrentStreak, DailyEntry } from '@/lib/store';
-
-interface AIInsightsPanelProps {
-  state: AppState | null;
-}
-
-export default function AIInsightsPanel({ state }: AIInsightsPanelProps) {
-  const [insights, setInsights] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!state || state.entries.length === 0) {
-      setInsights([]);
-      return;
-    }
-
-    let isMounted = true;
-    setLoading(true);
-
-    // Simulate AI generation delay
-    setTimeout(() => {
-      if (!isMounted) return;
-      
-      const generated = generateAIInsights(state);
-      setInsights(generated);
-      setLoading(false);
-    }, 1500);
-
-    return () => {
-      isMounted = false;
-    };
-  }, [state]);
-
-  if (!state) return null;
-
-  return (
-    <div className="card p-5 shadow-card h-full flex flex-col relative overflow-hidden group">
-      {/* Background glow effect for AI */}
-      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700" style={{ backgroundColor: 'var(--primary)' }} />
-      
-      <div className="flex items-center gap-2 mb-5 relative z-10">
-        <Sparkles size={18} style={{ color: 'var(--primary)' }} />
-        <h2 className="text-sm font-bold tracking-wide" style={{ color: 'var(--foreground)' }}>
-          AI Insights
-        </h2>
-      </div>
-      
-      <div className="flex-1 relative z-10">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-full py-8 text-center space-y-3">
-            <Loader2 className="animate-spin w-6 h-6" style={{ color: 'var(--primary)' }} />
-            <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>Analyzing tracking data...</p>
-          </div>
-        ) : insights.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-6 text-center">
-            <Lightbulb size={24} className="mb-2 opacity-30" style={{ color: 'var(--muted-foreground)' }} />
-            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Log more entries to unlock personalized AI insights.</p>
-          </div>
-        ) : (
-          <ul className="space-y-4">
-            {insights.map((insight, i) => (
-              <li 
-                key={i} 
-                className="flex items-start gap-3 text-sm transition-all animate-in fade-in slide-in-from-bottom-2" 
-                style={{ 
-                  animationDelay: `${i * 150}ms`, 
-                  animationFillMode: 'both',
-                  color: 'var(--foreground)' 
-                }}
-              >
-                <span 
-                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 shadow-sm" 
-                  style={{ 
-                    backgroundColor: 'rgba(37,99,235,0.1)', // Primary tint
-                    color: 'var(--primary)',
-                    border: '1px solid rgba(37,99,235,0.2)'
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span className="leading-relaxed font-medium opacity-90">{insight}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Modular function to generate AI insights based on current tracking state.
- * This function analyzes entries, targets, and trends locally.
- * Can be replaced or augmented by an external LLM API in the future.
- */
 function generateAIInsights(state: AppState): string[] {
   const msgs: string[] = [];
   const entries = state.entries;
   
-  if (entries.length < 3) {
-    return ["Log a few more days of data to unlock behavioral insights."];
+  if (entries.length < 5) {
+    return ["Track at least 5 sessions to establish baseline behavioral patterns."];
   }
 
-  // Sort entries chronologically by date
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  
-  // Find numeric fields
   const numFields = state.fields.filter(f => f.type === 'number');
-  if (numFields.length === 0) return ["Add numeric tracking fields to generate productivity insights."];
+  if (numFields.length === 0) return ["Numeric fields are required for behavioral analysis."];
   
   const primaryField = numFields[0];
-  const dailyTargets = state.targets.filter(t => t.type === 'daily' && t.fieldId === primaryField.id);
-  const targetVal = dailyTargets.length > 0 ? dailyTargets[0].targetValue : null;
-
-  // Helper to get primary value
   const getPrimaryVal = (e: DailyEntry) => {
     const v = e.values.find(v => v.fieldId === primaryField.id);
     return v ? parseFloat(v.value) || 0 : 0;
   };
 
-  // 1. Momentum / Day-after-drop analysis
-  if (sorted.length > 5) {
-    let drops = 0;
-    let bounceBacks = 0;
-    let slumps = 0;
+  const dateMap = new Map<string, number>();
+  sorted.forEach(e => {
+    dateMap.set(e.date, getPrimaryVal(e));
+  });
 
-    for (let i = 1; i < sorted.length - 1; i++) {
-      const prev = getPrimaryVal(sorted[i-1]);
-      const curr = getPrimaryVal(sorted[i]);
-      const next = getPrimaryVal(sorted[i+1]);
-      
-      const avg = (prev + curr + next) / 3 || 1;
-      
-      // If today is a significant drop
-      if (curr < prev * 0.6 && curr < avg * 0.6) {
-        drops++;
-        if (next >= prev * 0.8 || next > curr * 1.5) {
-          bounceBacks++;
-        } else {
-          slumps++;
-        }
-      }
+  const getValForDate = (date: Date) => {
+    const dStr = date.toISOString().split('T')[0];
+    return dateMap.get(dStr) || 0;
+  };
+
+  // 1. Burnout & Volatility Analysis
+  if (sorted.length >= 10) {
+    const last14Vals: number[] = [];
+    const today = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      last14Vals.push(getValForDate(d));
     }
     
-    if (drops >= 2) {
-      if (slumps > bounceBacks) {
-        msgs.push(`Data shows you often miss targets for 2-3 days following a low-work day. Focus on resetting quickly tomorrow.`);
-      } else if (bounceBacks >= slumps) {
-        msgs.push(`Strong recovery pattern detected: you reliably hit above-average ${primaryField.name.toLowerCase()} immediately after rest days.`);
+    const nonZero14 = last14Vals.filter(v => v > 0);
+    if (nonZero14.length > 3) {
+      const avg = nonZero14.reduce((a,b) => a+b, 0) / nonZero14.length;
+      const max = Math.max(...nonZero14);
+      const isHighlyVolatile = max > avg * 2.5;
+      
+      let zerosAfterMax = 0;
+      let foundMax = false;
+      for (const v of last14Vals) {
+        if (v === max && !foundMax) foundMax = true;
+        else if (foundMax && v === 0) zerosAfterMax++;
+        else if (foundMax && v > 0) break;
+      }
+
+      if (isHighlyVolatile && zerosAfterMax >= 2) {
+        msgs.push("Your recent pattern suggests burnout risk from irregular peaks.");
+      } else if (!isHighlyVolatile && nonZero14.length >= 10) {
+        msgs.push("Smaller daily sessions are producing better long-term consistency.");
+      } else if (isHighlyVolatile) {
+        msgs.push("Momentum has become unstable over the last 14 days.");
       }
     }
   }
 
-  // 2. Logging time analysis (Morning vs Evening)
+  // 2. Inactivity & Recovery Impact
+  if (sorted.length >= 7) {
+    let outputAfter2PlusDayGap = [];
+    let outputConsecutive = [];
+
+    for (let i = 1; i < sorted.length; i++) {
+      const d1 = new Date(sorted[i-1].date);
+      const d2 = new Date(sorted[i].date);
+      const gapDays = Math.floor((d2.getTime() - d1.getTime()) / (1000 * 3600 * 24)) - 1;
+      const val = getPrimaryVal(sorted[i]);
+      
+      if (val > 0) {
+        if (gapDays === 0) outputConsecutive.push(val);
+        else if (gapDays >= 2) outputAfter2PlusDayGap.push(val);
+      }
+    }
+
+    const avgConsecutive = outputConsecutive.length ? outputConsecutive.reduce((a,b) => a+b, 0) / outputConsecutive.length : 0;
+    const avgAfter2 = outputAfter2PlusDayGap.length ? outputAfter2PlusDayGap.reduce((a,b) => a+b, 0) / outputAfter2PlusDayGap.length : 0;
+
+    if (avgAfter2 > 0 && avgAfter2 < avgConsecutive * 0.5 && outputAfter2PlusDayGap.length >= 2) {
+      msgs.push("Your productivity drops sharply after 2 or more inactive days.");
+    } else if (avgAfter2 > 0 && avgAfter2 >= avgConsecutive * 0.9 && outputAfter2PlusDayGap.length >= 2) {
+      msgs.push("You tend to recover productivity quickly after short sessions or missed days.");
+    }
+  }
+
+  // 3. Work Rhythm (Mid-week vs others)
+  if (sorted.length >= 14) {
+    let midWeekVals = [];
+    let otherVals = [];
+    
+    sorted.forEach(e => {
+      const val = getPrimaryVal(e);
+      if (val > 0) {
+        const [y, m, d] = e.date.split('-').map(Number);
+        const day = new Date(y, m - 1, d).getDay();
+        if (day >= 2 && day <= 4) midWeekVals.push(val);
+        else otherVals.push(val);
+      }
+    });
+
+    const midAvg = midWeekVals.length ? midWeekVals.reduce((a,b) => a+b, 0) / midWeekVals.length : 0;
+    const otherAvg = otherVals.length ? otherVals.reduce((a,b) => a+b, 0) / otherVals.length : 0;
+
+    if (midAvg > otherAvg * 1.3 && midWeekVals.length >= 4) {
+      msgs.push("Your strongest work rhythm appears mid-week.");
+    }
+  }
+
+  // 4. Session Size Sustainability
+  if (sorted.length >= 10) {
+    const nonZero = sorted.map(getPrimaryVal).filter(v => v > 0);
+    if (nonZero.length >= 5) {
+      const sortedNonZero = [...nonZero].sort((a,b) => a-b);
+      const median = sortedNonZero[Math.floor(sortedNonZero.length / 2)];
+      
+      let nextDayAfterLarge = [];
+      let nextDayAfterModerate = [];
+
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const val1 = getPrimaryVal(sorted[i]);
+        const val2 = getPrimaryVal(sorted[i+1]);
+        
+        const d1 = new Date(sorted[i].date);
+        const d2 = new Date(sorted[i+1].date);
+        const isConsecutive = (d2.getTime() - d1.getTime()) / (1000*3600*24) === 1;
+
+        if (val1 > median * 1.5) {
+          nextDayAfterLarge.push(isConsecutive ? val2 : 0);
+        } else if (val1 > 0 && val1 <= median * 1.5) {
+          nextDayAfterModerate.push(isConsecutive ? val2 : 0);
+        }
+      }
+
+      const dropOffAfterLarge = nextDayAfterLarge.filter(v => v === 0).length / (nextDayAfterLarge.length || 1);
+      const dropOffAfterModerate = nextDayAfterModerate.filter(v => v === 0).length / (nextDayAfterModerate.length || 1);
+
+      if (dropOffAfterLarge > dropOffAfterModerate * 1.5 && nextDayAfterLarge.length >= 3) {
+        msgs.push("Consistency improves when daily sessions stay within moderate boundaries.");
+      }
+    }
+  }
+
+  // 5. Focus Timing
+  let morningVal = 0;
+  let nightVal = 0;
   let morningCount = 0;
-  let eveningCount = 0;
-  let morningTotal = 0;
-  let eveningTotal = 0;
+  let nightCount = 0;
 
   sorted.forEach(e => {
+    if (!e.createdAt) return;
+    const hour = new Date(e.createdAt).getHours();
     const val = getPrimaryVal(e);
-    if (val > 0 && e.createdAt) {
-      try {
-        const hour = new Date(e.createdAt).getHours();
-        if (hour < 17 && hour > 4) {
-          morningCount++;
-          morningTotal += val;
-        } else {
-          eveningCount++;
-          eveningTotal += val;
-        }
-      } catch (err) {}
+    if (hour >= 5 && hour < 12) {
+      morningVal += val;
+      morningCount++;
+    } else if (hour >= 18 || hour < 3) {
+      nightVal += val;
+      nightCount++;
     }
   });
 
-  if (morningCount >= 3 && eveningCount >= 3) {
-    const morningAvg = morningTotal / morningCount;
-    const eveningAvg = eveningTotal / eveningCount;
-    if (morningAvg > eveningAvg * 1.15) {
-      msgs.push(`Your consistency improves by ${Math.round((morningAvg / eveningAvg - 1) * 100)}% when you log entries before evening.`);
-    } else if (eveningAvg > morningAvg * 1.15) {
-      msgs.push(`You tend to record ${Math.round((eveningAvg / morningAvg - 1) * 100)}% higher ${primaryField.name.toLowerCase()} when logging later in the day.`);
+  if (morningCount >= 3 && nightCount >= 3) {
+    const mAvg = morningVal / morningCount;
+    const nAvg = nightVal / nightCount;
+    if (mAvg > nAvg * 1.4) {
+      msgs.push("You perform best when sessions are logged before noon.");
+    } else if (nAvg > mAvg * 1.4) {
+      msgs.push("Your deepest focus capacity typically emerges during evening sessions.");
     }
   }
 
-  // 3. Compare this week vs last week (Moving average)
-  if (sorted.length >= 14) {
-    const last7 = sorted.slice(-7).reduce((sum, e) => sum + getPrimaryVal(e), 0);
-    const prev7 = sorted.slice(-14, -7).reduce((sum, e) => sum + getPrimaryVal(e), 0);
-    
-    if (prev7 > 0) {
-      const change = ((last7 - prev7) / prev7) * 100;
-      if (change > 15) {
-        msgs.push(`Your 7-day rolling average for ${primaryField.name.toLowerCase()} is up ${Math.round(change)}% compared to the previous week.`);
-      } else if (change < -15) {
-        msgs.push(`Recent volume for ${primaryField.name.toLowerCase()} is tracking ${Math.abs(Math.round(change))}% lower than your 14-day baseline.`);
-      }
-    }
-  }
-
-  // 4. Target completion patterns
-  if (targetVal && sorted.length >= 3) {
-    const recent = sorted.slice(-3);
-    const allHit = recent.every(e => getPrimaryVal(e) >= targetVal);
-    const allMissed = recent.every(e => getPrimaryVal(e) > 0 && getPrimaryVal(e) < targetVal);
-    
-    if (allHit) {
-      msgs.push(`You've exceeded your daily ${primaryField.name.toLowerCase()} target for ${recent.length} consecutive days.`);
-    } else if (allMissed) {
-      msgs.push(`You've missed your ${primaryField.name.toLowerCase()} target for ${recent.length} consecutive days. Consider temporarily lowering the target to rebuild momentum.`);
-    }
-  }
-
-  // 5. Day of week variances
-  if (sorted.length > 10) {
-    const dowTotals: Record<number, { total: number, count: number }> = {0:{total:0,count:0}, 1:{total:0,count:0}, 2:{total:0,count:0}, 3:{total:0,count:0}, 4:{total:0,count:0}, 5:{total:0,count:0}, 6:{total:0,count:0}};
-    
-    sorted.forEach(e => {
-      const [year, month, day] = e.date.split('-').map(Number);
-      const dateObj = new Date(year, month - 1, day);
-      const dow = dateObj.getDay();
-      
-      const val = getPrimaryVal(e);
-      if (val > 0) {
-        dowTotals[dow].total += val;
-        dowTotals[dow].count++;
-      }
-    });
-
-    let bestDow = -1;
-    let worstDow = -1;
-    let bestAvg = 0;
-    let worstAvg = Infinity;
-    
-    Object.keys(dowTotals).forEach(dowStr => {
-      const dow = parseInt(dowStr);
-      const { total, count } = dowTotals[dow];
-      if (count >= 2) { // Need at least 2 data points for the day
-        const avg = total / count;
-        if (avg > bestAvg) { bestAvg = avg; bestDow = dow; }
-        if (avg < worstAvg) { worstAvg = avg; worstDow = dow; }
-      }
-    });
-
-    const days = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
-    if (bestDow !== -1 && worstDow !== -1 && bestDow !== worstDow && bestAvg > worstAvg * 1.5) {
-      msgs.push(`Historical data flags ${days[worstDow]} as your lowest output day, averaging ${Math.round(worstAvg * 10) / 10} ${primaryField.unit || ''} compared to ${Math.round(bestAvg * 10) / 10} on ${days[bestDow]}.`);
-    }
-  }
-
-  // Fallbacks if we still don't have enough insights
   if (msgs.length === 0) {
-    const streak = getCurrentStreak(sorted);
-    if (streak > 0) {
-      msgs.push(`Current tracking streak is at ${streak} days.`);
-    }
-    const totalPrimary = sorted.reduce((acc, e) => acc + getPrimaryVal(e), 0);
-    msgs.push(`Total lifetime ${primaryField.name.toLowerCase()} tracked: ${Math.round(totalPrimary * 10)/10} ${primaryField.unit || ''}.`);
+    msgs.push("Maintaining a daily baseline will reveal clearer behavioral patterns over time.");
   }
 
-  // Ensure unique messages and limit to 4
-  const uniqueMsgs = Array.from(new Set(msgs));
-  return uniqueMsgs.slice(0, 4);
+  // Return max 3 high-value insights
+  return Array.from(new Set(msgs)).slice(0, 3);
+}
+
+export default function AIInsightsPanel({ state }: { state: AppState }) {
+  const insights = generateAIInsights(state);
+  
+  return (
+    <div className="card p-8 border border-border/40 bg-card/20 backdrop-blur-md relative overflow-hidden group transition-all duration-700 hover:border-border/60">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 relative">
+        <div className="flex items-center gap-5">
+          <div className="w-10 h-10 rounded-xl bg-primary/[0.03] flex items-center justify-center text-primary/40 border border-primary/[0.05] transition-all duration-700 group-hover:text-primary group-hover:border-primary/20 group-hover:bg-primary/10">
+            <Sparkles size={18} strokeWidth={1.2} />
+          </div>
+          <div>
+            <h2 className="text-[17px] font-light tracking-tight text-foreground/80 leading-tight">Personal Intelligence</h2>
+            <p className="text-[10px] font-medium text-muted-foreground/25 uppercase tracking-[0.25em] mt-1.5">Behavioral patterns and observations</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+        {insights.map((insight, idx) => (
+          <div 
+            key={idx} 
+            className="flex items-start gap-5 p-5 rounded-2xl bg-white/[0.01] border border-white/[0.03] hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-500 group/item"
+          >
+            <div className="mt-2 w-1.5 h-1.5 rounded-full bg-primary/20 group-hover/item:bg-primary/40 transition-all duration-500 flex-shrink-0" />
+            <p className="text-[13px] font-medium leading-relaxed text-foreground/60 group-hover/item:text-foreground/80 transition-colors">{insight}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Atmospheric depth */}
+      <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/[0.02] rounded-full blur-3xl pointer-events-none group-hover:bg-primary/[0.04] transition-colors duration-1000" />
+    </div>
+  );
 }

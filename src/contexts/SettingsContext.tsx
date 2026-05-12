@@ -22,6 +22,7 @@ export interface AppSettings {
   dailyResetTime: string;
   enableShortcuts: boolean;
   enableBetaFeatures: boolean;
+  enableWorkflowTracking: boolean;
 }
 
 const defaultSettings: AppSettings = {
@@ -41,12 +42,18 @@ const defaultSettings: AppSettings = {
   dailyResetTime: '00:00',
   enableShortcuts: true,
   enableBetaFeatures: false,
+  enableWorkflowTracking: false,
 };
 
 interface SettingsContextValue {
   settings: AppSettings;
   updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
   resetSettings: () => void;
+  isSettingsModalOpen: boolean;
+  setIsSettingsModalOpen: (open: boolean) => void;
+  activeSettingsTab: string;
+  setActiveSettingsTab: (tab: string) => void;
+  openSettings: (tab?: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
@@ -54,6 +61,13 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [mounted, setMounted] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState('Preferences');
+
+  const openSettings = (tab?: string) => {
+    if (tab) setActiveSettingsTab(tab);
+    setIsSettingsModalOpen(true);
+  };
 
   useEffect(() => {
     // Load from local storage
@@ -79,18 +93,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     // Apply global CSS variables / DOM manipulations based on settings
     const root = document.documentElement;
 
-    // Theme (we'll just apply 'dark' class or remove it based on settings)
-    if (settings.themeMode === 'Light') {
-      root.classList.remove('dark');
-    } else if (settings.themeMode === 'Dark') {
-      root.classList.add('dark');
-    } else {
-      // System
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
+    // Theme (Light mode is temporarily disabled for stabilization)
+    root.classList.add('dark');
+    if (settings.themeMode !== 'Dark') {
+      updateSetting('themeMode', 'Dark');
     }
 
     // UI Density (We can map Comfortable to padding 1rem, Compact to 0.5rem via CSS vars, if we had them. For now we can just set a data attribute)
@@ -130,7 +136,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // There's no hydration mismatch as long as the initial render uses defaultSettings.
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSetting, resetSettings }}>
+    <SettingsContext.Provider value={{ 
+      settings, 
+      updateSetting, 
+      resetSettings,
+      isSettingsModalOpen,
+      setIsSettingsModalOpen,
+      activeSettingsTab,
+      setActiveSettingsTab,
+      openSettings
+    }}>
       {children}
     </SettingsContext.Provider>
   );
