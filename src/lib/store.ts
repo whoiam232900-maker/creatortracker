@@ -22,6 +22,7 @@ export interface DailyEntry {
 }
 
 export interface TargetConfig {
+  id: string;
   fieldId: string;
   targetValue: number;
   type: 'daily' | 'weekly';
@@ -49,6 +50,7 @@ export interface Workflow {
   timeLoggedMinutes: number;
   createdAt: string;
   updatedAt: string;
+  archived?: boolean;
 }
 
 export interface AppState {
@@ -135,8 +137,8 @@ const DEFAULT_FIELDS: TrackingField[] = [
 ];
 
 const DEFAULT_TARGETS: TargetConfig[] = [
-  { fieldId: 'field-001', targetValue: 8, type: 'daily' },
-  { fieldId: 'field-002', targetValue: 5, type: 'daily' },
+  { id: 'target-001', fieldId: 'field-001', targetValue: 8, type: 'daily' },
+  { id: 'target-002', fieldId: 'field-002', targetValue: 5, type: 'daily' },
 ];
 
 function generateSampleEntries(fields: TrackingField[]): DailyEntry[] {
@@ -261,10 +263,11 @@ export function loadState(userId?: string): AppState {
     }
     const parsed = JSON.parse(raw) as Partial<AppState>;
     const today = getTodayString();
-    
+
     // Filter out any future dates for data integrity
-    const validEntries = (Array.isArray(parsed.entries) ? parsed.entries : [])
-      .filter((e) => e.date <= today);
+    const validEntries = (Array.isArray(parsed.entries) ? parsed.entries : []).filter(
+      (e) => e.date <= today
+    );
 
     console.debug(
       '[store] loadState() — loaded',
@@ -348,13 +351,17 @@ export function initializeStarterData(userId?: string): AppState {
  * After calling this, set isNewAccount: true in userSession so onboarding re-runs.
  */
 export function resetUserData(userId?: string): void {
-  const resolvedId = userId ?? (() => {
-    try {
-      const raw = localStorage.getItem('userSession');
-      if (raw) return JSON.parse(raw)?.email ?? '';
-    } catch { return ''; }
-    return '';
-  })();
+  const resolvedId =
+    userId ??
+    (() => {
+      try {
+        const raw = localStorage.getItem('userSession');
+        if (raw) return JSON.parse(raw)?.email ?? '';
+      } catch {
+        return '';
+      }
+      return '';
+    })();
 
   console.debug('[store] resetUserData() — wiping all data for user:', resolvedId);
 
@@ -420,9 +427,10 @@ export function getWeekDates(): string[] {
 
 export function getFieldTotal(entries: DailyEntry[], fieldId: string, dates?: string[]): number {
   const today = getTodayString();
-  const filtered = (dates ? entries.filter((e) => dates.includes(e.date)) : entries)
-    .filter((e) => e.date <= today);
-  
+  const filtered = (dates ? entries.filter((e) => dates.includes(e.date)) : entries).filter(
+    (e) => e.date <= today
+  );
+
   return filtered.reduce((sum, entry) => {
     const val = entry.values.find((v) => v.fieldId === fieldId);
     if (!val) return sum;

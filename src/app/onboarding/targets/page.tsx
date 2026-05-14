@@ -34,7 +34,10 @@ export default function TargetsSetupPage() {
         );
         router.replace('/dashboard');
       } else {
-        console.debug('[onboarding/targets] New account — showing targets setup for', session?.email);
+        console.debug(
+          '[onboarding/targets] New account — showing targets setup for',
+          session?.email
+        );
       }
     } catch (e) {
       console.error('[onboarding/targets] Session read error:', e);

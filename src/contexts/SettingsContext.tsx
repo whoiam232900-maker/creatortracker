@@ -23,6 +23,15 @@ export interface AppSettings {
   enableShortcuts: boolean;
   enableBetaFeatures: boolean;
   enableWorkflowTracking: boolean;
+  // Dashboard Module Visibility
+  showFocusTimer: boolean;
+  showWeeklyPulse: boolean;
+  showAnalyticsCards: boolean;
+  showTargets: boolean;
+  showStudyTracker: boolean;
+  showEarningsTracker: boolean;
+  showProductivitySummary: boolean;
+  showRecentEntries: boolean;
 }
 
 const defaultSettings: AppSettings = {
@@ -42,7 +51,15 @@ const defaultSettings: AppSettings = {
   dailyResetTime: '00:00',
   enableShortcuts: true,
   enableBetaFeatures: false,
-  enableWorkflowTracking: false,
+  enableWorkflowTracking: true,
+  showFocusTimer: true,
+  showWeeklyPulse: true,
+  showAnalyticsCards: true,
+  showTargets: true,
+  showStudyTracker: false,
+  showEarningsTracker: false,
+  showProductivitySummary: true,
+  showRecentEntries: true,
 };
 
 interface SettingsContextValue {
@@ -121,11 +138,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.style.removeProperty('--transition-duration');
     }
-
   }, [settings, mounted]);
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const resetSettings = () => {
@@ -136,16 +152,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // There's no hydration mismatch as long as the initial render uses defaultSettings.
 
   return (
-    <SettingsContext.Provider value={{ 
-      settings, 
-      updateSetting, 
-      resetSettings,
-      isSettingsModalOpen,
-      setIsSettingsModalOpen,
-      activeSettingsTab,
-      setActiveSettingsTab,
-      openSettings
-    }}>
+    <SettingsContext.Provider
+      value={{
+        settings,
+        updateSetting,
+        resetSettings,
+        isSettingsModalOpen,
+        setIsSettingsModalOpen,
+        activeSettingsTab,
+        setActiveSettingsTab,
+        openSettings,
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   );

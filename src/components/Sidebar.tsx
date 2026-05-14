@@ -30,7 +30,7 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
   const { settings } = useSettings();
   const [isHovered, setIsHovered] = React.useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
-  
+
   // If hover expand is disabled, hover should not affect collapsed state
   const effectivelyHovered = settings.hoverExpandSidebar ? isHovered : false;
   const isEffectivelyCollapsed = collapsed && !effectivelyHovered && !isDropdownOpen;
@@ -38,7 +38,7 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
   return (
     <>
       {/* Desktop sidebar placeholder to prevent layout shifting */}
-      <div 
+      <div
         className={[
           'hidden lg:block flex-shrink-0 h-screen sidebar-transition',
           collapsed ? 'w-16' : 'w-60',
@@ -51,7 +51,7 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
         onMouseLeave={() => setIsHovered(false)}
         className={[
           'hidden lg:flex flex-col h-screen border-r sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
-          (!isEffectivelyCollapsed && collapsed) ? 'shadow-2xl' : '',
+          !isEffectivelyCollapsed && collapsed ? 'shadow-2xl' : '',
           isEffectivelyCollapsed ? 'w-16' : 'w-60',
         ].join(' ')}
         style={{
@@ -59,7 +59,11 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
           borderColor: 'var(--border)',
         }}
       >
-        <SidebarContent collapsed={isEffectivelyCollapsed} onClose={undefined} onDropdownOpenChange={setIsDropdownOpen} />
+        <SidebarContent
+          collapsed={isEffectivelyCollapsed}
+          onClose={undefined}
+          onDropdownOpenChange={setIsDropdownOpen}
+        />
       </aside>
 
       {/* Mobile sidebar */}
@@ -79,7 +83,15 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
   );
 }
 
-function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapsed: boolean; onClose?: () => void; onDropdownOpenChange?: (open: boolean) => void }) {
+function SidebarContent({
+  collapsed,
+  onClose,
+  onDropdownOpenChange,
+}: {
+  collapsed: boolean;
+  onClose?: () => void;
+  onDropdownOpenChange?: (open: boolean) => void;
+}) {
   const pathname = usePathname();
   const { settings, openSettings } = useSettings();
   const [session, setSession] = React.useState<{ role?: string } | null>(null);
@@ -88,14 +100,18 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
     try {
       const raw = localStorage.getItem('userSession');
       if (raw) setSession(JSON.parse(raw));
-    } catch(e) {}
+    } catch (e) {}
   }, []);
 
   const navItems = [...NAV_ITEMS];
-  
+
   return (
     <div className="flex flex-col h-full">
-      <WorkspaceSwitcher collapsed={collapsed} onClose={onClose} onDropdownOpenChange={onDropdownOpenChange} />
+      <WorkspaceSwitcher
+        collapsed={collapsed}
+        onClose={onClose}
+        onDropdownOpenChange={onDropdownOpenChange}
+      />
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-thin">
@@ -119,7 +135,9 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 relative group',
                 collapsed ? 'justify-center' : '',
-                isActive ? 'text-foreground/90' : 'text-muted-foreground/40 hover:text-foreground/70 hover:bg-white/[0.02]',
+                isActive
+                  ? 'text-foreground/90'
+                  : 'text-muted-foreground/40 hover:text-foreground/70 hover:bg-white/[0.02]',
               ].join(' ')}
               style={
                 isActive
@@ -129,9 +147,13 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
                   : {}
               }
             >
-              <NavIcon size={16} className={`flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-primary/60' : 'text-muted-foreground/20 group-hover:text-muted-foreground/40'}`} strokeWidth={1.5} />
+              <NavIcon
+                size={16}
+                className={`flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-primary/60' : 'text-muted-foreground/20 group-hover:text-muted-foreground/40'}`}
+                strokeWidth={1.5}
+              />
               {!collapsed && <span className="flex-1 truncate tracking-tight">{item.label}</span>}
-              
+
               {/* Collapsed tooltip */}
               {collapsed && !settings.iconOnlyMinimized && (
                 <span
@@ -156,12 +178,12 @@ function SidebarContent({ collapsed, onClose, onDropdownOpenChange }: { collapse
             className={[
               'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[13px] font-medium transition-all duration-300 relative group mt-6 border border-primary/5 bg-primary/[0.02]',
               collapsed ? 'justify-center mx-auto w-10 h-10 p-0' : '',
-              'text-primary/60 hover:text-primary/80 hover:bg-primary/5 hover:border-primary/10'
+              'text-primary/60 hover:text-primary/80 hover:bg-primary/5 hover:border-primary/10',
             ].join(' ')}
           >
             <ShieldCheck size={16} className="flex-shrink-0" strokeWidth={1.5} />
             {!collapsed && <span className="flex-1 truncate tracking-tight">Admin Control</span>}
-            
+
             {collapsed && (
               <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-primary/40 rounded-full translate-x-1/3 -translate-y-1/3 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
             )}

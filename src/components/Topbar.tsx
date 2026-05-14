@@ -8,11 +8,7 @@ interface TopbarProps {
   onThemeToggle: () => void;
 }
 
-export default function Topbar({
-  onMenuClick,
-  theme,
-  onThemeToggle,
-}: TopbarProps) {
+export default function Topbar({ onMenuClick, theme, onThemeToggle }: TopbarProps) {
   return (
     <>
       {/* Mobile hamburger - absolute positioned to avoid layout spacing */}

@@ -45,9 +45,7 @@ function CustomTooltip({
         <span className="text-xl font-medium tabular-nums font-numbers text-foreground/90 tracking-tight">
           {payload[0].value}
         </span>
-        <span className="text-[11px] font-medium text-muted-foreground/30 uppercase">
-          {unit}
-        </span>
+        <span className="text-[11px] font-medium text-muted-foreground/30 uppercase">{unit}</span>
       </div>
       <p className="text-[9px] font-medium uppercase tracking-wider text-primary/80 mt-4 py-1 px-2 bg-primary/5 rounded-md border border-primary/10 w-fit">
         Daily Strength
@@ -65,13 +63,18 @@ export default function ProductivityPattern({ data, color, unit }: ProductivityP
     );
   }
 
-  const maxVal = Math.max(...data.map(d => d.value));
+  const maxVal = Math.max(...data.map((d) => d.value));
 
   return (
     <div style={{ height: '240px' }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 10, right: 0, bottom: 0, left: -25 }}>
-          <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border)" strokeOpacity={0.2} />
+          <CartesianGrid
+            strokeDasharray="4 4"
+            vertical={false}
+            stroke="var(--border)"
+            strokeOpacity={0.2}
+          />
           <XAxis
             dataKey="day"
             tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 500, opacity: 0.4 }}
@@ -90,10 +93,10 @@ export default function ProductivityPattern({ data, color, unit }: ProductivityP
           />
           <Bar dataKey="value" radius={[2, 2, 0, 0]} barSize={24}>
             {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={color} 
-                fillOpacity={entry.value === maxVal ? 0.6 : 0.2 + (entry.value / maxVal) * 0.3} 
+              <Cell
+                key={`cell-${index}`}
+                fill={color}
+                fillOpacity={entry.value === maxVal ? 0.6 : 0.2 + (entry.value / maxVal) * 0.3}
               />
             ))}
           </Bar>

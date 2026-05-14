@@ -283,27 +283,27 @@
   }
 
   /* Compact UI Density Overrides */
-  html[data-density="compact"] .card {
+  html[data-density='compact'] .card {
     padding: 1rem !important;
   }
-  html[data-density="compact"] .btn-primary, 
-  html[data-density="compact"] .btn-secondary, 
-  html[data-density="compact"] .btn-ghost, 
-  html[data-density="compact"] .btn-danger {
+  html[data-density='compact'] .btn-primary,
+  html[data-density='compact'] .btn-secondary,
+  html[data-density='compact'] .btn-ghost,
+  html[data-density='compact'] .btn-danger {
     padding-top: 0.35rem !important;
     padding-bottom: 0.35rem !important;
     font-size: 0.8125rem !important;
   }
-  html[data-density="compact"] .input-field {
+  html[data-density='compact'] .input-field {
     padding-top: 0.35rem !important;
     padding-bottom: 0.35rem !important;
   }
 
   /* Animations & Transitions Controls */
-  html[data-animations="false"] * {
+  html[data-animations='false'] * {
     animation: none !important;
   }
-  html[data-transitions="false"] * {
+  html[data-transitions='false'] * {
     transition-duration: 0ms !important;
   }
 }

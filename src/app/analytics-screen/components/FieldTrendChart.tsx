@@ -29,7 +29,7 @@ function CustomTooltip({
   payload,
   label,
   unit,
-  maxVal
+  maxVal,
 }: {
   active?: boolean;
   payload?: Array<{ value: number }>;
@@ -50,9 +50,7 @@ function CustomTooltip({
         <span className="text-2xl font-medium tabular-nums font-numbers text-foreground/90 tracking-tight">
           {val}
         </span>
-        <span className="text-[11px] font-medium text-muted-foreground/30 uppercase">
-          {unit}
-        </span>
+        <span className="text-[11px] font-medium text-muted-foreground/30 uppercase">{unit}</span>
       </div>
       {isPeak && (
         <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-wider text-primary/80 mt-4 py-1 px-2 bg-primary/5 rounded-md border border-primary/10">
@@ -73,7 +71,7 @@ export default function FieldTrendChart({ data, fieldName, unit, color }: FieldT
     );
   }
 
-  const maxVal = Math.max(...data.map(d => d.value));
+  const maxVal = Math.max(...data.map((d) => d.value));
   const avg = data.reduce((s, d) => s + d.value, 0) / Math.max(data.length, 1);
   const avgRounded = Math.round(avg * 10) / 10;
 
@@ -90,7 +88,12 @@ export default function FieldTrendChart({ data, fieldName, unit, color }: FieldT
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border)" strokeOpacity={0.2} />
+          <CartesianGrid
+            strokeDasharray="4 4"
+            vertical={false}
+            stroke="var(--border)"
+            strokeOpacity={0.2}
+          />
           <XAxis
             dataKey="label"
             tick={{ fontSize: 10, fill: 'var(--muted-foreground)', fontWeight: 500, opacity: 0.4 }}
@@ -124,10 +127,10 @@ export default function FieldTrendChart({ data, fieldName, unit, color }: FieldT
             strokeOpacity={0.6}
             fill={`url(#grad-${fieldName})`}
             dot={false}
-            activeDot={{ 
-              r: 4, 
-              fill: color, 
-              stroke: 'var(--background)', 
+            activeDot={{
+              r: 4,
+              fill: color,
+              stroke: 'var(--background)',
               strokeWidth: 2,
             }}
             animationDuration={1500}
@@ -138,4 +141,3 @@ export default function FieldTrendChart({ data, fieldName, unit, color }: FieldT
     </div>
   );
 }
-

@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 
 export const ADMIN_EMAIL = 'who.iam232900@gmail.com';
 // This is the hashed version of '****New****Tracker#2026'
-// We can also hash it on the fly if we want to be dynamic, 
+// We can also hash it on the fly if we want to be dynamic,
 // but for a "reset" we can ensure it's seeded.
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('****New****Tracker#2026', 10);
 
@@ -28,7 +28,7 @@ export function seedAdminAccount() {
     const oldAdminEmails = ['kabenix_is_admin', 'admin@creatortracker.com'];
     let changed = false;
 
-    oldAdminEmails.forEach(email => {
+    oldAdminEmails.forEach((email) => {
       if (users[email]) {
         delete users[email];
         changed = true;
@@ -41,7 +41,7 @@ export function seedAdminAccount() {
         password: ADMIN_PASSWORD_HASH,
         fullName: 'Admin Control',
         role: 'admin',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
       changed = true;
     }
@@ -58,13 +58,16 @@ export function seedAdminAccount() {
 /**
  * Validates credentials and returns user data if successful.
  */
-export async function validateCredentials(email: string, password: string): Promise<UserAccount | null> {
+export async function validateCredentials(
+  email: string,
+  password: string
+): Promise<UserAccount | null> {
   if (typeof window === 'undefined') return null;
 
   try {
     const usersRaw = localStorage.getItem('users');
     const users: Record<string, UserAccount> = usersRaw ? JSON.parse(usersRaw) : {};
-    
+
     const user = users[email];
     if (!user) return null;
 
@@ -93,14 +96,14 @@ export async function validateCredentials(email: string, password: string): Prom
  */
 export function clearAllSessions() {
   if (typeof window === 'undefined') return;
-  
+
   const keysToClear = ['userSession', 'auth_token', 'next-auth.session-token', 'session'];
-  keysToClear.forEach(key => localStorage.removeItem(key));
-  
+  keysToClear.forEach((key) => localStorage.removeItem(key));
+
   // Also clear cookies if they were used (Next.js might use them)
-  document.cookie.split(";").forEach((c) => {
+  document.cookie.split(';').forEach((c) => {
     document.cookie = c
-      .replace(/^ +/, "")
-      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      .replace(/^ +/, '')
+      .replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
   });
 }

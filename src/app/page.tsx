@@ -84,7 +84,10 @@ export default function LandingPage() {
 
         {/* Setup choices */}
         <div className="flex flex-col gap-3 w-full mt-2">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--muted-foreground)' }}>
+          <p
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: 'var(--muted-foreground)' }}
+          >
             How would you like to set up?
           </p>
 

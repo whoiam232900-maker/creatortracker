@@ -269,13 +269,15 @@ export default function AIOnboardingPage() {
           console.debug('[onboarding/ai] User wants targets — continuing to /onboarding/targets');
           router.push('/onboarding/targets');
         } else {
-          console.debug('[onboarding/ai] User skipped targets — clearing flag and finishing at /dashboard');
-          
-          // Since we skip the targets page (where the flag is usually cleared), 
+          console.debug(
+            '[onboarding/ai] User skipped targets — clearing flag and finishing at /dashboard'
+          );
+
+          // Since we skip the targets page (where the flag is usually cleared),
           // we MUST clear isNewAccount here to complete the onboarding journey.
           const updatedSession = { ...session, isNewAccount: false };
           localStorage.setItem('userSession', JSON.stringify(updatedSession));
-          
+
           router.push('/dashboard');
         }
       } catch (e) {

@@ -1,6 +1,14 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { loadState, saveState, resetUserData, getUserStorageKey, AppState, TrackingField, TargetConfig } from '@/lib/store';
+import {
+  loadState,
+  saveState,
+  resetUserData,
+  getUserStorageKey,
+  AppState,
+  TrackingField,
+  TargetConfig,
+} from '@/lib/store';
 import { showToast } from '@/components/ui/Toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import Badge from '@/components/ui/Badge';
@@ -56,30 +64,36 @@ export default function SettingsContent() {
     setTheme(s.theme);
   }, []);
 
-  const persistState = useCallback((newState: AppState) => {
-    saveState(newState, userId);
-    setState(newState);
-  }, [userId]);
-
-  const handleThemeToggle = useCallback((checked: boolean) => {
-    const newTheme: 'light' | 'dark' = checked ? 'dark' : 'light';
-    setTheme(newTheme);
-    setState((prev) => {
-      if (!prev) return prev;
-      const newState: AppState = { ...prev, theme: newTheme };
+  const persistState = useCallback(
+    (newState: AppState) => {
       saveState(newState, userId);
-      // Apply to DOM
-      if (typeof document !== 'undefined') {
-        if (newTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
+      setState(newState);
+    },
+    [userId]
+  );
+
+  const handleThemeToggle = useCallback(
+    (checked: boolean) => {
+      const newTheme: 'light' | 'dark' = checked ? 'dark' : 'light';
+      setTheme(newTheme);
+      setState((prev) => {
+        if (!prev) return prev;
+        const newState: AppState = { ...prev, theme: newTheme };
+        saveState(newState, userId);
+        // Apply to DOM
+        if (typeof document !== 'undefined') {
+          if (newTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
         }
-      }
-      return newState;
-    });
-    showToast({ type: 'info', title: `Switched to ${newTheme} mode` });
-  }, [userId]);
+        return newState;
+      });
+      showToast({ type: 'info', title: `Switched to ${newTheme} mode` });
+    },
+    [userId]
+  );
 
   const handleSaveField = useCallback(
     (field: TrackingField) => {
@@ -107,61 +121,72 @@ export default function SettingsContent() {
     [editingField, userId]
   );
 
-  const handleDeleteField = useCallback((fieldId: string) => {
-    setState((prev) => {
-      if (!prev) return prev;
-      const newFields = prev.fields.filter((f) => f.id !== fieldId);
-      const newTargets = prev.targets.filter((t) => t.fieldId !== fieldId);
-      const newEntries = prev.entries.map((e) => ({
-        ...e,
-        values: e.values.filter((v) => v.fieldId !== fieldId),
-      }));
-      const newState = {
-        ...prev,
-        fields: newFields,
-        targets: newTargets,
-        entries: newEntries,
-      };
-      saveState(newState, userId);
-      return newState;
-    });
-    setDeleteFieldConfirm(null);
-    showToast({
-      type: 'success',
-      title: 'Field deleted',
-      description: 'All associated entry data was also removed',
-    });
-  }, [userId]);
+  const handleDeleteField = useCallback(
+    (fieldId: string) => {
+      setState((prev) => {
+        if (!prev) return prev;
+        const newFields = prev.fields.filter((f) => f.id !== fieldId);
+        const newTargets = prev.targets.filter((t) => t.fieldId !== fieldId);
+        const newEntries = prev.entries.map((e) => ({
+          ...e,
+          values: e.values.filter((v) => v.fieldId !== fieldId),
+        }));
+        const newState = {
+          ...prev,
+          fields: newFields,
+          targets: newTargets,
+          entries: newEntries,
+        };
+        saveState(newState, userId);
+        return newState;
+      });
+      setDeleteFieldConfirm(null);
+      showToast({
+        type: 'success',
+        title: 'Field deleted',
+        description: 'All associated entry data was also removed',
+      });
+    },
+    [userId]
+  );
 
-  const handleSaveTarget = useCallback((target: TargetConfig) => {
-    setState((prev) => {
-      if (!prev) return prev;
-      const existing = prev.targets.findIndex((t) => t.fieldId === target.fieldId);
-      let newTargets: TargetConfig[];
-      if (existing >= 0) {
-        newTargets = prev.targets.map((t) => (t.fieldId === target.fieldId ? target : t));
-      } else {
-        newTargets = [...prev.targets, target];
-      }
-      const newState = { ...prev, targets: newTargets };
-      saveState(newState, userId);
-      return newState;
-    });
-    showToast({ type: 'success', title: 'Target saved' });
-  }, [userId]);
+  const handleSaveTarget = useCallback(
+    (target: TargetConfig) => {
+      setState((prev) => {
+        if (!prev) return prev;
+        const existing = prev.targets.findIndex(
+          (t) => t.fieldId === target.fieldId && t.type === target.type
+        );
+        let newTargets: TargetConfig[];
+        if (existing >= 0) {
+          newTargets = prev.targets.map((t, idx) => (idx === existing ? target : t));
+        } else {
+          newTargets = [...prev.targets, target];
+        }
+        const newState = { ...prev, targets: newTargets };
+        saveState(newState, userId);
+        return newState;
+      });
+      showToast({ type: 'success', title: 'Target saved' });
+    },
+    [userId]
+  );
 
-  const handleDeleteTarget = useCallback((fieldId: string) => {
-    setState((prev) => {
-      if (!prev) return prev;
-      const newState = {
-        ...prev,
-        targets: prev.targets.filter((t) => t.fieldId !== fieldId),
-      };
-      saveState(newState, userId);
-      return newState;
-    });
-    showToast({ type: 'info', title: 'Target removed' });
-  }, [userId]);
+  const handleDeleteTarget = useCallback(
+    (fieldId: string, type: 'daily' | 'weekly') => {
+      setState((prev) => {
+        if (!prev) return prev;
+        const newState = {
+          ...prev,
+          targets: prev.targets.filter((t) => !(t.fieldId === fieldId && t.type === type)),
+        };
+        saveState(newState, userId);
+        return newState;
+      });
+      showToast({ type: 'info', title: 'Target removed' });
+    },
+    [userId]
+  );
 
   const handleClearEntries = useCallback(() => {
     setState((prev) => {
@@ -199,7 +224,9 @@ export default function SettingsContent() {
         localStorage.setItem('userSession', JSON.stringify(updatedSession));
         // Also clear pendingSetupPath in case it was left over
         localStorage.removeItem('pendingSetupPath');
-        console.debug('[settings] isNewAccount=true, onboardingPath cleared — user will re-choose setup');
+        console.debug(
+          '[settings] isNewAccount=true, onboardingPath cleared — user will re-choose setup'
+        );
       }
     } catch (e) {
       console.warn('[settings] Could not update session after reset:', e);
@@ -553,7 +580,7 @@ function TargetsTab({
   fields: TrackingField[];
   targets: TargetConfig[];
   onSaveTarget: (t: TargetConfig) => void;
-  onDeleteTarget: (fieldId: string) => void;
+  onDeleteTarget: (fieldId: string, type: 'daily' | 'weekly') => void;
 }) {
   const numberFields = fields.filter((f) => f.type === 'number');
 
@@ -577,18 +604,23 @@ function TargetsTab({
         Set daily or weekly targets for your numeric fields. Progress is shown on the Dashboard.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {numberFields.map((field) => {
-          const existing = targets.find((t) => t.fieldId === field.id) ?? null;
-          return (
-            <TargetForm
-              key={`target-card-${field.id}`}
-              field={field}
-              existingTarget={existing}
-              onSave={onSaveTarget}
-              onDelete={existing ? () => onDeleteTarget(field.id) : undefined}
-            />
-          );
-        })}
+        {numberFields.map((field) => (
+          <React.Fragment key={`field-targets-${field.id}`}>
+            {(['daily', 'weekly'] as const).map((type) => {
+              const existing = targets.find((t) => t.fieldId === field.id && t.type === type) ?? null;
+              return (
+                <TargetForm
+                  key={`target-card-${field.id}-${type}`}
+                  field={field}
+                  initialType={type}
+                  existingTarget={existing}
+                  onSave={onSaveTarget}
+                  onDelete={existing ? () => onDeleteTarget(field.id, type) : undefined}
+                />
+              );
+            })}
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );

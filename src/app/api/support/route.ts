@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     if (!webhookUrl || webhookUrl === 'your_discord_webhook_url_here') {
       console.error('[SECURITY] DISCORD_WEBHOOK_URL is not configured in environment variables.');
       return NextResponse.json(
-        { error: 'Support service is temporarily unavailable.' }, 
+        { error: 'Support service is temporarily unavailable.' },
         { status: 503 }
       );
     }

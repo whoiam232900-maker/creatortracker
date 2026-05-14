@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import '../styles/tailwind.css';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { ToastContainer } from '@/components/ui/Toast';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={montserrat.className}>
         <SettingsProvider>
           {children}
+          <ToastContainer />
         </SettingsProvider>
       </body>
     </html>

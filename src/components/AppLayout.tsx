@@ -45,8 +45,6 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
     updateSetting('themeMode', settings.themeMode === 'Light' ? 'Dark' : 'Light');
   }, [settings.themeMode, updateSetting]);
 
-
-
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
       {/* Mobile overlay */}

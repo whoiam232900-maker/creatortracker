@@ -59,7 +59,7 @@ export default function EntryFormModal({
 
   const onSubmit = (data: FormValues) => {
     const dateVal = data['__date__'] || today;
-    
+
     // Final safety check
     if (dateVal > today) return;
 
@@ -77,8 +77,8 @@ export default function EntryFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in"
-      style={{ 
+      className="fixed inset-0 z-[500] flex items-center justify-center p-4 fade-in"
+      style={{
         backgroundColor: 'rgba(0,0,0,0.5)',
         backdropFilter: 'blur(var(--blur-intensity, 0px))',
       }}
@@ -113,12 +113,16 @@ export default function EntryFormModal({
                 type="date"
                 className={`input-field ${errors['__date__'] ? 'border-danger ring-1 ring-danger/10' : ''}`}
                 max={today}
-                {...register('__date__', { 
+                {...register('__date__', {
                   required: 'Date is required',
-                  validate: (v) => v <= today || 'Future dates are not allowed. You can only log completed work sessions.'
+                  validate: (v) =>
+                    v <= today ||
+                    'Future dates are not allowed. You can only log completed work sessions.',
                 })}
               />
-              {errors['__date__'] && <p className="error-text">{errors['__date__']?.message as string}</p>}
+              {errors['__date__'] && (
+                <p className="error-text">{errors['__date__']?.message as string}</p>
+              )}
             </div>
 
             {/* Dynamic fields */}

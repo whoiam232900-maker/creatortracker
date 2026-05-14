@@ -111,7 +111,20 @@ export default function AnalyticsContent() {
       const parts = dateStr.split('-');
       const month = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       result.push({
         date: dateStr,
         value: isNaN(n) ? 0 : n,
@@ -163,7 +176,9 @@ export default function AnalyticsContent() {
 
   const strongestDay = useMemo(() => {
     if (comparisonData.length === 0) return '—';
-    const sorted = [...comparisonData].sort((a, b) => b.thisWeek + b.lastWeek - (a.thisWeek + a.lastWeek));
+    const sorted = [...comparisonData].sort(
+      (a, b) => b.thisWeek + b.lastWeek - (a.thisWeek + a.lastWeek)
+    );
     return sorted[0].fullDay;
   }, [comparisonData]);
 
@@ -171,7 +186,7 @@ export default function AnalyticsContent() {
     if (comparisonData.length === 0) return '—';
     let best = comparisonData[0];
     let maxDiff = -Infinity;
-    comparisonData.forEach(d => {
+    comparisonData.forEach((d) => {
       const diff = d.thisWeek - d.lastWeek;
       if (diff > maxDiff) {
         maxDiff = diff;
@@ -357,7 +372,9 @@ export default function AnalyticsContent() {
         <div className="lg:col-span-2 card p-10 border border-white/[0.02] bg-[#ffffff01] backdrop-blur-3xl shadow-sm transition-all duration-700 hover:border-white/[0.05] relative overflow-hidden group rounded-[24px]">
           <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-transparent pointer-events-none" />
           <div className="flex flex-col mb-12 relative z-10">
-            <h2 className="text-[13px] font-[500] text-foreground/75 tracking-[-0.01em]">Activity Trend</h2>
+            <h2 className="text-[13px] font-[500] text-foreground/75 tracking-[-0.01em]">
+              Activity Trend
+            </h2>
             <p className="text-[10px] font-semibold text-muted-foreground/22 uppercase tracking-[0.22em] mt-2">
               Historical volume analysis
             </p>
@@ -379,7 +396,9 @@ export default function AnalyticsContent() {
               <BarChart2 size={14} strokeWidth={1.2} />
             </div>
             <div>
-              <h2 className="text-[13px] font-[500] text-foreground/75 tracking-[-0.01em]">Weekly Pulse</h2>
+              <h2 className="text-[13px] font-[500] text-foreground/75 tracking-[-0.01em]">
+                Weekly Pulse
+              </h2>
               <p className="text-[10px] font-semibold text-muted-foreground/22 uppercase tracking-[0.22em] mt-1">
                 Momentum tracking
               </p>
@@ -399,13 +418,17 @@ export default function AnalyticsContent() {
               <span className="text-[11px] font-[450] text-muted-foreground/25 group-hover/item:text-muted-foreground/45 tracking-[-0.005em] transition-colors duration-300">
                 Strongest day
               </span>
-              <span className="text-[11px] font-[500] text-foreground/55 tracking-[-0.01em]">{strongestDay}</span>
+              <span className="text-[11px] font-[500] text-foreground/55 tracking-[-0.01em]">
+                {strongestDay}
+              </span>
             </div>
             <div className="flex justify-between items-center group/item">
               <span className="text-[11px] font-[450] text-muted-foreground/25 group-hover/item:text-muted-foreground/45 tracking-[-0.005em] transition-colors duration-300">
                 Most improved
               </span>
-              <span className="text-[11px] font-[500] text-foreground/55 tracking-[-0.01em]">{mostImprovedDay}</span>
+              <span className="text-[11px] font-[500] text-foreground/55 tracking-[-0.01em]">
+                {mostImprovedDay}
+              </span>
             </div>
             <div className="flex justify-between items-center group/item">
               <span className="text-[11px] font-[450] text-muted-foreground/25 group-hover/item:text-muted-foreground/45 tracking-[-0.005em] transition-colors duration-300">
@@ -416,7 +439,8 @@ export default function AnalyticsContent() {
                   weeklyMomentum >= 0 ? 'text-emerald-400/45' : 'text-red-400/45'
                 }`}
               >
-                {weeklyMomentum > 0 ? '+' : ''}{weeklyMomentum}%
+                {weeklyMomentum > 0 ? '+' : ''}
+                {weeklyMomentum}%
               </span>
             </div>
           </div>
@@ -474,7 +498,7 @@ function MetricCard({
       <div
         className="absolute inset-0 opacity-[0.005] group-hover:opacity-[0.015] transition-opacity duration-1000 pointer-events-none"
         style={{
-          background: `radial-gradient(300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${color}, transparent 80%)`
+          background: `radial-gradient(300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${color}, transparent 80%)`,
         }}
       />
 
@@ -489,7 +513,9 @@ function MetricCard({
           {isStreak && parseInt(value) >= 7 && (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-500/[0.02] border border-orange-500/[0.06]">
               <span className="w-[5px] h-[5px] rounded-full bg-orange-500/25 animate-pulse" />
-              <span className="text-[9px] font-[600] text-orange-500/30 uppercase tracking-[0.12em]">Active</span>
+              <span className="text-[9px] font-[600] text-orange-500/30 uppercase tracking-[0.12em]">
+                Active
+              </span>
             </div>
           )}
         </div>
@@ -502,19 +528,20 @@ function MetricCard({
             <span className="text-[22px] font-[350] tracking-[-0.02em] text-foreground/78 tabular-nums leading-none">
               {value}
             </span>
-            <span className="text-[10px] font-[500] text-muted-foreground/20 tracking-wide">{unit}</span>
+            <span className="text-[10px] font-[500] text-muted-foreground/20 tracking-wide">
+              {unit}
+            </span>
           </div>
           {sub && (
-            <p className="text-[9px] font-[450] mt-1.5 text-muted-foreground/18 tracking-[-0.005em]">{sub}</p>
+            <p className="text-[9px] font-[450] mt-1.5 text-muted-foreground/18 tracking-[-0.005em]">
+              {sub}
+            </p>
           )}
         </div>
       </div>
     </div>
   );
 }
-
-
-
 
 function formatNumber(n: number): string {
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
@@ -551,12 +578,24 @@ function AnalyticsSkeleton() {
   );
 }
 
-
 function formatShortDate(dateStr: string): string {
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const month = parseInt(parts[1], 10) - 1;
   const day = parseInt(parts[2], 10);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   return `${months[month]} ${day}`;
 }

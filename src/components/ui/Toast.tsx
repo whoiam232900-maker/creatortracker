@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, AlertCircle, X, Info } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -20,8 +21,10 @@ export function showToast(msg: Omit<ToastMessage, 'id'>) {
 
 export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const handler = (msg: ToastMessage) => {
       setToasts((prev) => [...prev, msg]);
       setTimeout(() => {
@@ -38,6 +41,8 @@ export function ToastContainer() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  if (!mounted) return null;
+
   const icons: Record<ToastType, React.ReactNode> = {
     success: <CheckCircle size={16} style={{ color: 'var(--success)' }} />,
     error: <XCircle size={16} style={{ color: 'var(--danger)' }} />,
@@ -45,33 +50,35 @@ export function ToastContainer() {
     info: <Info size={16} style={{ color: 'var(--accent)' }} />,
   };
 
-  return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+  return createPortal(
+    <div className="fixed bottom-6 right-6 z-[1000] flex flex-col gap-3 pointer-events-none">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="card shadow-elevated pointer-events-auto flex items-start gap-3 px-4 py-3 w-80 slide-up"
+          className="card shadow-elevated pointer-events-auto flex items-start gap-3 px-4 py-3.5 w-80 animate-in slide-in-from-right-5 fade-in duration-300 border-white/[0.05] bg-[#09090b]/90 backdrop-blur-md"
+          style={{
+            boxShadow: '0 8px 32px -4px rgba(0,0,0,0.5)',
+          }}
         >
           <div className="flex-shrink-0 mt-0.5">{icons[toast.type]}</div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-              {toast.title}
-            </p>
+            <p className="text-[13px] font-bold tracking-tight text-white">{toast.title}</p>
             {toast.description && (
-              <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+              <p className="text-[11px] mt-0.5 leading-relaxed text-zinc-400">
                 {toast.description}
               </p>
             )}
           </div>
           <button
             onClick={() => dismiss(toast.id)}
-            className="btn-ghost p-0.5 flex-shrink-0"
+            className="text-zinc-500 hover:text-white transition-colors p-0.5 flex-shrink-0"
             aria-label="Dismiss"
           >
             <X size={14} />
           </button>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
