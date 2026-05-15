@@ -31,27 +31,67 @@
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  /* ── Core palette ─────────────────────────────────────── */
+  --background: #090e1a;
+  --foreground: #e2e8f4;
   --primary: #3b82f6;
   --primary-foreground: #ffffff;
-  --secondary: #1e293b;
+  --secondary: #111827;
   --secondary-foreground: #94a3b8;
   --accent: #38bdf8;
   --accent-foreground: #0f172a;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --card: #1e293b;
-  --card-foreground: #f1f5f9;
-  --border: #334155;
-  --input: #334155;
+  --muted: #141d2e;
+  --muted-foreground: #64748b;
+  --card: #111827;
+  --card-foreground: #e2e8f4;
+  --border: #1e2d42;
+  --input: #1e2d42;
   --ring: #3b82f6;
   --success: #22c55e;
-  --success-bg: #052e16;
+  --success-bg: #031a0e;
   --warning: #f59e0b;
-  --warning-bg: #1c1400;
+  --warning-bg: #130d00;
   --danger: #ef4444;
-  --danger-bg: #1c0a0a;
+  --danger-bg: #180707;
+
+  /* ── Surface elevation system ─────────────────────────── */
+  /* Each level sits ~1 stop above the last, creating tactile depth */
+  --surface-base:    #090e1a;   /* body / page canvas            */
+  --surface-raised:  #0d1424;   /* slightly above canvas          */
+  --surface-panel:   #111827;   /* card / sidebar default         */
+  --surface-overlay: #16202f;   /* hover state / lifted card      */
+  --surface-float:   #1a2638;   /* modal / popover / tooltip      */
+
+  /* ── Border hierarchy ────────────────────────────────── */
+  --border-dim:    rgba(255,255,255,0.04);   /* barely-there divider   */
+  --border-subtle: rgba(255,255,255,0.07);   /* panel edge             */
+  --border-mid:    rgba(255,255,255,0.10);   /* card border default    */
+  --border-active: rgba(255,255,255,0.16);   /* active / hover edge    */
+
+  /* ── Edge-lighting / shimmer ────────────────────────── */
+  /* Applied via box-shadow or ::before pseudo-element     */
+  --edge-top:    inset 0 1px 0 0 rgba(255,255,255,0.06);
+  --edge-strong: inset 0 1px 0 0 rgba(255,255,255,0.10);
+
+  /* ── Premium shadow stack ───────────────────────────── */
+  /* Layered diffused shadow — reads as material depth    */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.25);
+  --shadow-sm:  0 2px 6px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.20);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.25);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.30);
+  --shadow-xl:  0 16px 56px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.35);
+
+  /* ── Ambient glow (restrained — felt more than seen) ── */
+  --glow-primary: 0 0 28px rgba(59,130,246,0.08), 0 0 8px rgba(59,130,246,0.05);
+  --glow-success: 0 0 20px rgba(34,197,94,0.07);
+  --glow-danger:  0 0 20px rgba(239,68,68,0.07);
+
+  /* ── Interaction timing ─────────────────────────────── */
+  --ease-premium:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-snap:       cubic-bezier(0.34, 1.2, 0.64, 1);
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   320ms;
 }
 
 @layer base {
@@ -80,6 +120,12 @@
   h6,
   p {
     margin: 0;
+  }
+
+  /* Premium dark selection highlight */
+  .dark ::selection {
+    background-color: rgba(59, 130, 246, 0.20);
+    color: var(--foreground);
   }
 }
 
@@ -184,87 +230,133 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--border-mid, var(--border));
     border-radius: 2px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
+    background: rgba(255,255,255,0.15);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 active:scale-95;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg active:scale-95;
     background-color: var(--primary);
     color: var(--primary-foreground);
+    transition:
+      transform var(--duration-fast, 120ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      box-shadow var(--duration-base, 200ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      filter var(--duration-fast, 120ms) ease;
   }
 
   .btn-primary:hover {
-    transform: scale(1.01);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.25), 0 1px 3px rgba(0,0,0,0.2);
+    filter: brightness(1.05);
   }
 
   .btn-primary:active {
-    transform: scale(0.96);
+    transform: scale(0.97) translateY(0);
+    box-shadow: none;
   }
 
   .btn-primary:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
+    filter: none;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 active:scale-95 border;
-    background-color: var(--card);
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg active:scale-95;
+    background-color: var(--surface-panel, var(--card));
     color: var(--foreground);
-    border-color: var(--border);
+    border: 1px solid var(--border-mid, var(--border));
+    box-shadow: var(--edge-top, inset 0 1px 0 0 rgba(255,255,255,0.06));
+    transition:
+      background-color var(--duration-fast, 120ms) ease,
+      border-color var(--duration-base, 200ms) ease,
+      box-shadow var(--duration-base, 200ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      transform var(--duration-fast, 120ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1));
   }
 
   .btn-secondary:hover {
-    background-color: var(--muted);
+    background-color: var(--surface-overlay, var(--muted));
+    border-color: var(--border-active, rgba(255,255,255,0.16));
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 active:scale-95;
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg active:scale-95;
     color: var(--muted-foreground);
+    transition:
+      background-color var(--duration-fast, 120ms) ease,
+      color var(--duration-fast, 120ms) ease;
   }
 
   .btn-ghost:hover {
-    background-color: var(--muted);
+    background-color: var(--surface-raised, var(--muted));
     color: var(--foreground);
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 active:scale-95;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg active:scale-95;
     background-color: var(--danger);
     color: #ffffff;
+    transition:
+      filter var(--duration-fast, 120ms) ease,
+      transform var(--duration-fast, 120ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1));
   }
 
   .btn-danger:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.1);
   }
 
   .card {
-    @apply rounded-xl border;
+    @apply rounded-xl;
     background-color: var(--card);
-    border-color: var(--border);
+    /* Premium edge-lit border using gradient — reads as soft top-light */
+    border: 1px solid var(--border-mid, var(--border));
+    /* Multi-layer shadow: near shadow for tangibility + far shadow for depth */
+    box-shadow: var(--shadow-sm, 0 2px 6px rgba(0,0,0,0.30)),
+                var(--edge-top, inset 0 1px 0 0 rgba(255,255,255,0.06));
+    /* Smooth hover readiness */
+    transition:
+      box-shadow var(--duration-base, 200ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      border-color var(--duration-base, 200ms) ease,
+      background-color var(--duration-fast, 120ms) ease;
+  }
+
+  /* Elevated state: used on hover or focus within cards */
+  .card-elevated,
+  .card:is(:hover):where([data-hoverable]) {
+    background-color: var(--surface-overlay, #16202f);
+    border-color: var(--border-active, rgba(255,255,255,0.16));
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.35)),
+                var(--edge-strong, inset 0 1px 0 0 rgba(255,255,255,0.10));
   }
 
   .input-field {
-    @apply w-full px-3 py-2 text-sm rounded-lg border outline-none transition-all duration-150;
-    background-color: var(--card);
+    @apply w-full px-3 py-2 text-sm rounded-lg outline-none;
+    background-color: var(--surface-panel, var(--card));
     color: var(--foreground);
-    border-color: var(--input);
+    border: 1px solid var(--border-subtle, var(--input));
+    transition:
+      border-color var(--duration-fast, 120ms) ease,
+      box-shadow var(--duration-base, 200ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      background-color var(--duration-fast, 120ms) ease;
   }
 
   .input-field:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    background-color: var(--surface-overlay, #16202f);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12), var(--edge-top, inset 0 1px 0 0 rgba(255,255,255,0.06));
   }
 
   .input-field::placeholder {
     color: var(--muted-foreground);
+    opacity: 0.6;
   }
 
   .label {
@@ -280,6 +372,44 @@
   .error-text {
     @apply text-xs mt-1;
     color: var(--danger);
+  }
+
+  /* ── Premium surface utility classes ─────────────────────────────── */
+  /* Use these to apply the surface system without hardcoded colors     */
+
+  .surface-base    { background-color: var(--surface-base, #090e1a); }
+  .surface-raised  { background-color: var(--surface-raised, #0d1424); }
+  .surface-panel   { background-color: var(--surface-panel, #111827); }
+  .surface-overlay { background-color: var(--surface-overlay, #16202f); }
+  .surface-float   { background-color: var(--surface-float, #1a2638); }
+
+  /* Edge highlight: top-edge shimmer for elevated elements */
+  .edge-lit {
+    box-shadow: var(--edge-top, inset 0 1px 0 0 rgba(255,255,255,0.06));
+  }
+  .edge-lit-strong {
+    box-shadow: var(--edge-strong, inset 0 1px 0 0 rgba(255,255,255,0.10));
+  }
+
+  /* Cinematic depth shadows */
+  .shadow-premium-xs { box-shadow: var(--shadow-xs); }
+  .shadow-premium-sm { box-shadow: var(--shadow-sm); }
+  .shadow-premium-md { box-shadow: var(--shadow-md); }
+  .shadow-premium-lg { box-shadow: var(--shadow-lg); }
+  .shadow-premium-xl { box-shadow: var(--shadow-xl); }
+
+  /* Hover micro-lift: subtle translate + shadow upgrade */
+  .hover-lift {
+    transition:
+      transform var(--duration-base, 200ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      box-shadow var(--duration-base, 200ms) var(--ease-premium, cubic-bezier(0.22,1,0.36,1)),
+      border-color var(--duration-base, 200ms) ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.35)),
+                var(--edge-top, inset 0 1px 0 0 rgba(255,255,255,0.06));
+    border-color: var(--border-active, rgba(255,255,255,0.16));
   }
 
   /* Compact UI Density Overrides */

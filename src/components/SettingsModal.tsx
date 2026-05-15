@@ -23,7 +23,7 @@ import {
   Edit2,
   ShieldAlert,
 } from 'lucide-react';
-import { useSettings, ThemeMode, UIDensity, LandingPage } from '@/contexts/SettingsContext';
+import { useSettings, ThemeMode, UIDensity, LandingPage, VisualTheme } from '@/contexts/SettingsContext';
 import SupportTab from './SupportTab';
 import AccountTab from './AccountTab';
 import AdminReportsTab from './AdminReportsTab';
@@ -727,22 +727,69 @@ export default function SettingsModal({
                       Appearance
                     </h3>
                     <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
-                        <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
-                            Theme Mode
+                      {/* ── Visual Theme Selector ────────────────────────────────── */}
+                      <div className="p-5 group">
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-foreground/90">
+                            Visual Theme
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Select your interface color scheme.
+                            Choose the visual identity of your workspace.
                           </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-bold uppercase tracking-wider">
-                            Dark Mode Only
-                          </div>
-                          <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-tight">
-                            Light mode coming soon
-                          </span>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Original Theme Card */}
+                          <button
+                            onClick={() => updateSetting('visualTheme', 'Original' as VisualTheme)}
+                            className="ct-theme-card text-left"
+                            data-active={String((settings.visualTheme ?? 'Original') === 'Original')}
+                            aria-pressed={(settings.visualTheme ?? 'Original') === 'Original'}
+                          >
+                            <div className="ct-theme-preview ct-theme-preview--original" />
+                            <div className="flex items-center justify-between mt-2">
+                              <div>
+                                <p className="text-[12px] font-semibold text-foreground/90">Original</p>
+                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Blue operational</p>
+                              </div>
+                              {(settings.visualTheme ?? 'Original') === 'Original' && (
+                                <div
+                                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: 'var(--primary)', opacity: 0.85 }}
+                                >
+                                  <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                                    <path d="M1 3L3 5L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary-foreground)' }} />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+
+                          {/* Cinematic Theme Card */}
+                          <button
+                            onClick={() => updateSetting('visualTheme', 'Cinematic' as VisualTheme)}
+                            className="ct-theme-card text-left"
+                            data-active={String(settings.visualTheme === 'Cinematic')}
+                            aria-pressed={settings.visualTheme === 'Cinematic'}
+                          >
+                            <div className="ct-theme-preview ct-theme-preview--cinematic" />
+                            <div className="flex items-center justify-between mt-2">
+                              <div>
+                                <p className="text-[12px] font-semibold text-foreground/90">Cinematic</p>
+                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Monochromatic black</p>
+                              </div>
+                              {settings.visualTheme === 'Cinematic' && (
+                                <div
+                                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: 'var(--primary)', opacity: 0.85 }}
+                                >
+                                  <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                                    <path d="M1 3L3 5L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary-foreground)' }} />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                          </button>
                         </div>
                       </div>
 

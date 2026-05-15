@@ -780,7 +780,7 @@ export default function TrackerDashboardContent() {
             <div className="card shadow-card overflow-hidden">
               <div
                 className="flex items-center justify-between px-5 py-4 border-b"
-                style={{ borderColor: 'var(--border)' }}
+                style={{ borderColor: 'var(--border-subtle, var(--border))' }}
               >
                 <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
                   Recent Entries
@@ -929,15 +929,18 @@ function StatCard({
   trend?: 'up' | 'down';
 }) {
   return (
-    <div className="card p-4 shadow-card">
+    <div className="card p-4 shadow-card hover-lift" style={{ cursor: 'default' }}>
       <div className="flex items-center justify-between mb-3">
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: bg }}
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{
+            backgroundColor: bg,
+            boxShadow: 'var(--shadow-xs)',
+          }}
         >
           {icon}
         </div>
-        {trend === 'up' && <TrendingUp size={14} style={{ color: 'var(--success)' }} />}
+        {trend === 'up' && <TrendingUp size={14} style={{ color: 'var(--success)', opacity: 0.8 }} />}
       </div>
       <div
         className="text-2xl font-bold tabular-nums font-numbers mb-0.5"
@@ -948,7 +951,7 @@ function StatCard({
       <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
         {unit}
       </p>
-      <p className="text-xs font-medium mt-1 truncate" style={{ color: 'var(--muted-foreground)' }}>
+      <p className="text-xs font-medium mt-1 truncate" style={{ color: 'var(--muted-foreground)', opacity: 0.7 }}>
         {label}
       </p>
     </div>
@@ -1056,7 +1059,7 @@ function EntryRow({
       className="group transition-colors duration-100"
       style={{ borderBottom: '1px solid var(--border)' }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--muted)';
+        (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--surface-raised, var(--muted))';
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'transparent';

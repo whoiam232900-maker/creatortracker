@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export type ThemeMode = 'Dark' | 'Light' | 'System';
 export type UIDensity = 'Comfortable' | 'Compact';
 export type LandingPage = 'Dashboard' | 'Analytics' | 'Settings';
+export type VisualTheme = 'Original' | 'Cinematic';
 
 export interface AppSettings {
   themeMode: ThemeMode;
@@ -32,6 +33,8 @@ export interface AppSettings {
   showEarningsTracker: boolean;
   showProductivitySummary: boolean;
   showRecentEntries: boolean;
+  // Visual Theme Identity
+  visualTheme: VisualTheme;
 }
 
 const defaultSettings: AppSettings = {
@@ -60,6 +63,7 @@ const defaultSettings: AppSettings = {
   showEarningsTracker: false,
   showProductivitySummary: true,
   showRecentEntries: true,
+  visualTheme: 'Original',
 };
 
 interface SettingsContextValue {
@@ -115,6 +119,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (settings.themeMode !== 'Dark') {
       updateSetting('themeMode', 'Dark');
     }
+
+    // Visual Theme Identity
+    // data-visual-theme is the only coupling point for the cinematic CSS
+    root.setAttribute('data-visual-theme', (settings.visualTheme ?? 'Original').toLowerCase());
 
     // UI Density (We can map Comfortable to padding 1rem, Compact to 0.5rem via CSS vars, if we had them. For now we can just set a data attribute)
     root.setAttribute('data-density', settings.uiDensity.toLowerCase());

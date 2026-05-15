@@ -50,13 +50,15 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={[
-          'hidden lg:flex flex-col h-screen border-r sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
+          'hidden lg:flex flex-col h-screen sidebar-transition overflow-hidden fixed left-0 top-0 z-40',
           !isEffectivelyCollapsed && collapsed ? 'shadow-2xl' : '',
           isEffectivelyCollapsed ? 'w-16' : 'w-60',
         ].join(' ')}
         style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
+          backgroundColor: 'var(--surface-panel, var(--card))',
+          /* Right edge: a subtle dim border with inset top shimmer for depth */
+          borderRight: '1px solid var(--border-dim, rgba(255,255,255,0.04))',
+          boxShadow: 'var(--shadow-md, 0 4px 16px rgba(0,0,0,0.35)), inset -1px 0 0 0 var(--border-subtle, rgba(255,255,255,0.07))',
         }}
       >
         <SidebarContent
@@ -69,12 +71,13 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose }: Sideba
       {/* Mobile sidebar */}
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-50 flex flex-col w-64 lg:hidden sidebar-transition border-r',
+          'fixed inset-y-0 left-0 z-50 flex flex-col w-64 lg:hidden sidebar-transition',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
         style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border)',
+          backgroundColor: 'var(--surface-panel, var(--card))',
+          borderRight: '1px solid var(--border-dim, rgba(255,255,255,0.04))',
+          boxShadow: 'var(--shadow-xl, 0 16px 56px rgba(0,0,0,0.55))',
         }}
       >
         <SidebarContent collapsed={false} onClose={onMobileClose} />
@@ -133,34 +136,64 @@ function SidebarContent({
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={[
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 relative group',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium relative group',
                 collapsed ? 'justify-center' : '',
                 isActive
                   ? 'text-foreground/90'
-                  : 'text-muted-foreground/40 hover:text-foreground/70 hover:bg-white/[0.02]',
+                  : 'text-muted-foreground/50 hover:text-foreground/70',
               ].join(' ')}
-              style={
-                isActive
+              style={{
+                transition: `background-color var(--duration-fast, 120ms) ease, color var(--duration-base, 200ms) ease`,
+                ...(isActive
                   ? {
-                      backgroundColor: 'rgba(255,255,255,0.03)',
+                      backgroundColor: 'var(--surface-overlay, rgba(255,255,255,0.04))',
                     }
-                  : {}
-              }
+                  : {}),
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--surface-raised, rgba(255,255,255,0.02))';
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+              }}
             >
+              {/* Active accent bar */}
+              {isActive && !collapsed && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '2px',
+                    height: '60%',
+                    borderRadius: '0 2px 2px 0',
+                    backgroundColor: 'var(--primary)',
+                    opacity: 0.7,
+                    boxShadow: 'var(--glow-primary)',
+                  }}
+                />
+              )}
               <NavIcon
                 size={16}
-                className={`flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-primary/60' : 'text-muted-foreground/20 group-hover:text-muted-foreground/40'}`}
-                strokeWidth={1.5}
+                className={`flex-shrink-0 transition-colors duration-200 ${
+                  isActive ? 'text-primary/70' : 'text-muted-foreground/30 group-hover:text-muted-foreground/55'
+                }`}
+                strokeWidth={isActive ? 2 : 1.5}
               />
               {!collapsed && <span className="flex-1 truncate tracking-tight">{item.label}</span>}
 
               {/* Collapsed tooltip */}
               {collapsed && !settings.iconOnlyMinimized && (
                 <span
-                  className="absolute left-full ml-3 px-3 py-1.5 text-[11px] font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 z-50 shadow-2xl backdrop-blur-xl border border-white/[0.05]"
+                  className="absolute left-full ml-3 px-3 py-1.5 text-[11px] font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 border"
                   style={{
-                    backgroundColor: 'rgba(10, 10, 10, 0.9)',
-                    color: 'rgba(255, 255, 255, 0.8)',
+                    backgroundColor: 'var(--surface-float, rgba(10,10,10,0.92))',
+                    color: 'rgba(255,255,255,0.8)',
+                    borderColor: 'var(--border-subtle, rgba(255,255,255,0.07))',
+                    boxShadow: 'var(--shadow-lg)',
+                    transition: `opacity var(--duration-base, 200ms) ease`,
                   }}
                 >
                   {item.label}

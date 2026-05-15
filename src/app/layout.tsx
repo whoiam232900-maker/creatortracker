@@ -2,6 +2,7 @@ import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import '../styles/tailwind.css';
+import '../styles/theme-cinematic.css';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ToastContainer } from '@/components/ui/Toast';
 
