@@ -117,23 +117,32 @@ if (typeof window !== 'undefined') {
   migrateOldCodes();
 }
 
+export function normalizePlan(input: any): PlanType {
+  if (!input || typeof input !== 'string') return 'Free';
+  const s = input.toLowerCase();
+  if (s === 'pro') return 'Pro';
+  if (s === 'studio') return 'Studio';
+  return 'Free';
+}
+
 export function getPlanFeatures(plan?: PlanType): PlanFeatures {
-  const p = plan || 'Free';
+  const p = normalizePlan(plan);
   return PLAN_LIMITS[p] || PLAN_LIMITS['Free'];
 }
 
 export function hasFeature(plan: PlanType, feature: keyof PlanFeatures): boolean {
-  const features = getPlanFeatures(plan);
+  const normalized = normalizePlan(plan);
+  const features = getPlanFeatures(normalized);
   const val = features[feature];
   return typeof val === 'boolean' ? val : val !== 0;
 }
 
 export function hasPlan(currentPlan: PlanType, requiredPlan: PlanType): boolean {
-  return PLAN_HIERARCHY[currentPlan] >= PLAN_HIERARCHY[requiredPlan];
+  return PLAN_HIERARCHY[normalizePlan(currentPlan)] >= PLAN_HIERARCHY[normalizePlan(requiredPlan)];
 }
 
 export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, currentCount: number): boolean {
-  const features = getPlanFeatures(plan);
+  const features = getPlanFeatures(normalizePlan(plan));
   const limit = features[limitType];
   if (typeof limit === 'number') {
     if (limit === -1) return true;
@@ -145,21 +154,17 @@ export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, curren
 export function getCurrentPlan(): PlanType {
   if (typeof window === 'undefined') return 'Free';
   try {
-    const raw = localStorage.getItem(CURRENT_PLAN_KEY);
-    if (raw) {
-      // mapping lower to capitalized
-      if (raw.toLowerCase() === 'free') return 'Free';
-      if (raw.toLowerCase() === 'pro') return 'Pro';
-      if (raw.toLowerCase() === 'studio') return 'Studio';
-      return raw as PlanType;
-    }
-    
-    // Fallback to older session logic
+    // 1. localStorage.userSession.plan (Priority)
     const sessionRaw = localStorage.getItem('userSession');
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw);
-      return parsed?.plan || 'Free';
+      if (parsed?.plan) return normalizePlan(parsed.plan);
     }
+    
+    // 2. localStorage.creatortracker_current_plan
+    const raw = localStorage.getItem(CURRENT_PLAN_KEY);
+    if (raw) return normalizePlan(raw);
+
   } catch {
     // ignore
   }
@@ -168,15 +173,18 @@ export function getCurrentPlan(): PlanType {
 
 export function setCurrentPlan(plan: PlanType) {
   if (typeof window === 'undefined') return;
-  const lowercasePlan = plan.toLowerCase();
-  localStorage.setItem(CURRENT_PLAN_KEY, lowercasePlan);
+  const normalized = normalizePlan(plan);
+  
+  // Consistency: keep CURRENT_PLAN_KEY lowercase if it was before, 
+  // but normalizePlan handles reading it.
+  localStorage.setItem(CURRENT_PLAN_KEY, normalized.toLowerCase());
 
   try {
     // Also update session
     const sessionRaw = localStorage.getItem('userSession');
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw);
-      parsed.plan = plan; // Kept as original for backward comp, though UI handles it
+      parsed.plan = normalized; 
       localStorage.setItem('userSession', JSON.stringify(parsed));
     }
   } catch {
@@ -184,6 +192,8 @@ export function setCurrentPlan(plan: PlanType) {
   }
 
   // Notify listeners
+  window.dispatchEvent(new Event('userSessionUpdated'));
+  window.dispatchEvent(new Event('subscriptionUpdated'));
   window.dispatchEvent(new Event('creatortracker-plan-updated'));
   window.dispatchEvent(new Event('plan-updated')); // legacy
   window.dispatchEvent(new Event('storage'));

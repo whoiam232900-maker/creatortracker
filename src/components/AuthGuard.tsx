@@ -14,6 +14,7 @@ import { syncUserSessionFromSupabase } from '@/lib/profile';
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -24,7 +25,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const { data: { session: supabaseSession } } = await supabase.auth.getSession();
         if (supabaseSession) {
           console.log('[AuthGuard] session found');
-          await syncUserSessionFromSupabase(supabaseSession.user);
+          try {
+            await syncUserSessionFromSupabase(supabaseSession.user);
+          } catch (syncError) {
+            console.error('[AuthGuard] Profile sync failed:', syncError);
+          }
         } else {
           console.log('[AuthGuard] no session');
         }
@@ -45,14 +50,15 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             return;
           }
           if (mounted) setIsAuthorized(true);
-          return;
+        } else {
+          console.debug('[AuthGuard] No valid session — redirecting to /auth');
+          window.location.href = '/auth';
         }
-
-        console.debug('[AuthGuard] No valid session — redirecting to /auth');
-        window.location.href = '/auth';
       } catch (error) {
         console.error('[AuthGuard] Error checking session:', error);
         window.location.href = '/auth';
+      } finally {
+        if (mounted) setIsLoading(false);
       }
     }
 
@@ -73,8 +79,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  if (isAuthorized !== true) {
-    return null;
+  if (isLoading || isAuthorized !== true) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return <>{children}</>;

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase/client';
 import { ADMIN_EMAIL } from '@/lib/auth-utils';
+import { normalizePlan } from './subscription';
 
 export interface UserProfile {
   id: string;
@@ -120,7 +121,7 @@ export async function syncUserSessionFromSupabase(
   }
 
   // 3. Check for persistent local subscription upgrade so we don't downgrade
-  let currentPlan = profile.plan || 'free';
+  let currentPlan = normalizePlan(profile.plan || 'free');
   const email = profile.email || user.email || '';
   const subKey = `subscription_${email}`;
   try {
@@ -129,7 +130,7 @@ export async function syncUserSessionFromSupabase(
       const subData = JSON.parse(existingSubRaw);
       // If local subscription is stronger than profile plan, favor local
       if (subData.plan && subData.plan !== 'free' && subData.plan !== 'Free') {
-        currentPlan = subData.plan;
+        currentPlan = normalizePlan(subData.plan);
       }
     }
   } catch (e) {}
@@ -138,7 +139,7 @@ export async function syncUserSessionFromSupabase(
   const sessionData = {
     id: profile.id,
     email: email,
-    fullName: profile.full_name || '',
+    fullName: profile.full_name || user.user_metadata?.full_name || '',
     role: profile.role || 'user',
     plan: currentPlan,
     provider: 'supabase',
@@ -148,8 +149,13 @@ export async function syncUserSessionFromSupabase(
     remember: keepMeSignedIn
   };
 
-  // 4. Write back to localStorage
+  // 5. Write back to localStorage
   localStorage.setItem('userSession', JSON.stringify(sessionData));
+  
+  // Dispatch update events
+  window.dispatchEvent(new Event('userSessionUpdated'));
+  window.dispatchEvent(new Event('subscriptionUpdated'));
+  window.dispatchEvent(new Event('storage'));
   
   console.debug('[profile] Synced userSession from Supabase profiles', sessionData);
   return sessionData;

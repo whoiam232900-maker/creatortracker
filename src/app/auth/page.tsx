@@ -44,8 +44,8 @@ function AuthForm() {
   };
 
   useEffect(() => {
-    // Ensure admin account exists on load
-    seedAdminAccount();
+    // Ensure admin account exists on load - DISABLED for Phase 2E-1
+    // seedAdminAccount();
 
     const mode = searchParams?.get('mode');
     const reset = searchParams?.get('reset');

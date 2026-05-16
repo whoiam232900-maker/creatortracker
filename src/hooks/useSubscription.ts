@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PlanType, PlanFeatures, getPlanFeatures, hasFeature, checkLimit, getCurrentPlan, hasPlan, triggerUpgrade as centralTriggerUpgrade } from '../lib/subscription';
 
 export function useSubscription() {
@@ -6,40 +6,45 @@ export function useSubscription() {
   const [features, setFeatures] = useState<PlanFeatures>(getPlanFeatures('Free'));
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
+  const refreshPlan = useCallback(() => {
     const currentPlan = getCurrentPlan();
     setPlan(currentPlan);
     setFeatures(getPlanFeatures(currentPlan));
+  }, []);
+
+  useEffect(() => {
+    refreshPlan();
     setIsLoaded(true);
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'userSession' || e.key === 'creatortracker_current_plan') {
-        const newPlan = getCurrentPlan();
-        setPlan(newPlan);
-        setFeatures(getPlanFeatures(newPlan));
+        refreshPlan();
       }
     };
 
-    const handlePlanUpdate = () => {
-      const newPlan = getCurrentPlan();
-      setPlan(newPlan);
-      setFeatures(getPlanFeatures(newPlan));
-    };
-
     window.addEventListener('storage', handleStorage);
-    window.addEventListener('plan-updated', handlePlanUpdate);
+    window.addEventListener('userSessionUpdated', refreshPlan);
+    window.addEventListener('subscriptionUpdated', refreshPlan);
+    window.addEventListener('plan-updated', refreshPlan); // legacy
+    window.addEventListener('creatortracker-plan-updated', refreshPlan);
+    
     return () => {
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('plan-updated', handlePlanUpdate);
+      window.removeEventListener('userSessionUpdated', refreshPlan);
+      window.removeEventListener('subscriptionUpdated', refreshPlan);
+      window.removeEventListener('plan-updated', refreshPlan);
+      window.removeEventListener('creatortracker-plan-updated', refreshPlan);
     };
-  }, []);
+  }, [refreshPlan]);
 
   const canUseFeature = (feature: keyof PlanFeatures) => {
-    return hasFeature(plan, feature);
+    // Always use fresh normalized plan from source of truth
+    return hasFeature(getCurrentPlan(), feature);
   };
 
   const withinLimit = (limitType: keyof PlanFeatures, currentCount: number) => {
-    return checkLimit(plan, limitType, currentCount);
+    // Always use fresh normalized plan from source of truth
+    return checkLimit(getCurrentPlan(), limitType, currentCount);
   };
 
   const triggerUpgrade = (targetPlan?: PlanType) => {
@@ -53,9 +58,14 @@ export function useSubscription() {
     canUseFeature,
     withinLimit,
     triggerUpgrade,
-    hasPlan: (requiredPlan: PlanType) => hasPlan(plan, requiredPlan),
-    isFree: plan === 'Free',
-    isPro: plan === 'Pro',
-    isStudio: plan === 'Studio',
+    hasPlan: (requiredPlan: PlanType) => hasPlan(getCurrentPlan(), requiredPlan),
+    isFree: normalizePlanCheck(getCurrentPlan(), 'Free'),
+    isPro: normalizePlanCheck(getCurrentPlan(), 'Pro'),
+    isStudio: normalizePlanCheck(getCurrentPlan(), 'Studio'),
   };
+}
+
+// Internal helper for clean booleans
+function normalizePlanCheck(current: string, target: string): boolean {
+  return current.toLowerCase() === target.toLowerCase();
 }
