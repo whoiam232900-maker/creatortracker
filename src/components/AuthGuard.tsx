@@ -22,17 +22,31 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     async function checkAuth() {
       try {
-        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-        if (supabaseSession) {
-          console.log('[AuthGuard] session found');
-          try {
-            await syncUserSessionFromSupabase(supabaseSession.user);
-          } catch (syncError) {
-            console.error('[AuthGuard] Profile sync failed:', syncError);
+        // Hard safety timeout for the entire auth check
+        const authPromise = (async () => {
+          const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+          if (supabaseSession) {
+            console.log('[AuthGuard] session found');
+            try {
+              // Internal timeout for profile sync specifically
+              const syncPromise = syncUserSessionFromSupabase(supabaseSession.user);
+              const syncTimeout = new Promise(resolve => setTimeout(resolve, 3000));
+              await Promise.race([syncPromise, syncTimeout]);
+            } catch (syncError) {
+              console.error('[AuthGuard] Profile sync failed:', syncError);
+            }
           }
-        } else {
-          console.log('[AuthGuard] no session');
-        }
+          return supabaseSession;
+        })();
+
+        const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => {
+            console.warn('[AuthGuard] Auth check timed out');
+            resolve(null);
+          }, 5000)
+        );
+
+        const supabaseSession = await Promise.race([authPromise, timeoutPromise]);
 
         const sessionString = localStorage.getItem('userSession');
         let legacySession = null;
@@ -56,7 +70,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('[AuthGuard] Error checking session:', error);
-        window.location.href = '/auth';
+        if (mounted) window.location.href = '/auth';
       } finally {
         if (mounted) setIsLoading(false);
       }

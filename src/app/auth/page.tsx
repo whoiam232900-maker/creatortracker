@@ -138,18 +138,24 @@ function AuthForm() {
         localStorage.removeItem('pendingSetupPath');
 
         if (data.user) {
-          await syncUserSessionFromSupabase(data.user, {
-            isNewAccount: true,
-            onboardingPath: pendingSetupPath,
-            remember: keepMeSignedIn
-          });
+          try {
+            // Safety timeout around sync to prevent infinite loading
+            const syncPromise = syncUserSessionFromSupabase(data.user, {
+              isNewAccount: true,
+              onboardingPath: pendingSetupPath,
+              remember: keepMeSignedIn
+            });
+            const syncTimeout = new Promise(resolve => setTimeout(resolve, 3000));
+            await Promise.race([syncPromise, syncTimeout]);
+            console.log('[auth] profile sync complete/timeout');
+          } catch (e) {
+            console.warn('[auth] sync failed during signup', e);
+          }
         }
 
-        if (pendingSetupPath === 'manual') {
-          window.location.href = '/onboarding/manual';
-        } else {
-          window.location.href = '/onboarding/ai';
-        }
+        const target = pendingSetupPath === 'manual' ? '/onboarding/manual' : '/onboarding/ai';
+        console.log('[auth] routing to', target);
+        router.push(target);
       } else {
         // Sign In
         const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -166,19 +172,32 @@ function AuthForm() {
         console.log('[auth] login success');
 
         if (data.user) {
-          await syncUserSessionFromSupabase(data.user, {
-            isNewAccount: false,
-            onboardingPath: null,
-            remember: keepMeSignedIn
-          });
+          try {
+            // Safety timeout around sync
+            const syncPromise = syncUserSessionFromSupabase(data.user, {
+              isNewAccount: false,
+              onboardingPath: null,
+              remember: keepMeSignedIn
+            });
+            const syncTimeout = new Promise(resolve => setTimeout(resolve, 3000));
+            await Promise.race([syncPromise, syncTimeout]);
+            console.log('[auth] profile sync complete/timeout');
+          } catch (e) {
+            console.warn('[auth] sync failed during signin', e);
+          }
         }
-        window.location.href = getLandingRoute();
+        const target = getLandingRoute();
+        console.log('[auth] routing to', target);
+        router.push(target);
       }
     } catch (err) {
       console.error('[auth] Authentication error:', err);
       setError('An error occurred. Please try again.');
     } finally {
-      setIsLoading(false);
+      // Small delay before clearing loading to allow transition to start
+      setTimeout(() => {
+        if (typeof window !== 'undefined') setIsLoading(false);
+      }, 500);
     }
   };
 

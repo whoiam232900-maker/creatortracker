@@ -93,6 +93,7 @@ export async function ensureProfile(user: { id: string; email?: string; user_met
 
 /**
  * Fetches the latest profile and rewrites localStorage 'userSession'.
+ * Now with a safety timeout and fallback mechanism to prevent infinite loading.
  */
 export async function syncUserSessionFromSupabase(
   user: { id: string; email?: string; user_metadata?: any },
@@ -100,8 +101,20 @@ export async function syncUserSessionFromSupabase(
 ) {
   if (typeof window === 'undefined') return null;
 
-  // 1. Ensure profile exists and get the latest
-  const profile = await ensureProfile(user);
+  let profile: UserProfile | null = null;
+  
+  try {
+    // 1. Attempt to ensure profile exists with a timeout
+    const profilePromise = ensureProfile(user);
+    const timeoutPromise = new Promise<null>((_, reject) => 
+      setTimeout(() => reject(new Error('Profile sync timeout')), 4000)
+    );
+
+    profile = await Promise.race([profilePromise, timeoutPromise]) as UserProfile;
+    console.debug('[profile] Profile fetched successfully');
+  } catch (error) {
+    console.warn('[profile] Profile fetch failed or timed out, using fallback:', error);
+  }
 
   // 2. Determine existing onboarding state if any
   let isNewAccount = overrides?.isNewAccount ?? false;
@@ -120,27 +133,27 @@ export async function syncUserSessionFromSupabase(
     } catch (e) {}
   }
 
-  // 3. Check for persistent local subscription upgrade so we don't downgrade
-  let currentPlan = normalizePlan(profile.plan || 'free');
-  const email = profile.email || user.email || '';
+  // 3. Check for persistent local subscription upgrade
+  let currentPlan = normalizePlan(profile?.plan || 'free');
+  const email = profile?.email || user.email || '';
   const subKey = `subscription_${email}`;
   try {
     const existingSubRaw = localStorage.getItem(subKey);
     if (existingSubRaw) {
       const subData = JSON.parse(existingSubRaw);
-      // If local subscription is stronger than profile plan, favor local
       if (subData.plan && subData.plan !== 'free' && subData.plan !== 'Free') {
         currentPlan = normalizePlan(subData.plan);
       }
     }
   } catch (e) {}
 
-  // 4. Build fresh user session shape
+  // 4. Build user session (with fallback if profile fetch failed)
+  const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   const sessionData = {
-    id: profile.id,
+    id: profile?.id || user.id,
     email: email,
-    fullName: profile.full_name || user.user_metadata?.full_name || '',
-    role: profile.role || 'user',
+    fullName: profile?.full_name || user.user_metadata?.full_name || email.split('@')[0] || 'User',
+    role: profile?.role || (isAdmin ? 'admin' : 'user'),
     plan: currentPlan,
     provider: 'supabase',
     isLoggedIn: true,
