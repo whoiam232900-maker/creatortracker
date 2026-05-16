@@ -23,6 +23,7 @@ import {
   MousePointer2,
 } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface WorkflowModuleProps {
   state: AppState;
@@ -114,14 +115,20 @@ function isRecentlyExported(wf: Workflow): boolean {
   );
 }
 
+import PremiumUnlockModal from './PremiumUnlockModal';
+
 export default function WorkflowModule({ state, setState, userId }: WorkflowModuleProps) {
   const { settings } = useSettings();
+  const { withinLimit, triggerUpgrade } = useSubscription();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
 
   if (!settings.enableWorkflowTracking) return null;
 
   const workflows = (state.workflows || []).filter((w) => !w.archived);
+  // ... rest of methods ...
+
 
   const updateWorkflow = (updatedWf: Workflow) => {
     const newState = {
@@ -194,10 +201,15 @@ export default function WorkflowModule({ state, setState, userId }: WorkflowModu
 
         <button
           onClick={() => {
+            if (!withinLimit('workflowsLimit', workflows.length)) {
+              setShowUnlockModal(true);
+              return;
+            }
             setEditingWorkflow(null);
             setIsModalOpen(true);
           }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium border border-white/[0.06] active:scale-[0.98]"
+
           style={{
             color: 'var(--foreground)',
             opacity: 0.9,
@@ -226,7 +238,14 @@ export default function WorkflowModule({ state, setState, userId }: WorkflowModu
         <div
           className="rounded-2xl py-12 flex flex-col items-center justify-center border border-dashed border-white/[0.08] bg-white/[0.005] cursor-pointer"
           style={{ transition: 'background-color 200ms ease, border-color 200ms ease' }}
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            if (!withinLimit('workflowsLimit', workflows.length)) {
+              setShowUnlockModal(true);
+              return;
+            }
+            setIsModalOpen(true);
+          }}
+
           onMouseEnter={(e) => {
             const el = e.currentTarget as HTMLElement;
             el.style.backgroundColor = 'rgba(255,255,255,0.01)';
@@ -292,6 +311,20 @@ export default function WorkflowModule({ state, setState, userId }: WorkflowModu
           editingWorkflow={editingWorkflow}
         />
       )}
+
+      <PremiumUnlockModal 
+        isOpen={showUnlockModal}
+        onClose={() => setShowUnlockModal(false)}
+        title="Unlock Unlimited Workflows"
+        description="Your operational complexity has reached the free-tier limit. Upgrade to Pro to manage unlimited workflows and custom templates."
+        featureName="Workflows"
+        benefits={[
+          "Unlimited active workflows",
+          "Advanced custom checkpoint templates",
+          "Operational intelligence suggestions",
+          "Workflow duplication & archiving"
+        ]}
+      />
     </div>
   );
 }

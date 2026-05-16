@@ -6,6 +6,8 @@ import '../styles/theme-cinematic.css';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ToastContainer } from '@/components/ui/Toast';
 
+import SplashScreen from '@/components/SplashScreen';
+
 const inter = Inter({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
@@ -30,7 +32,8 @@ export const metadata: Metadata = {
   description:
     'CreatorTracker helps students, freelancers, and business owners define custom fields, log daily work, and visualize progress with powerful analytics.',
   icons: {
-    icon: [{ url: '/favicon.ico', type: 'image/x-icon' }],
+    icon: [{ url: '/assets/creatortracker-logo.png', type: 'image/png' }],
+    apple: [{ url: '/assets/creatortracker-logo.png', type: 'image/png' }],
   },
 };
 
@@ -39,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={`${montserrat.variable} ${inter.variable} dark`}>
       <body className={montserrat.className}>
         <SettingsProvider>
+          <SplashScreen />
           {children}
           <ToastContainer />
         </SettingsProvider>

@@ -2,7 +2,7 @@
 
 import React, { memo, useMemo } from 'react';
 import AppIcon from './AppIcon';
-import AppImage from './AppImage';
+import Image from 'next/image';
 
 interface AppLogoProps {
   src?: string; // Image source (optional)
@@ -13,7 +13,7 @@ interface AppLogoProps {
 }
 
 const AppLogo = memo(function AppLogo({
-  src = '/assets/images/app_logo.png',
+  src = '/assets/creatortracker-logo.png',
   iconName = 'SparklesIcon',
   size = 64,
   className = '',
@@ -31,14 +31,13 @@ const AppLogo = memo(function AppLogo({
     <div className={containerClassName} onClick={onClick}>
       {/* Show image if src provided, otherwise show icon */}
       {src ? (
-        <AppImage
+        <Image
           src={src}
-          alt="Logo"
+          alt="CreatorTracker"
           width={size}
           height={size}
-          className="flex-shrink-0"
-          priority={true}
-          unoptimized={src.endsWith('.svg')}
+          priority
+          className="object-contain"
         />
       ) : (
         <AppIcon name={iconName} size={size} className="flex-shrink-0" />

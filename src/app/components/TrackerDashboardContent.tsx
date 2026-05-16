@@ -43,10 +43,18 @@ import { useSettings } from '@/contexts/SettingsContext';
 import WorkflowModule from '@/components/WorkflowModule';
 import { generateSuggestedTargets } from '@/lib/ai-engine';
 import { TargetConfig } from '@/lib/store';
+import { useSubscription } from '@/hooks/useSubscription';
+import PremiumUnlockModal from '@/components/PremiumUnlockModal';
+import PremiumIntroPopup from '@/components/PremiumIntroPopup';
+import { Lock } from 'lucide-react';
+
 
 export default function TrackerDashboardContent() {
   const { settings, openSettings } = useSettings();
+  const { plan, canUseFeature, withinLimit, triggerUpgrade } = useSubscription();
   const [state, setState] = useState<AppState | null>(null);
+  const [showAnalyticsUnlock, setShowAnalyticsUnlock] = useState(false);
+  
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerElapsed, setTimerElapsed] = useState(0);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
@@ -302,6 +310,10 @@ export default function TrackerDashboardContent() {
         if (existing >= 0) {
           newTargets = prev.targets.map((t, idx) => (idx === existing ? target : t));
         } else {
+          if (!withinLimit('targetsLimit', prev.targets.length)) {
+            triggerUpgrade();
+            return prev;
+          }
           newTargets = [...prev.targets, target];
         }
         const newState = { ...prev, targets: newTargets };
@@ -422,80 +434,94 @@ export default function TrackerDashboardContent() {
         <>
           {/* Bento grid: 4 stat cards */}
           {settings.showAnalyticsCards && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Streak */}
-              {settings.showStreaks && (
-                <StatCard
-                  label="Current Streak"
-                  value={String(streak)}
-                  unit="days"
-                  icon={<Flame size={18} style={{ color: '#D97706' }} />}
-                  color="#D97706"
-                  bg="var(--warning-bg)"
-                  trend={streak >= 7 ? 'up' : undefined}
-                />
+            <div 
+              className={`relative grid grid-cols-2 lg:grid-cols-4 gap-4 transition-all duration-700 ${!canUseFeature('hasAdvancedAnalytics') ? 'cursor-pointer group/stats' : ''}`}
+              onClick={() => !canUseFeature('hasAdvancedAnalytics') && setShowAnalyticsUnlock(true)}
+            >
+              {/* Lock Indicator overlay for non-pro */}
+              {!canUseFeature('hasAdvancedAnalytics') && (
+                <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/10 text-primary opacity-0 group-hover/stats:opacity-100 transition-opacity">
+                  <Lock size={10} />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">Analytics Pro</span>
+                </div>
               )}
-              {/* Today completion */}
-              <StatCard
-                label="Today's Targets"
-                value={completionRate !== null ? `${completionRate}%` : '—'}
-                unit={
-                  completionRate !== null
-                    ? `${metTargets.length}/${targetsToday.length} met`
-                    : 'no targets set'
-                }
-                icon={
-                  <Target
-                    size={18}
-                    style={{
-                      color:
-                        completionRate === 100
-                          ? 'var(--success)'
-                          : completionRate !== null && completionRate < 50
-                            ? 'var(--danger)'
-                            : 'var(--primary)',
-                    }}
+
+              <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 contents ${!canUseFeature('hasAdvancedAnalytics') ? 'opacity-40 blur-[1px] pointer-events-none' : ''}`}>
+                {/* Streak */}
+                {settings.showStreaks && (
+                  <StatCard
+                    label="Current Streak"
+                    value={String(streak)}
+                    unit="days"
+                    icon={<Flame size={18} style={{ color: '#D97706' }} />}
+                    color="#D97706"
+                    bg="var(--warning-bg)"
+                    trend={streak >= 7 ? 'up' : undefined}
                   />
-                }
-                color={
-                  completionRate === 100
-                    ? 'var(--success)'
-                    : completionRate !== null && completionRate < 50
-                      ? 'var(--danger)'
-                      : 'var(--primary)'
-                }
-                bg={
-                  completionRate === 100
-                    ? 'var(--success-bg)'
-                    : completionRate !== null && completionRate < 50
-                      ? 'var(--danger-bg)'
-                      : 'rgba(37,99,235,0.06)'
-                }
-              />
-              {/* Weekly total for top number field */}
-              {numFields.length > 0 && (
+                )}
+                {/* Today completion */}
                 <StatCard
-                  label={`This Week — ${numFields[0].name}`}
-                  value={String(Math.round(weeklyTotals[numFields[0].id] * 10) / 10)}
-                  unit={numFields[0].unit}
-                  icon={<TrendingUp size={18} style={{ color: 'var(--accent)' }} />}
-                  color="var(--accent)"
-                  bg="rgba(14,165,233,0.08)"
+                  label="Today's Targets"
+                  value={completionRate !== null ? `${completionRate}%` : '—'}
+                  unit={
+                    completionRate !== null
+                      ? `${metTargets.length}/${targetsToday.length} met`
+                      : 'no targets set'
+                  }
+                  icon={
+                    <Target
+                      size={18}
+                      style={{
+                        color:
+                          completionRate === 100
+                            ? 'var(--success)'
+                            : completionRate !== null && completionRate < 50
+                              ? 'var(--danger)'
+                              : 'var(--primary)',
+                      }}
+                    />
+                  }
+                  color={
+                    completionRate === 100
+                      ? 'var(--success)'
+                      : completionRate !== null && completionRate < 50
+                        ? 'var(--danger)'
+                        : 'var(--primary)'
+                  }
+                  bg={
+                    completionRate === 100
+                      ? 'var(--success-bg)'
+                      : completionRate !== null && completionRate < 50
+                        ? 'var(--danger-bg)'
+                        : 'rgba(37,99,235,0.06)'
+                  }
                 />
-              )}
-              {/* Total entries */}
-              <StatCard
-                label="Total Entries"
-                value={String(state.entries.length)}
-                unit="logged"
-                icon={<Calendar size={18} style={{ color: 'var(--muted-foreground)' }} />}
-                color="var(--muted-foreground)"
-                bg="var(--muted)"
-              />
+                {/* Weekly total for top number field */}
+                {numFields.length > 0 && (
+                  <StatCard
+                    label={`This Week — ${numFields[0].name}`}
+                    value={String(Math.round(weeklyTotals[numFields[0].id] * 10) / 10)}
+                    unit={numFields[0].unit}
+                    icon={<TrendingUp size={18} style={{ color: 'var(--accent)' }} />}
+                    color="var(--accent)"
+                    bg="rgba(14,165,233,0.08)"
+                  />
+                )}
+                {/* Total entries */}
+                <StatCard
+                  label="Total Entries"
+                  value={String(state.entries.length)}
+                  unit="logged"
+                  icon={<Calendar size={18} style={{ color: 'var(--muted-foreground)' }} />}
+                  color="var(--muted-foreground)"
+                  bg="var(--muted)"
+                />
+              </div>
             </div>
           )}
 
           {/* Weekly Pulse (Alternative specialized view if enabled) */}
+
           {settings.showWeeklyPulse && !settings.showAnalyticsCards && (
             <div className="card p-6 bg-gradient-to-br from-primary/5 to-transparent border-primary/10">
               <h3 className="text-sm font-bold uppercase tracking-widest text-primary/60 mb-4">
@@ -905,6 +931,22 @@ export default function TrackerDashboardContent() {
         onConfirm={() => deleteConfirm && handleDeleteEntry(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      <PremiumUnlockModal 
+        isOpen={showAnalyticsUnlock}
+        onClose={() => setShowAnalyticsUnlock(false)}
+        title="Unlock Advanced Analytics"
+        description="Get high-level statistics, weekly comparisons, and deep metric breakdowns to optimize your operational performance."
+        featureName="Analytics"
+        benefits={[
+          "Historical performance trending",
+          "Advanced behavioral streak analysis",
+          "Multi-metric correlation matrices",
+          "Custom goal tracking & suggestions"
+        ]}
+      />
+
+      <PremiumIntroPopup />
     </div>
   );
 }

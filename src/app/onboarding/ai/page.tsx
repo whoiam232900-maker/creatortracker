@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUserStorageKey, loadState, saveState } from '@/lib/store';
+import { LogOut } from 'lucide-react';
 
 interface OnboardingAnswers {
   role: string;
@@ -267,7 +268,7 @@ export default function AIOnboardingPage() {
         // Conditional routing based on 'wantsTargets' answer
         if (answers.wantsTargets === 'Yes') {
           console.debug('[onboarding/ai] User wants targets — continuing to /onboarding/targets');
-          router.push('/onboarding/targets');
+          window.location.href = '/onboarding/targets';
         } else {
           console.debug(
             '[onboarding/ai] User skipped targets — clearing flag and finishing at /dashboard'
@@ -277,8 +278,7 @@ export default function AIOnboardingPage() {
           // we MUST clear isNewAccount here to complete the onboarding journey.
           const updatedSession = { ...session, isNewAccount: false };
           localStorage.setItem('userSession', JSON.stringify(updatedSession));
-
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }
       } catch (e) {
         console.error('[onboarding/ai] Error saving AI data:', e);
@@ -298,10 +298,24 @@ export default function AIOnboardingPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden"
       style={{ backgroundColor: 'var(--background)' }}
     >
-      <div className="w-full max-w-md flex flex-col gap-8">
+      {/* Sign Out Fallback */}
+      <div className="absolute top-6 right-6 z-50">
+        <button
+          onClick={() => {
+            localStorage.removeItem('userSession');
+            router.replace('/');
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[11px] font-bold text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"
+        >
+          <LogOut size={14} />
+          Abort & Sign Out
+        </button>
+      </div>
+
+      <div className="w-full max-w-md flex flex-col gap-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Header */}
         <div className="flex flex-col gap-1 text-center">
           <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>

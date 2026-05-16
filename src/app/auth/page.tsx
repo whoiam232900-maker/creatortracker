@@ -10,6 +10,7 @@ import {
   ADMIN_EMAIL,
 } from '@/lib/auth-utils';
 import bcrypt from 'bcryptjs';
+import AppLogo from '@/components/ui/AppLogo';
 
 // ── Inner component that uses useSearchParams (must be inside Suspense) ─────
 function AuthForm() {
@@ -60,7 +61,7 @@ function AuthForm() {
       if (raw) {
         const session = JSON.parse(raw);
         if (session?.isLoggedIn === true && session?.isNewAccount !== true) {
-          router.replace(getLandingRoute());
+          window.location.href = getLandingRoute();
         }
       }
     } catch (e) {
@@ -148,9 +149,9 @@ function AuthForm() {
         localStorage.setItem('userSession', JSON.stringify(sessionData));
 
         if (pendingSetupPath === 'manual') {
-          router.push('/onboarding/manual');
+          window.location.href = '/onboarding/manual';
         } else {
-          router.push('/onboarding/ai');
+          window.location.href = '/onboarding/ai';
         }
       } else {
         // Sign In
@@ -162,10 +163,25 @@ function AuthForm() {
           return;
         }
 
+        // Check for persistent subscription upgrade
+        const subKey = `subscription_${email}`;
+        const existingSubRaw = localStorage.getItem(subKey);
+        let currentPlan: any = userData.role === 'admin' ? 'Studio' : 'Free';
+        
+        if (existingSubRaw) {
+          try {
+            const subData = JSON.parse(existingSubRaw);
+            if (subData.plan) {
+              currentPlan = subData.plan;
+              console.log(`[auth] Found existing persistent subscription: ${currentPlan}`);
+            }
+          } catch (e) {}
+        }
+
         const sessionData = {
           isLoggedIn: true,
           role: userData.role,
-          plan: userData.role === 'admin' ? 'Studio' : 'Free',
+          plan: currentPlan,
           email,
           fullName: userData.fullName || email.split('@')[0],
           isNewAccount: false,
@@ -174,7 +190,7 @@ function AuthForm() {
         };
 
         localStorage.setItem('userSession', JSON.stringify(sessionData));
-        router.push(getLandingRoute());
+        window.location.href = getLandingRoute();
       }
     } catch (err) {
       console.error('[auth] Authentication error:', err);
@@ -191,9 +207,7 @@ function AuthForm() {
     >
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-2 shadow-lg shadow-primary/5">
-            <ShieldCheck className="text-primary" size={24} />
-          </div>
+          <AppLogo size={80} className="mb-4" />
           <h1 className="text-2xl font-bold text-center" style={{ color: 'var(--foreground)' }}>
             CreatorTracker
           </h1>
@@ -423,18 +437,30 @@ function AuthForm() {
           )}
         </div>
 
-        <div className="mt-8 flex flex-col items-center gap-4">
+        <div className="mt-8 flex flex-col items-center gap-6">
           <p className="text-[10px] text-muted-foreground/30 uppercase tracking-[0.2em] font-bold flex items-center gap-2">
             <ShieldCheck size={12} className="opacity-40" />
             Secure & Encrypted
           </p>
 
-          <button
-            className="text-[11px] font-bold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
-            onClick={() => router.push('/')}
-          >
-            ← Back to home
-          </button>
+          <div className="flex items-center gap-6">
+            <button
+              className="text-[11px] font-bold text-muted-foreground/40 hover:text-muted-foreground transition-colors uppercase tracking-widest"
+              onClick={() => window.location.href = '/'}
+            >
+              ← Back to home
+            </button>
+            
+            <button
+              className="text-[11px] font-bold text-red-500/40 hover:text-red-500 transition-colors uppercase tracking-widest"
+              onClick={() => {
+                localStorage.removeItem('userSession');
+                window.location.reload();
+              }}
+            >
+              Clear Session
+            </button>
+          </div>
         </div>
       </div>
     </div>

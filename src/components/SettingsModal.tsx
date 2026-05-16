@@ -1,3 +1,4 @@
+'use client';
 import React, { useRef, useState } from 'react';
 import Modal from './ui/Modal';
 import {
@@ -23,16 +24,20 @@ import {
   Edit2,
   ShieldAlert,
 } from 'lucide-react';
+import AppLogo from './ui/AppLogo';
 import { useSettings, ThemeMode, UIDensity, LandingPage, VisualTheme } from '@/contexts/SettingsContext';
 import SupportTab from './SupportTab';
 import AccountTab from './AccountTab';
-import AdminReportsTab from './AdminReportsTab';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PlanType } from '@/lib/subscription';
+import { UpgradePrompt } from './UpgradePrompt';
+import { UpgradeRedeemModal } from './UpgradeRedeemModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentPlan?: string;
   initialTab?: string;
+  currentPlan?: string;
 }
 
 const SIDEBAR_ITEMS = [
@@ -44,8 +49,6 @@ const SIDEBAR_ITEMS = [
   { label: 'Notifications', icon: Bell },
   { label: 'Help & Support', icon: HelpCircle },
 ];
-
-const ADMIN_ITEMS = [{ label: 'Admin: Reports', icon: ShieldAlert }];
 
 const PLANS = [
   {
@@ -218,13 +221,14 @@ function CustomSlider({
 export default function SettingsModal({
   isOpen,
   onClose,
-  currentPlan = 'Free',
   initialTab = 'Billing & Plans',
 }: SettingsModalProps) {
   const { settings, updateSetting } = useSettings();
+  const { plan: currentPlan, canUseFeature, triggerUpgrade } = useSubscription();
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [upgradeTarget, setUpgradeTarget] = useState<PlanType | null>(null);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
   const [region, setRegion] = useState<'Global' | 'India'>('Global');
   const [session, setSession] = useState<{
@@ -235,8 +239,7 @@ export default function SettingsModal({
   } | null>(null);
 
   // Combined sidebar items based on role
-  const visibleSidebarItems =
-    session?.role === 'admin' ? [...SIDEBAR_ITEMS, ...ADMIN_ITEMS] : SIDEBAR_ITEMS;
+  const visibleSidebarItems = SIDEBAR_ITEMS;
 
   // Sync initial tab when modal opens
   React.useEffect(() => {
@@ -249,6 +252,10 @@ export default function SettingsModal({
     }
   }, [isOpen, initialTab]);
 
+  const handleThemeSelect = (theme: VisualTheme) => {
+    updateSetting('visualTheme', theme);
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -259,8 +266,9 @@ export default function SettingsModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} hideHeader noPadding maxWidth="max-w-6xl">
-      <div
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} hideHeader noPadding maxWidth="max-w-6xl">
+        <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
         className="flex h-full w-full relative group"
@@ -282,7 +290,8 @@ export default function SettingsModal({
             backgroundColor: 'color-mix(in srgb, var(--card) 98%, transparent)',
           }}
         >
-          <div className="p-6 pb-2">
+          <div className="p-6 pb-2 flex items-center gap-3">
+            <AppLogo size={24} />
             <h2 className="text-[17px] font-light tracking-tight text-foreground/80">Settings</h2>
           </div>
           <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-thin">
@@ -304,7 +313,7 @@ export default function SettingsModal({
                     strokeWidth={1.5}
                   />
                   <span
-                    className={`tracking-tight ${item.label.startsWith('Admin:') ? 'text-primary/60 font-semibold' : ''}`}
+                    className="tracking-tight"
                   >
                     {item.label}
                   </span>
@@ -490,6 +499,11 @@ export default function SettingsModal({
 
                             <button
                               disabled={isCurrent}
+                              onClick={() => {
+                                if (!isCurrent && plan.name !== 'Free') {
+                                  setUpgradeTarget(plan.name as PlanType);
+                                }
+                              }}
                               className={`w-full py-2 px-4 rounded-lg font-semibold text-[11px] transition-all duration-200 ${
                                 isCurrent
                                   ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/[0.04]'
@@ -738,21 +752,21 @@ export default function SettingsModal({
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          {/* Original Theme Card */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* Cinematic Theme Card */}
                           <button
-                            onClick={() => updateSetting('visualTheme', 'Original' as VisualTheme)}
-                            className="ct-theme-card text-left"
-                            data-active={String((settings.visualTheme ?? 'Original') === 'Original')}
-                            aria-pressed={(settings.visualTheme ?? 'Original') === 'Original'}
+                            onClick={() => handleThemeSelect('Cinematic')}
+                            className="ct-theme-card text-left relative"
+                            data-active={String((settings.visualTheme ?? 'Cinematic') === 'Cinematic')}
+                            aria-pressed={(settings.visualTheme ?? 'Cinematic') === 'Cinematic'}
                           >
-                            <div className="ct-theme-preview ct-theme-preview--original" />
+                            <div className="ct-theme-preview ct-theme-preview--cinematic" />
                             <div className="flex items-center justify-between mt-2">
                               <div>
-                                <p className="text-[12px] font-semibold text-foreground/90">Original</p>
-                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Blue operational</p>
+                                <p className="text-[12px] font-semibold text-foreground/90">Cinematic</p>
+                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Primary Default</p>
                               </div>
-                              {(settings.visualTheme ?? 'Original') === 'Original' && (
+                              {(settings.visualTheme ?? 'Cinematic') === 'Cinematic' && (
                                 <div
                                   className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
                                   style={{ backgroundColor: 'var(--primary)', opacity: 0.85 }}
@@ -765,20 +779,46 @@ export default function SettingsModal({
                             </div>
                           </button>
 
-                          {/* Cinematic Theme Card */}
+                          {/* Cinematic Light Theme Card */}
                           <button
-                            onClick={() => updateSetting('visualTheme', 'Cinematic' as VisualTheme)}
-                            className="ct-theme-card text-left"
-                            data-active={String(settings.visualTheme === 'Cinematic')}
-                            aria-pressed={settings.visualTheme === 'Cinematic'}
+                            onClick={() => handleThemeSelect('Cinematic Light')}
+                            className="ct-theme-card text-left relative"
+                            data-active={String(settings.visualTheme === 'Cinematic Light')}
+                            aria-pressed={settings.visualTheme === 'Cinematic Light'}
                           >
-                            <div className="ct-theme-preview ct-theme-preview--cinematic" />
+                            <div className="ct-theme-preview ct-theme-preview--cinematic-light" />
                             <div className="flex items-center justify-between mt-2">
                               <div>
-                                <p className="text-[12px] font-semibold text-foreground/90">Cinematic</p>
-                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Monochromatic black</p>
+                                <p className="text-[12px] font-semibold text-foreground/90">Cinematic Light</p>
+                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Daylight paper</p>
                               </div>
-                              {settings.visualTheme === 'Cinematic' && (
+                              {settings.visualTheme === 'Cinematic Light' && (
+                                <div
+                                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: 'var(--primary)', opacity: 0.85 }}
+                                >
+                                  <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                                    <path d="M1 3L3 5L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary-foreground)' }} />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+
+                          {/* Original Theme Card */}
+                          <button
+                            onClick={() => handleThemeSelect('Original')}
+                            className="ct-theme-card text-left"
+                            data-active={String(settings.visualTheme === 'Original')}
+                            aria-pressed={settings.visualTheme === 'Original'}
+                          >
+                            <div className="ct-theme-preview ct-theme-preview--original" />
+                            <div className="flex items-center justify-between mt-2">
+                              <div>
+                                <p className="text-[12px] font-semibold text-foreground/90">Original</p>
+                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Legacy Blue</p>
+                              </div>
+                              {settings.visualTheme === 'Original' && (
                                 <div
                                   className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
                                   style={{ backgroundColor: 'var(--primary)', opacity: 0.85 }}
@@ -1088,13 +1128,10 @@ export default function SettingsModal({
 
             {activeTab === 'Help & Support' && <SupportTab />}
 
-            {activeTab === 'Admin: Reports' && session?.role === 'admin' && <AdminReportsTab />}
-
             {activeTab !== 'Account' &&
               activeTab !== 'Billing & Plans' &&
               activeTab !== 'Preferences' &&
-              activeTab !== 'Help & Support' &&
-              activeTab !== 'Admin: Reports' && (
+              activeTab !== 'Help & Support' && (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
                   <Settings size={48} className="text-muted-foreground/30 mb-4" />
                   <h2 className="text-xl font-bold text-muted-foreground mb-2">{activeTab}</h2>
@@ -1107,5 +1144,13 @@ export default function SettingsModal({
         </div>
       </div>
     </Modal>
+      {upgradeTarget && (
+        <UpgradeRedeemModal
+          isOpen={true}
+          onClose={() => setUpgradeTarget(null)}
+          targetPlan={upgradeTarget}
+        />
+      )}
+    </>
   );
 }

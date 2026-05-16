@@ -24,7 +24,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           if (session.isNewAccount === true) {
             console.debug('[AuthGuard] isNewAccount=true — redirecting to onboarding');
             const path = session.onboardingPath ?? 'ai';
-            router.replace(path === 'manual' ? '/onboarding/manual' : '/onboarding/ai');
+            window.location.href = path === 'manual' ? '/onboarding/manual' : '/onboarding/ai';
             return;
           }
           setIsAuthorized(true);
@@ -37,7 +37,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Not authenticated — redirect to auth
     console.debug('[AuthGuard] No valid session — redirecting to /auth');
-    router.replace('/auth');
+    window.location.href = '/auth';
   }, [router]);
 
   if (isAuthorized !== true) {

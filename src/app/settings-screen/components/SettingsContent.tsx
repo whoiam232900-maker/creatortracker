@@ -30,6 +30,7 @@ import {
   Moon,
   LogOut,
 } from 'lucide-react';
+import { useSubscription } from '@/hooks/useSubscription';
 
 type SettingsTab = 'fields' | 'targets' | 'danger';
 
@@ -43,6 +44,7 @@ export default function SettingsContent() {
   const [resetAllConfirm, setResetAllConfirm] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const { withinLimit, triggerUpgrade } = useSubscription();
 
   useEffect(() => {
     // Resolve userId from session
@@ -161,6 +163,10 @@ export default function SettingsContent() {
         if (existing >= 0) {
           newTargets = prev.targets.map((t, idx) => (idx === existing ? target : t));
         } else {
+          if (!withinLimit('targetsLimit', prev.targets.length)) {
+            triggerUpgrade();
+            return prev; // Or handle error
+          }
           newTargets = [...prev.targets, target];
         }
         const newState = { ...prev, targets: newTargets };

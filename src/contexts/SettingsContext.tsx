@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export type ThemeMode = 'Dark' | 'Light' | 'System';
 export type UIDensity = 'Comfortable' | 'Compact';
 export type LandingPage = 'Dashboard' | 'Analytics' | 'Settings';
-export type VisualTheme = 'Original' | 'Cinematic';
+export type VisualTheme = 'Original' | 'Cinematic' | 'Cinematic Light';
 
 export interface AppSettings {
   themeMode: ThemeMode;
@@ -63,7 +63,7 @@ const defaultSettings: AppSettings = {
   showEarningsTracker: false,
   showProductivitySummary: true,
   showRecentEntries: true,
-  visualTheme: 'Original',
+  visualTheme: 'Cinematic',
 };
 
 interface SettingsContextValue {
@@ -101,6 +101,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to load settings', err);
     }
     setMounted(true);
+
+    const handleOpenSettings = (e: any) => {
+      if (e.detail?.tab) setActiveSettingsTab(e.detail.tab);
+      setIsSettingsModalOpen(true);
+    };
+    window.addEventListener('open-settings', handleOpenSettings);
+    return () => window.removeEventListener('open-settings', handleOpenSettings);
   }, []);
 
   useEffect(() => {
@@ -114,15 +121,27 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     // Apply global CSS variables / DOM manipulations based on settings
     const root = document.documentElement;
 
-    // Theme (Light mode is temporarily disabled for stabilization)
-    root.classList.add('dark');
-    if (settings.themeMode !== 'Dark') {
-      updateSetting('themeMode', 'Dark');
+    // Theme (Light mode is temporarily disabled for stabilization, except for Cinematic Light)
+    if (settings.visualTheme === 'Cinematic Light') {
+      root.classList.remove('dark');
+      if (settings.themeMode !== 'Light') {
+        updateSetting('themeMode', 'Light');
+      }
+    } else {
+      root.classList.add('dark');
+      if (settings.themeMode !== 'Dark') {
+        updateSetting('themeMode', 'Dark');
+      }
     }
 
     // Visual Theme Identity
     // data-visual-theme is the only coupling point for the cinematic CSS
-    root.setAttribute('data-visual-theme', (settings.visualTheme ?? 'Original').toLowerCase());
+    const visualThemeStr = (settings.visualTheme ?? 'Original').toLowerCase();
+    if (visualThemeStr === 'cinematic light') {
+      root.setAttribute('data-visual-theme', 'cinematic');
+    } else {
+      root.setAttribute('data-visual-theme', visualThemeStr);
+    }
 
     // UI Density (We can map Comfortable to padding 1rem, Compact to 0.5rem via CSS vars, if we had them. For now we can just set a data attribute)
     root.setAttribute('data-density', settings.uiDensity.toLowerCase());

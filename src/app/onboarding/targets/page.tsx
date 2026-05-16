@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadState, saveState } from '@/lib/store';
+import { LogOut, Target, CheckCircle2 } from 'lucide-react';
 
 type Targets = { dailyTarget: string; weeklyConsistency: string; monthlyGoal: string };
 
@@ -72,16 +73,30 @@ export default function TargetsSetupPage() {
       console.error('[onboarding/targets] Error saving targets:', e);
     }
 
-    router.push('/dashboard');
+    window.location.href = '/dashboard';
   };
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden"
       style={{ backgroundColor: 'var(--background)' }}
     >
+      {/* Sign Out Fallback */}
+      <div className="absolute top-6 right-6 z-50">
+        <button
+          onClick={() => {
+            localStorage.removeItem('userSession');
+            router.replace('/');
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[11px] font-bold text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"
+        >
+          <LogOut size={14} />
+          Abort & Sign Out
+        </button>
+      </div>
+
       <div
-        className="w-full max-w-md flex flex-col gap-8 transition-all duration-700 ease-out"
+        className="w-full max-w-md flex flex-col gap-8 relative z-10 transition-all duration-700 ease-out animate-in fade-in slide-in-from-bottom-4"
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? 'translateY(0)' : 'translateY(16px)',

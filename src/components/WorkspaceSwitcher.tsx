@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -123,9 +124,8 @@ export default function WorkspaceSwitcher({
           ].join(' ')}
         >
           <div className="relative flex-shrink-0">
-            {/* Logo/Avatar Wrapper with premium glass/glow effect */}
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm ring-1 ring-border group-hover:ring-primary/30 transition-all overflow-hidden relative">
-              <AppLogo size={20} />
+              <AppLogo size={28} />
               {/* Hover glow effect */}
               <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
@@ -198,7 +198,7 @@ export default function WorkspaceSwitcher({
               </p>
               <div className="flex items-start gap-3 mt-1">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.02] shadow-sm ring-1 ring-white/[0.05] flex-shrink-0 mt-0.5 relative overflow-hidden">
-                  <AppLogo size={22} />
+                  <AppLogo size={28} />
                   {/* Premium badge in dropdown */}
                   {(plan.toLowerCase() === 'pro' ||
                     plan.toLowerCase() === 'max' ||

@@ -5,11 +5,13 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, BarChart3, Settings, ShieldCheck } from 'lucide-react';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import { Sparkles, ArrowRight } from 'lucide-react';
 
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
   badge?: number;
 }
 
@@ -97,6 +99,7 @@ function SidebarContent({
 }) {
   const pathname = usePathname();
   const { settings, openSettings } = useSettings();
+  const { plan, isFree, triggerUpgrade } = useSubscription();
   const [session, setSession] = React.useState<{ role?: string } | null>(null);
 
   React.useEffect(() => {
@@ -205,8 +208,8 @@ function SidebarContent({
 
         {/* Admin Hub Special Item */}
         {session?.role === 'admin' && (
-          <button
-            onClick={() => openSettings('Admin: Reports')}
+          <Link
+            href="/admin"
             title={collapsed ? 'Admin Hub' : undefined}
             className={[
               'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[13px] font-medium transition-all duration-300 relative group mt-6 border border-primary/5 bg-primary/[0.02]',
@@ -232,7 +235,88 @@ function SidebarContent({
                 Admin Control
               </span>
             )}
-          </button>
+          </Link>
+        )}
+
+        {/* Premium Upgrade Panel */}
+        {isFree && !collapsed && (
+          <div className="mt-auto px-3 pb-4 pt-3 border-t border-white/[0.025]">
+            <button
+              onClick={triggerUpgrade}
+              className="w-full text-left px-3.5 py-3 rounded-[8px] bg-white/[0.015] border border-white/[0.04] hover:bg-white/[0.03] hover:border-white/[0.07] transition-all duration-200 group relative overflow-hidden active:scale-[0.985]"
+            >
+              <div className="relative z-10 flex items-center justify-between gap-3">
+                <div className="space-y-[7px]">
+                  {/* Label */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-[5px] h-[5px] rounded-full bg-primary/35 flex-shrink-0" />
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: 500,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        color: 'var(--muted-foreground)',
+                        opacity: 0.28,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      Tier Update
+                    </span>
+                  </div>
+
+                  {/* Title + Description */}
+                  <div className="space-y-[5px]">
+                    <h3
+                      style={{
+                        fontSize: '12.5px',
+                        fontWeight: 550,
+                        letterSpacing: '-0.012em',
+                        lineHeight: 1,
+                        color: 'var(--foreground)',
+                        opacity: 0.78,
+                      }}
+                    >
+                      Pro Operational
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: '10.5px',
+                        fontWeight: 400,
+                        letterSpacing: '0.005em',
+                        lineHeight: 1.45,
+                        color: 'var(--muted-foreground)',
+                        opacity: 0.3,
+                      }}
+                    >
+                      Unlock advanced workflows
+                    </p>
+                  </div>
+                </div>
+
+                {/* CTA Arrow */}
+                <div
+                  className="flex-shrink-0 flex items-center justify-center group-hover:border-primary/25 group-hover:bg-primary/[0.03] transition-all duration-200"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    backgroundColor: 'rgba(255,255,255,0.01)',
+                  }}
+                >
+                  <ArrowRight
+                    size={11}
+                    strokeWidth={1.75}
+                    className="text-muted-foreground/20 group-hover:text-primary/45 transition-all duration-200 group-hover:translate-x-px"
+                  />
+                </div>
+              </div>
+
+              {/* Ultra-subtle material depth */}
+              <div className="absolute inset-0 bg-neutral-900/15 -z-10" />
+            </button>
+          </div>
         )}
       </nav>
     </div>

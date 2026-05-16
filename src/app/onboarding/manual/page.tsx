@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadState, saveState } from '@/lib/store';
+import { LogOut, LayoutGrid, SlidersHorizontal, ChevronLeft } from 'lucide-react';
 
 type Field = { id: string; name: string; type: string };
 type Tracker = { id: string; name: string; emoji?: string; fields: Field[] };
@@ -188,7 +189,7 @@ export default function ManualOnboardingPage() {
         localStorage.setItem(`onboarding_${userId}`, JSON.stringify(manualSetup));
 
         // NOTE: isNewAccount is cleared by the /onboarding/targets page (final step)
-        router.push('/onboarding/targets');
+        window.location.href = '/onboarding/targets';
       } catch (e) {
         console.error('[onboarding/manual] Error saving manual data:', e);
         router.push('/onboarding/targets');
@@ -200,16 +201,30 @@ export default function ManualOnboardingPage() {
     if (step > 1) {
       setStep(step - 1);
     } else {
-      router.push('/onboarding');
+      window.location.href = '/onboarding';
     }
   };
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden"
       style={{ backgroundColor: 'var(--background)' }}
     >
-      <div className="w-full max-w-md flex flex-col gap-8 transition-all duration-700 ease-out animate-in fade-in slide-in-from-bottom-4">
+      {/* Sign Out Fallback */}
+      <div className="absolute top-6 right-6 z-50">
+        <button
+          onClick={() => {
+            localStorage.removeItem('userSession');
+            router.replace('/');
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[11px] font-bold text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"
+        >
+          <LogOut size={14} />
+          Abort & Sign Out
+        </button>
+      </div>
+
+      <div className="w-full max-w-md flex flex-col gap-8 relative z-10 transition-all duration-700 ease-out animate-in fade-in slide-in-from-bottom-4">
         {/* Header */}
         <div className="flex flex-col gap-2 text-center">
           <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
