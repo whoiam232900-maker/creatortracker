@@ -248,7 +248,7 @@ export default function SettingsContent() {
   }, [userId]);
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('userSession');
+    if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
     window.location.href = '/auth';
   }, []);
 

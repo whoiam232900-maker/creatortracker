@@ -11,6 +11,8 @@ import {
 } from '@/lib/auth-utils';
 import bcrypt from 'bcryptjs';
 import AppLogo from '@/components/ui/AppLogo';
+import { supabase } from '@/lib/supabase/client';
+import { syncUserSessionFromSupabase } from '@/lib/profile';
 
 // ── Inner component that uses useSearchParams (must be inside Suspense) ─────
 function AuthForm() {
@@ -95,7 +97,7 @@ function AuthForm() {
       // Simulate network delay for premium feel
       await new Promise((resolve) => setTimeout(resolve, 800));
 
-      if (isSignUp) {
+        if (isSignUp) {
         if (!isPasswordValid) {
           setError('Password must be at least 8 characters');
           setIsLoading(false);
@@ -107,15 +109,6 @@ function AuthForm() {
           return;
         }
 
-        const usersRaw = localStorage.getItem('users');
-        const users = usersRaw ? JSON.parse(usersRaw) : {};
-
-        if (users[email]) {
-          setError('An account with this email already exists');
-          setIsLoading(false);
-          return;
-        }
-
         // PROTECTION: Prevent creating a new account with the admin email via signup
         if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
           setError('This email is reserved for system administration');
@@ -123,30 +116,34 @@ function AuthForm() {
           return;
         }
 
-        // Register new user with hashed password
-        const hashedPassword = bcrypt.hashSync(password, 10);
-        users[email] = {
-          password: hashedPassword,
-          fullName,
-          role: 'user',
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem('users', JSON.stringify(users));
+        const { data, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName
+            }
+          }
+        });
+
+        if (authError) {
+          setError(authError.message);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('[auth] signup success');
 
         const pendingSetupPath = localStorage.getItem('pendingSetupPath') ?? 'ai';
         localStorage.removeItem('pendingSetupPath');
 
-        const sessionData = {
-          isLoggedIn: true,
-          role: 'user',
-          plan: 'Free',
-          email,
-          fullName,
-          isNewAccount: true,
-          onboardingPath: pendingSetupPath,
-          remember: keepMeSignedIn,
-        };
-        localStorage.setItem('userSession', JSON.stringify(sessionData));
+        if (data.user) {
+          await syncUserSessionFromSupabase(data.user, {
+            isNewAccount: true,
+            onboardingPath: pendingSetupPath,
+            remember: keepMeSignedIn
+          });
+        }
 
         if (pendingSetupPath === 'manual') {
           window.location.href = '/onboarding/manual';
@@ -155,41 +152,26 @@ function AuthForm() {
         }
       } else {
         // Sign In
-        const userData = await validateCredentials(email, password);
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
 
-        if (!userData) {
-          setError('Invalid email or password');
+        if (authError) {
+          setError(authError.message || 'Invalid email or password');
           setIsLoading(false);
           return;
         }
 
-        // Check for persistent subscription upgrade
-        const subKey = `subscription_${email}`;
-        const existingSubRaw = localStorage.getItem(subKey);
-        let currentPlan: any = userData.role === 'admin' ? 'Studio' : 'Free';
-        
-        if (existingSubRaw) {
-          try {
-            const subData = JSON.parse(existingSubRaw);
-            if (subData.plan) {
-              currentPlan = subData.plan;
-              console.log(`[auth] Found existing persistent subscription: ${currentPlan}`);
-            }
-          } catch (e) {}
+        console.log('[auth] login success');
+
+        if (data.user) {
+          await syncUserSessionFromSupabase(data.user, {
+            isNewAccount: false,
+            onboardingPath: null,
+            remember: keepMeSignedIn
+          });
         }
-
-        const sessionData = {
-          isLoggedIn: true,
-          role: userData.role,
-          plan: currentPlan,
-          email,
-          fullName: userData.fullName || email.split('@')[0],
-          isNewAccount: false,
-          onboardingPath: null,
-          remember: keepMeSignedIn,
-        };
-
-        localStorage.setItem('userSession', JSON.stringify(sessionData));
         window.location.href = getLandingRoute();
       }
     } catch (err) {
@@ -453,8 +435,10 @@ function AuthForm() {
             
             <button
               className="text-[11px] font-bold text-red-500/40 hover:text-red-500 transition-colors uppercase tracking-widest"
-              onClick={() => {
-                localStorage.removeItem('userSession');
+              onClick={async () => {
+                await supabase.auth.signOut();
+                console.log('[auth] logout success');
+                if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
                 window.location.reload();
               }}
             >

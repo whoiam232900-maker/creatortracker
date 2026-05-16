@@ -84,7 +84,7 @@ export default function AdminSidebar() {
         </Link>
         <button 
           onClick={() => {
-            localStorage.removeItem('userSession');
+            if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
             window.location.href = '/auth';
           }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-red-500/50 hover:text-red-500 hover:bg-red-500/5 transition-all group"

@@ -85,7 +85,7 @@ export default function TargetsSetupPage() {
       <div className="absolute top-6 right-6 z-50">
         <button
           onClick={() => {
-            localStorage.removeItem('userSession');
+            if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
             router.replace('/');
           }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[11px] font-bold text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"

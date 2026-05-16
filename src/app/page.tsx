@@ -70,7 +70,7 @@ export default function LandingPage() {
 
   const handleSignOut = () => {
     try {
-      localStorage.removeItem('userSession');
+      if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
       localStorage.removeItem('pendingSetupPath');
       setSession(null);
       console.debug('[landing] User signed out and session cleared');

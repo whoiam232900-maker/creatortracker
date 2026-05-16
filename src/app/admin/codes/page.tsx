@@ -76,7 +76,7 @@ export default function RedeemCodeManagement() {
 
   const filteredCodes = codes.filter(c => 
     c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.notes.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.notes || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

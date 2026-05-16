@@ -242,7 +242,7 @@ function SidebarContent({
         {isFree && !collapsed && (
           <div className="mt-auto px-3 pb-4 pt-3 border-t border-white/[0.025]">
             <button
-              onClick={triggerUpgrade}
+              onClick={() => triggerUpgrade()}
               className="w-full text-left px-3.5 py-3 rounded-[8px] bg-white/[0.015] border border-white/[0.04] hover:bg-white/[0.03] hover:border-white/[0.07] transition-all duration-200 group relative overflow-hidden active:scale-[0.985]"
             >
               <div className="relative z-10 flex items-center justify-between gap-3">

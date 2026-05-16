@@ -382,7 +382,7 @@ export default function AccountTab() {
 
       // Also clear their specific tracker data
       localStorage.removeItem(`creator_tracker_${user.email}`);
-      localStorage.removeItem('userSession');
+      if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
 
       showToast({
         type: 'success',

@@ -91,11 +91,15 @@ export async function validateCredentials(
   }
 }
 
+import { supabase } from '@/lib/supabase/client';
+
 /**
  * Force clear all session-related data to ensure a clean state.
  */
 export function clearAllSessions() {
   if (typeof window === 'undefined') return;
+
+  supabase.auth.signOut().catch(console.error);
 
   const keysToClear = ['userSession', 'auth_token', 'next-auth.session-token', 'session'];
   keysToClear.forEach((key) => localStorage.removeItem(key));
