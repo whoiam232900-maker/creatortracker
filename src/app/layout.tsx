@@ -7,6 +7,7 @@ import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ToastContainer } from '@/components/ui/Toast';
 
 import SplashScreen from '@/components/SplashScreen';
+import PurchaseModal from '@/components/PurchaseModal';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SettingsProvider>
           <SplashScreen />
           {children}
+          <PurchaseModal />
           <ToastContainer />
         </SettingsProvider>
       </body>

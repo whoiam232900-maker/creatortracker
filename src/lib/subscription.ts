@@ -48,24 +48,90 @@ export const PLAN_LIMITS: Record<PlanType, PlanFeatures> = {
   },
 };
 
+export const PLAN_HIERARCHY: Record<PlanType, number> = {
+  Free: 0,
+  Pro: 1,
+  Studio: 2,
+};
+
+export const REDEEM_CODES_KEY = 'creatortracker_redeem_codes';
+export const CURRENT_PLAN_KEY = 'creatortracker_current_plan';
+export const REDEEM_HISTORY_KEY = 'creatortracker_redeem_history';
+
+export type Plan = 'free' | 'pro' | 'studio';
+
+export interface RedeemCode {
+  id: string;
+  code: string;
+  plan: Exclude<Plan, 'free'>;
+  status: 'active' | 'disabled' | 'expired';
+  maxUses: number;
+  usedCount: number;
+  expiresAt?: string | null;
+  createdAt: string;
+  usedBy?: string[];
+  notes?: string;
+}
+
+// Ensure migration happens if needed
+function migrateOldCodes() {
+  if (typeof window === 'undefined') return;
+  const rawCodes = localStorage.getItem(REDEEM_CODES_KEY);
+  if (rawCodes && JSON.parse(rawCodes).length > 0) return; // already migrated
+
+  const OLD_KEYS = [
+    'redeemCodes',
+    'creatortracker_codes',
+    'admin_redeem_codes',
+    'promo_codes',
+    'creatortracker_access_codes'
+  ];
+
+  for (const key of OLD_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Normalize to new shape
+          const migrated: RedeemCode[] = parsed.map(c => ({
+            id: c.id || `code-${Date.now()}`,
+            code: c.code,
+            plan: (c.plan?.toLowerCase() || 'pro') as 'pro' | 'studio',
+            status: c.status === 'active' || c.isActive ? 'active' : (c.status || 'disabled'),
+            maxUses: c.maxUses || 100,
+            usedCount: c.usedCount || c.currentUses || 0,
+            expiresAt: c.expiresAt || null,
+            createdAt: c.createdAt || new Date().toISOString(),
+            notes: c.notes
+          }));
+          localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(migrated));
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  migrateOldCodes();
+}
+
 export function getPlanFeatures(plan?: PlanType): PlanFeatures {
   const p = plan || 'Free';
   return PLAN_LIMITS[p] || PLAN_LIMITS['Free'];
 }
 
-/**
- * Checks if a plan has access to a specific boolean feature.
- */
 export function hasFeature(plan: PlanType, feature: keyof PlanFeatures): boolean {
   const features = getPlanFeatures(plan);
   const val = features[feature];
   return typeof val === 'boolean' ? val : val !== 0;
 }
 
-/**
- * Checks if a user has hit a quantitative limit for their plan.
- * Returns true if they are allowed to create/add more, false if limit reached.
- */
+export function hasPlan(currentPlan: PlanType, requiredPlan: PlanType): boolean {
+  return PLAN_HIERARCHY[currentPlan] >= PLAN_HIERARCHY[requiredPlan];
+}
+
 export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, currentCount: number): boolean {
   const features = getPlanFeatures(plan);
   const limit = features[limitType];
@@ -76,18 +142,157 @@ export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, curren
   return false;
 }
 
-/**
- * Helper to get the current plan directly from localStorage in non-react environments
- * or during initialization.
- */
 export function getCurrentPlan(): PlanType {
   if (typeof window === 'undefined') return 'Free';
   try {
-    const raw = localStorage.getItem('userSession');
-    if (!raw) return 'Free';
-    const parsed = JSON.parse(raw);
-    return parsed?.plan || 'Free';
+    const raw = localStorage.getItem(CURRENT_PLAN_KEY);
+    if (raw) {
+      // mapping lower to capitalized
+      if (raw.toLowerCase() === 'free') return 'Free';
+      if (raw.toLowerCase() === 'pro') return 'Pro';
+      if (raw.toLowerCase() === 'studio') return 'Studio';
+      return raw as PlanType;
+    }
+    
+    // Fallback to older session logic
+    const sessionRaw = localStorage.getItem('userSession');
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      return parsed?.plan || 'Free';
+    }
   } catch {
-    return 'Free';
+    // ignore
+  }
+  return 'Free';
+}
+
+export function setCurrentPlan(plan: PlanType) {
+  if (typeof window === 'undefined') return;
+  const lowercasePlan = plan.toLowerCase();
+  localStorage.setItem(CURRENT_PLAN_KEY, lowercasePlan);
+
+  try {
+    // Also update session
+    const sessionRaw = localStorage.getItem('userSession');
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      parsed.plan = plan; // Kept as original for backward comp, though UI handles it
+      localStorage.setItem('userSession', JSON.stringify(parsed));
+    }
+  } catch {
+    // ignore
+  }
+
+  // Notify listeners
+  window.dispatchEvent(new Event('creatortracker-plan-updated'));
+  window.dispatchEvent(new Event('plan-updated')); // legacy
+  window.dispatchEvent(new Event('storage'));
+}
+
+export function upgradeToPlan(plan: PlanType) {
+  setCurrentPlan(plan);
+}
+
+export function triggerUpgrade(targetPlan?: PlanType | string | unknown) {
+  let normalizedPlan = 'pro';
+  if (typeof targetPlan === 'string') {
+    const s = targetPlan.toLowerCase();
+    if (s === 'studio' || s === 'pro' || s === 'free') {
+      normalizedPlan = s;
+    }
+  }
+
+  window.dispatchEvent(
+    new CustomEvent('open-purchase-modal', {
+      detail: { targetPlan: normalizedPlan }
+    })
+  );
+}
+
+export function redeemCode(inputCode: string, targetPlan?: Plan): { success: boolean; message: string; plan?: Plan } {
+  if (typeof window === 'undefined') return { success: false, message: 'Environment error' };
+  
+  const normalizedInput = inputCode.trim().toUpperCase();
+  if (!normalizedInput) return { success: false, message: 'Code cannot be empty' };
+
+  try {
+    migrateOldCodes();
+    const rawCodes = localStorage.getItem(REDEEM_CODES_KEY);
+    const codes: RedeemCode[] = rawCodes ? JSON.parse(rawCodes) : [];
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Redeem Debug]', {
+        input: normalizedInput,
+        targetPlan,
+        storageKey: REDEEM_CODES_KEY,
+        codes,
+      });
+    }
+
+    const codeIndex = codes.findIndex(c => String(c.code).trim().toUpperCase() === normalizedInput);
+    if (codeIndex === -1) {
+      return { success: false, message: 'Code not found' };
+    }
+
+    const code = codes[codeIndex];
+
+    if (code.status !== 'active') {
+      return { success: false, message: `Code ${code.status}` };
+    }
+
+    if (code.usedCount >= code.maxUses) {
+      return { success: false, message: 'Code usage limit reached' };
+    }
+
+    if (code.expiresAt && new Date(code.expiresAt).getTime() < Date.now()) {
+      code.status = 'expired';
+      codes[codeIndex] = code;
+      localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(codes));
+      return { success: false, message: 'Code expired' };
+    }
+
+    if (targetPlan && code.plan !== targetPlan) {
+      return { success: false, message: `This code is for ${code.plan === 'studio' ? 'Studio' : 'Pro'}, not ${targetPlan === 'studio' ? 'Studio' : 'Pro'}` };
+    }
+
+    // Process redemption
+    code.usedCount += 1;
+    if (code.usedCount >= code.maxUses) {
+      code.status = 'disabled'; // or used
+    }
+    
+    // Attempt to get user info
+    let userEmail = 'unknown';
+    try {
+      const sessionRaw = localStorage.getItem('userSession');
+      if (sessionRaw) {
+        userEmail = JSON.parse(sessionRaw).email || 'unknown';
+      }
+    } catch {}
+
+    code.usedBy = code.usedBy || [];
+    code.usedBy.push(userEmail);
+    
+    codes[codeIndex] = code;
+    localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(codes));
+
+    // Save history
+    const rawHistory = localStorage.getItem(REDEEM_HISTORY_KEY);
+    const history = rawHistory ? JSON.parse(rawHistory) : [];
+    history.push({
+      code: code.code,
+      plan: code.plan,
+      redeemedBy: userEmail,
+      redeemedAt: new Date().toISOString()
+    });
+    localStorage.setItem(REDEEM_HISTORY_KEY, JSON.stringify(history));
+
+    const capitalPlan = code.plan === 'studio' ? 'Studio' : 'Pro';
+    upgradeToPlan(capitalPlan);
+
+    return { success: true, message: `${capitalPlan} activated successfully`, plan: code.plan };
+  } catch (error) {
+    console.error('Redeem error:', error);
+    return { success: false, message: 'An error occurred processing the code' };
   }
 }

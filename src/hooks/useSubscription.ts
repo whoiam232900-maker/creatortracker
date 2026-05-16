@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlanType, PlanFeatures, getPlanFeatures, hasFeature, checkLimit, getCurrentPlan } from '../lib/subscription';
+import { PlanType, PlanFeatures, getPlanFeatures, hasFeature, checkLimit, getCurrentPlan, hasPlan, triggerUpgrade as centralTriggerUpgrade } from '../lib/subscription';
 
 export function useSubscription() {
   const [plan, setPlan] = useState<PlanType>('Free');
@@ -7,16 +7,13 @@ export function useSubscription() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // In a real SaaS, this would sync with a backend/auth context.
-    // For now, we read from our local session.
     const currentPlan = getCurrentPlan();
     setPlan(currentPlan);
     setFeatures(getPlanFeatures(currentPlan));
     setIsLoaded(true);
 
-    // Add a simple listener for plan upgrades (if done via local storage)
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'userSession') {
+      if (e.key === 'userSession' || e.key === 'creatortracker_current_plan') {
         const newPlan = getCurrentPlan();
         setPlan(newPlan);
         setFeatures(getPlanFeatures(newPlan));
@@ -45,10 +42,8 @@ export function useSubscription() {
     return checkLimit(plan, limitType, currentCount);
   };
 
-  const triggerUpgrade = () => {
-    // Ideally this opens the Settings modal on the 'Billing & Plans' tab
-    const event = new CustomEvent('open-settings', { detail: { tab: 'Billing & Plans' } });
-    window.dispatchEvent(event);
+  const triggerUpgrade = (targetPlan?: PlanType) => {
+    centralTriggerUpgrade(targetPlan);
   };
 
   return {
@@ -58,6 +53,7 @@ export function useSubscription() {
     canUseFeature,
     withinLimit,
     triggerUpgrade,
+    hasPlan: (requiredPlan: PlanType) => hasPlan(plan, requiredPlan),
     isFree: plan === 'Free',
     isPro: plan === 'Pro',
     isStudio: plan === 'Studio',

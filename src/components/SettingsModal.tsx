@@ -29,9 +29,8 @@ import { useSettings, ThemeMode, UIDensity, LandingPage, VisualTheme } from '@/c
 import SupportTab from './SupportTab';
 import AccountTab from './AccountTab';
 import { useSubscription } from '@/hooks/useSubscription';
-import { PlanType } from '@/lib/subscription';
+import { PlanType, PLAN_HIERARCHY } from '@/lib/subscription';
 import { UpgradePrompt } from './UpgradePrompt';
-import { UpgradeRedeemModal } from './UpgradeRedeemModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -228,7 +227,6 @@ export default function SettingsModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [upgradeTarget, setUpgradeTarget] = useState<PlanType | null>(null);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
   const [region, setRegion] = useState<'Global' | 'India'>('Global');
   const [session, setSession] = useState<{
@@ -266,9 +264,8 @@ export default function SettingsModal({
   };
 
   return (
-    <>
-      <Modal isOpen={isOpen} onClose={onClose} hideHeader noPadding maxWidth="max-w-6xl">
-        <div
+    <Modal isOpen={isOpen} onClose={onClose} hideHeader noPadding maxWidth="max-w-6xl">
+      <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
         className="flex h-full w-full relative group"
@@ -498,21 +495,23 @@ export default function SettingsModal({
                             </div>
 
                             <button
-                              disabled={isCurrent}
+                              disabled={isCurrent || PLAN_HIERARCHY[currentPlan as PlanType] > PLAN_HIERARCHY[plan.name as PlanType]}
                               onClick={() => {
-                                if (!isCurrent && plan.name !== 'Free') {
-                                  setUpgradeTarget(plan.name as PlanType);
+                                if (!isCurrent && PLAN_HIERARCHY[currentPlan as PlanType] < PLAN_HIERARCHY[plan.name as PlanType]) {
+                                  triggerUpgrade(plan.name as PlanType);
                                 }
                               }}
                               className={`w-full py-2 px-4 rounded-lg font-semibold text-[11px] transition-all duration-200 ${
                                 isCurrent
                                   ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/[0.04]'
-                                  : plan.isRecommended
-                                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
-                                    : 'bg-white/5 text-white/80 hover:bg-white/10 border border-white/5'
+                                  : PLAN_HIERARCHY[currentPlan as PlanType] > PLAN_HIERARCHY[plan.name as PlanType]
+                                    ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/[0.04]'
+                                    : plan.isRecommended
+                                      ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
+                                      : 'bg-white/5 text-white/80 hover:bg-white/10 border border-white/5'
                               }`}
                             >
-                              {isCurrent ? 'Current Plan' : plan.cta}
+                              {isCurrent ? 'Current Plan' : (PLAN_HIERARCHY[currentPlan as PlanType] > PLAN_HIERARCHY[plan.name as PlanType] ? 'Included' : plan.cta)}
                             </button>
                           </div>
                         </div>
@@ -1144,13 +1143,5 @@ export default function SettingsModal({
         </div>
       </div>
     </Modal>
-      {upgradeTarget && (
-        <UpgradeRedeemModal
-          isOpen={true}
-          onClose={() => setUpgradeTarget(null)}
-          targetPlan={upgradeTarget}
-        />
-      )}
-    </>
   );
 }

@@ -122,14 +122,14 @@ export default function RedeemCodeManagement() {
         {filteredCodes.map((code) => (
           <div key={code.id} className="group bg-white/[0.02] border border-white/5 rounded-[32px] p-6 space-y-5 hover:border-white/10 transition-all relative overflow-hidden">
             {/* Status Indicator */}
-            <div className={`absolute top-0 right-0 w-24 h-24 translate-x-12 -translate-y-12 rotate-45 ${code.isActive ? 'bg-emerald-500/5' : 'bg-red-500/5'}`} />
+            <div className={`absolute top-0 right-0 w-24 h-24 translate-x-12 -translate-y-12 rotate-45 ${code.status === 'active' ? 'bg-emerald-500/5' : 'bg-red-500/5'}`} />
             
             <div className="flex items-start justify-between relative">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${code.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${code.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
-                    {code.planType} System
+                    {code.plan} System
                   </span>
                 </div>
                 <h3 className="text-xl font-bold tracking-tight text-white/90 group-hover:text-primary transition-colors">{code.code}</h3>
@@ -141,11 +141,11 @@ export default function RedeemCodeManagement() {
                     refreshCodes();
                   }}
                   className={`p-2 rounded-xl border transition-all ${
-                    code.isActive 
+                    code.status === 'active' 
                       ? 'border-red-500/10 text-red-500/40 hover:text-red-500 hover:bg-red-500/5' 
                       : 'border-emerald-500/10 text-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5'
                   }`}
-                  title={code.isActive ? 'Deactivate' : 'Activate'}
+                  title={code.status === 'active' ? 'Deactivate' : 'Activate'}
                 >
                   <Power size={14} />
                 </button>
@@ -167,7 +167,7 @@ export default function RedeemCodeManagement() {
               <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">Utilization</p>
                 <div className="flex items-end gap-1">
-                  <span className="text-lg font-bold text-white/80">{code.currentUses}</span>
+                  <span className="text-lg font-bold text-white/80">{code.usedCount}</span>
                   <span className="text-[10px] font-bold text-muted-foreground/20 pb-1">/ {code.maxUses}</span>
                 </div>
               </div>

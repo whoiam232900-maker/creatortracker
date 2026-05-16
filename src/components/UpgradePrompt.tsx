@@ -15,7 +15,7 @@ export function UpgradePrompt({ title, description, featureName, isInline = fals
   if (isInline) {
     return (
       <button
-        onClick={triggerUpgrade}
+        onClick={() => triggerUpgrade()}
         className="flex items-center justify-between w-full p-4 rounded-xl bg-white/[0.01] border border-white/[0.03] transition-all hover:bg-white/[0.03] group"
       >
         <div className="flex items-center gap-4">
@@ -48,7 +48,7 @@ export function UpgradePrompt({ title, description, featureName, isInline = fals
         </p>
         
         <button
-          onClick={triggerUpgrade}
+          onClick={() => triggerUpgrade()}
           className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary/60 hover:text-primary transition-colors group"
         >
           Enable Premium Access <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
