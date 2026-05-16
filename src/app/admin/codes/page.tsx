@@ -29,6 +29,8 @@ export default function RedeemCodeManagement() {
   const [codes, setCodes] = useState<RedeemCode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [newCode, setNewCode] = useState({
@@ -39,33 +41,75 @@ export default function RedeemCodeManagement() {
     notes: ''
   });
 
+  const refreshCodes = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getRedeemCodes();
+      setCodes(data);
+    } catch (err) {
+      console.error('Failed to refresh codes:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setCodes(getRedeemCodes());
+    refreshCodes();
 
     const handleUpdate = () => {
-      setCodes(getRedeemCodes());
+      refreshCodes();
     };
 
     window.addEventListener('admin_codes_updated', handleUpdate);
     return () => window.removeEventListener('admin_codes_updated', handleUpdate);
   }, []);
 
-  const refreshCodes = () => setCodes(getRedeemCodes());
-
-  const handleGenerateCode = (e: React.FormEvent) => {
+  const handleGenerateCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    generateRedeemCode({
-      code: newCode.code,
-      planType: newCode.planType,
-      maxUses: newCode.maxUses,
-      expiresAt: newCode.expiresAt || null,
-      isActive: true,
-      notes: newCode.notes
-    });
-    setIsModalOpen(false);
-    setNewCode({ code: '', planType: 'Pro', maxUses: 100, expiresAt: '', notes: '' });
-    refreshCodes();
-    showToast({ type: 'success', title: 'Code Generated', description: `Successfully created ${newCode.code}` });
+    setIsSubmitting(true);
+    try {
+      const result = await generateRedeemCode({
+        code: newCode.code,
+        planType: newCode.planType,
+        maxUses: newCode.maxUses,
+        expiresAt: newCode.expiresAt || null,
+        isActive: true,
+        notes: newCode.notes
+      });
+
+      if (result) {
+        setIsModalOpen(false);
+        setNewCode({ code: '', planType: 'Pro', maxUses: 100, expiresAt: '', notes: '' });
+        showToast({ type: 'success', title: 'Code Generated', description: `Successfully created ${newCode.code}` });
+      } else {
+        showToast({ type: 'error', title: 'Generation Failed', description: 'Could not create the code in Supabase.' });
+      }
+    } catch (err) {
+      console.error('Error generating code:', err);
+      showToast({ type: 'error', title: 'System Error', description: 'A critical error occurred.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    try {
+      await toggleCodeStatus(id, currentStatus);
+      showToast({ type: 'success', title: 'Status Updated', description: 'The code has been modified.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Update Failed', description: 'Could not update code status.' });
+    }
+  };
+
+  const handleDeleteCode = async (id: string) => {
+    if (!confirm('Permanently delete this operational code?')) return;
+    
+    try {
+      await deleteRedeemCode(id);
+      showToast({ type: 'success', title: 'Code Removed', description: 'The code has been deleted or disabled.' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Delete Failed', description: 'Could not remove the code.' });
+    }
   };
 
   const suggestCode = () => {
@@ -118,81 +162,82 @@ export default function RedeemCodeManagement() {
       </div>
 
       {/* Codes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCodes.map((code) => (
-          <div key={code.id} className="group bg-white/[0.02] border border-white/5 rounded-[32px] p-6 space-y-5 hover:border-white/10 transition-all relative overflow-hidden">
-            {/* Status Indicator */}
-            <div className={`absolute top-0 right-0 w-24 h-24 translate-x-12 -translate-y-12 rotate-45 ${code.status === 'active' ? 'bg-emerald-500/5' : 'bg-red-500/5'}`} />
-            
-            <div className="flex items-start justify-between relative">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${code.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
-                    {code.plan} System
-                  </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[400px]">
+        {isLoading ? (
+          <div className="col-span-full py-40 flex flex-col items-center justify-center gap-4">
+            <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/40">Synchronizing access tokens...</p>
+          </div>
+        ) : (
+          <>
+            {filteredCodes.map((code) => (
+              <div key={code.id} className="group bg-white/[0.02] border border-white/5 rounded-[32px] p-6 space-y-5 hover:border-white/10 transition-all relative overflow-hidden">
+                {/* Status Indicator */}
+                <div className={`absolute top-0 right-0 w-24 h-24 translate-x-12 -translate-y-12 rotate-45 ${code.status === 'active' ? 'bg-emerald-500/5' : 'bg-red-500/5'}`} />
+                
+                <div className="flex items-start justify-between relative">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${code.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
+                        {code.plan} System
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold tracking-tight text-white/90 group-hover:text-primary transition-colors">{code.code}</h3>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => handleToggleStatus(code.id, code.status)}
+                      className={`p-2 rounded-xl border transition-all ${
+                        code.status === 'active' 
+                          ? 'border-red-500/10 text-red-500/40 hover:text-red-500 hover:bg-red-500/5' 
+                          : 'border-emerald-500/10 text-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5'
+                      }`}
+                      title={code.status === 'active' ? 'Deactivate' : 'Activate'}
+                    >
+                      <Power size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteCode(code.id)}
+                      className="p-2 rounded-xl border border-white/5 text-muted-foreground/20 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold tracking-tight text-white/90 group-hover:text-primary transition-colors">{code.code}</h3>
-              </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => {
-                    toggleCodeStatus(code.id);
-                    refreshCodes();
-                  }}
-                  className={`p-2 rounded-xl border transition-all ${
-                    code.status === 'active' 
-                      ? 'border-red-500/10 text-red-500/40 hover:text-red-500 hover:bg-red-500/5' 
-                      : 'border-emerald-500/10 text-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5'
-                  }`}
-                  title={code.status === 'active' ? 'Deactivate' : 'Activate'}
-                >
-                  <Power size={14} />
-                </button>
-                <button 
-                  onClick={() => {
-                    if (confirm('Permanently delete this operational code?')) {
-                      deleteRedeemCode(code.id);
-                      refreshCodes();
-                    }
-                  }}
-                  className="p-2 rounded-xl border border-white/5 text-muted-foreground/20 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4 relative">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">Utilization</p>
-                <div className="flex items-end gap-1">
-                  <span className="text-lg font-bold text-white/80">{code.usedCount}</span>
-                  <span className="text-[10px] font-bold text-muted-foreground/20 pb-1">/ {code.maxUses}</span>
+                <div className="grid grid-cols-2 gap-4 relative">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">Utilization</p>
+                    <div className="flex items-end gap-1">
+                      <span className="text-lg font-bold text-white/80">{code.usedCount}</span>
+                      <span className="text-[10px] font-bold text-muted-foreground/20 pb-1">/ {code.maxUses}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">Expiration</p>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
+                      <Clock size={12} className="opacity-40" />
+                      {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">Expiration</p>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
-                  <Clock size={12} className="opacity-40" />
-                  {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
-                </div>
-              </div>
-            </div>
 
-            {code.notes && (
-              <p className="text-[11px] text-muted-foreground/40 leading-relaxed italic border-t border-white/5 pt-4">
-                "{code.notes}"
-              </p>
+                {code.notes && (
+                  <p className="text-[11px] text-muted-foreground/40 leading-relaxed italic border-t border-white/5 pt-4">
+                    "{code.notes}"
+                  </p>
+                )}
+              </div>
+            ))}
+
+            {filteredCodes.length === 0 && (
+              <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 border-2 border-dashed border-white/5 rounded-[40px] opacity-20">
+                <Ticket size={40} strokeWidth={1} />
+                <p className="text-xs font-bold uppercase tracking-[0.2em]">No codes generated yet</p>
+              </div>
             )}
-          </div>
-        ))}
-
-        {filteredCodes.length === 0 && (
-          <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 border-2 border-dashed border-white/5 rounded-[40px] opacity-20">
-            <Ticket size={40} strokeWidth={1} />
-            <p className="text-xs font-bold uppercase tracking-[0.2em]">No codes generated yet</p>
-          </div>
+          </>
         )}
       </div>
 
@@ -205,7 +250,7 @@ export default function RedeemCodeManagement() {
                 <h2 className="text-xl font-bold tracking-tight">Generate Operational Code</h2>
                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Security Clearance Required</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-colors" disabled={isSubmitting}>
                 <XCircle size={20} className="text-muted-foreground/40" />
               </button>
             </div>
@@ -220,6 +265,7 @@ export default function RedeemCodeManagement() {
                         className="w-full bg-white/[0.02] border border-white/5 rounded-2xl py-3 px-4 text-sm appearance-none focus:outline-none focus:border-primary/30 transition-all cursor-pointer"
                         value={newCode.planType}
                         onChange={(e) => setNewCode({ ...newCode, planType: e.target.value as PlanType })}
+                        disabled={isSubmitting}
                       >
                         <option value="Pro">Pro Creator</option>
                         <option value="Studio">Studio Agency</option>
@@ -234,6 +280,7 @@ export default function RedeemCodeManagement() {
                       className="w-full bg-white/[0.02] border border-white/5 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-primary/30 transition-all"
                       value={newCode.maxUses}
                       onChange={(e) => setNewCode({ ...newCode, maxUses: parseInt(e.target.value) })}
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
@@ -248,12 +295,14 @@ export default function RedeemCodeManagement() {
                       value={newCode.code}
                       onChange={(e) => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })}
                       required
+                      disabled={isSubmitting}
                     />
                     <button 
                       type="button"
                       onClick={suggestCode}
                       className="p-3 bg-white/5 rounded-2xl text-primary hover:bg-primary/10 transition-all"
                       title="Suggest Code"
+                      disabled={isSubmitting}
                     >
                       <RefreshCcw size={18} />
                     </button>
@@ -268,6 +317,7 @@ export default function RedeemCodeManagement() {
                       className="w-full bg-white/[0.02] border border-white/5 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-primary/30 transition-all text-white/60"
                       value={newCode.expiresAt}
                       onChange={(e) => setNewCode({ ...newCode, expiresAt: e.target.value })}
+                      disabled={isSubmitting}
                     />
                     <Calendar size={14} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/40" />
                   </div>
@@ -280,6 +330,7 @@ export default function RedeemCodeManagement() {
                     className="w-full bg-white/[0.02] border border-white/5 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-primary/30 transition-all min-h-[80px] resize-none"
                     value={newCode.notes}
                     onChange={(e) => setNewCode({ ...newCode, notes: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
@@ -289,14 +340,23 @@ export default function RedeemCodeManagement() {
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="flex-1 py-4 rounded-2xl text-[13px] font-bold text-muted-foreground/40 hover:text-white hover:bg-white/5 transition-all"
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 py-4 btn-secondary hover-lift rounded-2xl text-[13px] font-bold shadow-sm"
+                  className="flex-1 py-4 btn-secondary hover-lift rounded-2xl text-[13px] font-bold shadow-sm disabled:opacity-50"
+                  disabled={isSubmitting}
                 >
-                  Confirm Generation
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      Processing...
+                    </div>
+                  ) : (
+                    'Confirm Generation'
+                  )}
                 </button>
               </div>
             </form>

@@ -1,3 +1,5 @@
+import { supabase } from './supabase/client';
+
 export type PlanType = 'Free' | 'Pro' | 'Studio';
 
 export interface PlanFeatures {
@@ -237,90 +239,149 @@ export function triggerUpgrade(targetPlan?: PlanType | string | unknown) {
   );
 }
 
-export function redeemCode(inputCode: string, targetPlan?: Plan): { success: boolean; message: string; plan?: Plan } {
+export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<{ success: boolean; message: string; plan?: Plan }> {
   if (typeof window === 'undefined') return { success: false, message: 'Environment error' };
   
   const normalizedInput = inputCode.trim().toUpperCase();
   if (!normalizedInput) return { success: false, message: 'Code cannot be empty' };
 
   try {
-    migrateOldCodes();
-    const rawCodes = localStorage.getItem(REDEEM_CODES_KEY);
-    const codes: RedeemCode[] = rawCodes ? JSON.parse(rawCodes) : [];
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Redeem Debug]', {
-        input: normalizedInput,
-        targetPlan,
-        storageKey: REDEEM_CODES_KEY,
-        codes,
-      });
+    // 1. Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { success: false, message: 'Please log in before redeeming a code.' };
     }
 
-    const codeIndex = codes.findIndex(c => String(c.code).trim().toUpperCase() === normalizedInput);
-    if (codeIndex === -1) {
+    // 2. Query Supabase for the code
+    const { data: dbCode, error: codeError } = await supabase
+      .from('redeem_codes')
+      .select('*')
+      .eq('code', normalizedInput)
+      .maybeSingle();
+
+    if (codeError) {
+      console.warn('[Redeem] Supabase error, trying localStorage fallback:', codeError);
+      return syncRedeemCodeFallback(normalizedInput, targetPlan, user.email || 'unknown');
+    }
+
+    if (!dbCode) {
       return { success: false, message: 'Code not found' };
     }
 
-    const code = codes[codeIndex];
-
-    if (code.status !== 'active') {
-      return { success: false, message: `Code ${code.status}` };
+    // 3. Validate Code
+    if (dbCode.status !== 'active') {
+      return { success: false, message: `Code is ${dbCode.status}` };
     }
 
-    if (code.usedCount >= code.maxUses) {
+    if (dbCode.used_count >= dbCode.max_uses) {
       return { success: false, message: 'Code usage limit reached' };
     }
 
-    if (code.expiresAt && new Date(code.expiresAt).getTime() < Date.now()) {
-      code.status = 'expired';
-      codes[codeIndex] = code;
-      localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(codes));
-      return { success: false, message: 'Code expired' };
+    if (dbCode.expires_at && new Date(dbCode.expires_at).getTime() < Date.now()) {
+      return { success: false, message: 'Code has expired' };
     }
+
+    const dbCodePlan = dbCode.plan?.toLowerCase();
+    if (targetPlan && dbCodePlan !== targetPlan.toLowerCase()) {
+      return { 
+        success: false, 
+        message: `This code is for ${dbCodePlan === 'studio' ? 'Studio' : 'Pro'}, not ${targetPlan === 'studio' ? 'Studio' : 'Pro'}` 
+      };
+    }
+
+    // 4. Check for duplicate redemption by this user
+    const { data: existingRedemption } = await supabase
+      .from('redeem_redemptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('code_id', dbCode.id)
+      .maybeSingle();
+
+    if (existingRedemption) {
+      return { success: false, message: 'You have already redeemed this code.' };
+    }
+
+    // 5. Process Redemption
+    const currentPlan = getCurrentPlan();
+    const newPlanNormalized = normalizePlan(dbCodePlan);
+    
+    // A) Update Profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ 
+        plan: newPlanNormalized.toLowerCase(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.error('[Redeem] Profile update error:', profileError);
+      return { success: false, message: 'Could not update your plan. Please try again.' };
+    }
+
+    // B) Insert Redemption Record
+    await supabase
+      .from('redeem_redemptions')
+      .insert({
+        code_id: dbCode.id,
+        code: dbCode.code,
+        user_id: user.id,
+        user_email: user.email,
+        previous_plan: currentPlan.toLowerCase(),
+        new_plan: newPlanNormalized.toLowerCase(),
+        redeemed_at: new Date().toISOString()
+      });
+
+    // C) Increment used_count
+    await supabase
+      .from('redeem_codes')
+      .update({ 
+        used_count: (dbCode.used_count || 0) + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', dbCode.id);
+
+    // 6. Update Local State
+    const capitalPlan = newPlanNormalized;
+    upgradeToPlan(capitalPlan);
+
+    return { success: true, message: `${capitalPlan} activated successfully`, plan: dbCodePlan as Plan };
+
+  } catch (error) {
+    console.error('Redeem error:', error);
+    return { success: false, message: 'An error occurred processing the code' };
+  }
+}
+
+/**
+ * Legacy/Fallback logic for offline/network issues
+ */
+function syncRedeemCodeFallback(normalizedInput: string, targetPlan: Plan | undefined, userEmail: string): { success: boolean; message: string; plan?: Plan } {
+  try {
+    const rawCodes = localStorage.getItem(REDEEM_CODES_KEY);
+    const codes: RedeemCode[] = rawCodes ? JSON.parse(rawCodes) : [];
+    const codeIndex = codes.findIndex(c => String(c.code).trim().toUpperCase() === normalizedInput);
+    
+    if (codeIndex === -1) return { success: false, message: 'Code not found' };
+
+    const code = codes[codeIndex];
+    if (code.status !== 'active') return { success: false, message: `Code ${code.status}` };
+    if (code.usedCount >= code.maxUses) return { success: false, message: 'Code usage limit reached' };
 
     if (targetPlan && code.plan !== targetPlan) {
       return { success: false, message: `This code is for ${code.plan === 'studio' ? 'Studio' : 'Pro'}, not ${targetPlan === 'studio' ? 'Studio' : 'Pro'}` };
     }
 
-    // Process redemption
     code.usedCount += 1;
-    if (code.usedCount >= code.maxUses) {
-      code.status = 'disabled'; // or used
-    }
-    
-    // Attempt to get user info
-    let userEmail = 'unknown';
-    try {
-      const sessionRaw = localStorage.getItem('userSession');
-      if (sessionRaw) {
-        userEmail = JSON.parse(sessionRaw).email || 'unknown';
-      }
-    } catch {}
-
     code.usedBy = code.usedBy || [];
     code.usedBy.push(userEmail);
-    
     codes[codeIndex] = code;
     localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(codes));
 
-    // Save history
-    const rawHistory = localStorage.getItem(REDEEM_HISTORY_KEY);
-    const history = rawHistory ? JSON.parse(rawHistory) : [];
-    history.push({
-      code: code.code,
-      plan: code.plan,
-      redeemedBy: userEmail,
-      redeemedAt: new Date().toISOString()
-    });
-    localStorage.setItem(REDEEM_HISTORY_KEY, JSON.stringify(history));
-
     const capitalPlan = code.plan === 'studio' ? 'Studio' : 'Pro';
     upgradeToPlan(capitalPlan);
-
-    return { success: true, message: `${capitalPlan} activated successfully`, plan: code.plan };
-  } catch (error) {
-    console.error('Redeem error:', error);
-    return { success: false, message: 'An error occurred processing the code' };
+    return { success: true, message: `${capitalPlan} activated successfully (local fallback)`, plan: code.plan };
+  } catch (e) {
+    return { success: false, message: 'Local redemption failed' };
   }
 }

@@ -32,15 +32,33 @@ export function normalizeRedeemCode(c: string): string {
 
 // ─── Store Core ──────────────────────────────────────────────────────────────
 
-export function getRedeemCodes(): RedeemCode[] {
+export async function getRedeemCodes(): Promise<RedeemCode[]> {
   if (typeof window === 'undefined') return [];
+  
   try {
-    const raw = localStorage.getItem(REDEEM_CODES_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const { data, error } = await supabase
+      .from('redeem_codes')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(c => ({
+      id: c.id,
+      code: c.code,
+      plan: c.plan?.toLowerCase() as 'pro' | 'studio',
+      status: c.status as 'active' | 'disabled' | 'expired',
+      maxUses: c.max_uses,
+      usedCount: c.used_count,
+      expiresAt: c.expires_at,
+      createdAt: c.created_at,
+      notes: c.notes
+    }));
   } catch (e) {
-    console.error('[Redeem-Trace] [STORAGE] Parse failure:', e);
-    return [];
+    console.error('[AdminStore] Fetch codes failed:', e);
+    // Legacy fallback ONLY if Supabase fails
+    const raw = localStorage.getItem(REDEEM_CODES_KEY);
+    return raw ? JSON.parse(raw) : [];
   }
 }
 
@@ -55,9 +73,9 @@ export function saveRedeemCodes(codes: RedeemCode[]) {
 
 // ─── Redemption & Activation ─────────────────────────────────────────────────
 
-export function validateAndRedeemCode(rawInput: string, userEmail: string = 'anonymous'): { success: boolean; error?: string; plan?: PlanType } {
+export async function validateAndRedeemCode(rawInput: string, userEmail: string = 'anonymous'): Promise<{ success: boolean; error?: string; plan?: PlanType }> {
   // Use the new central logic!
-  const result = centralRedeemCode(rawInput);
+  const result = await centralRedeemCode(rawInput);
   return {
     success: result.success,
     error: result.success ? undefined : result.message,
@@ -67,38 +85,84 @@ export function validateAndRedeemCode(rawInput: string, userEmail: string = 'ano
 
 // ─── Admin Actions ───────────────────────────────────────────────────────────
 
-export function generateRedeemCode(data: { code: string; planType: PlanType; maxUses: number; expiresAt: string | null; isActive: boolean; notes: string }): RedeemCode {
-  console.log('[Redeem-Trace] Admin: Generating new code:', data.code);
-  const codes = getRedeemCodes();
-  const newCode: RedeemCode = {
-    id: `code-${Date.now()}`,
-    code: data.code,
-    plan: (data.planType === 'Studio' ? 'studio' : 'pro'),
-    status: data.isActive ? 'active' : 'expired', // map boolean to string status
-    maxUses: data.maxUses,
-    usedCount: 0,
-    expiresAt: data.expiresAt,
-    createdAt: new Date().toISOString(),
-    notes: data.notes
-  };
-  saveRedeemCodes([newCode, ...codes]);
-  return newCode;
+export async function generateRedeemCode(data: { code: string; planType: PlanType; maxUses: number; expiresAt: string | null; isActive: boolean; notes: string }): Promise<RedeemCode | null> {
+  console.log('[AdminStore] Generating new code:', data.code);
+  
+  try {
+    const { data: newCode, error } = await supabase
+      .from('redeem_codes')
+      .insert({
+        code: data.code,
+        plan: data.planType.toLowerCase(),
+        status: data.isActive ? 'active' : 'disabled',
+        max_uses: data.maxUses,
+        used_count: 0,
+        expires_at: data.expiresAt,
+        notes: data.notes
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    window.dispatchEvent(new Event('admin_codes_updated'));
+    
+    return {
+      id: newCode.id,
+      code: newCode.code,
+      plan: newCode.plan?.toLowerCase() as 'pro' | 'studio',
+      status: newCode.status as 'active' | 'disabled' | 'expired',
+      maxUses: newCode.max_uses,
+      usedCount: newCode.used_count,
+      expiresAt: newCode.expires_at,
+      createdAt: newCode.created_at,
+      notes: newCode.notes
+    };
+  } catch (e) {
+    console.error('[AdminStore] Generate code failed:', e);
+    return null;
+  }
 }
 
-export function toggleCodeStatus(id: string) {
-  const codes = getRedeemCodes();
-  const updated = codes.map((c) => {
-    if (c.id === id) {
-      return { ...c, status: c.status === 'active' ? 'expired' : 'active' } as RedeemCode;
+export async function toggleCodeStatus(id: string, currentStatus: string) {
+  try {
+    const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+    const { error } = await supabase
+      .from('redeem_codes')
+      .update({ status: newStatus })
+      .eq('id', id);
+
+    if (error) throw error;
+    window.dispatchEvent(new Event('admin_codes_updated'));
+  } catch (e) {
+    console.error('[AdminStore] Toggle status failed:', e);
+  }
+}
+
+export async function deleteRedeemCode(id: string) {
+  try {
+    const { error } = await supabase
+      .from('redeem_codes')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      // If delete fails due to foreign key (redemptions), disable instead
+      if (error.code === '23503') {
+        console.warn('[AdminStore] Code has history, disabling instead of deleting');
+        await supabase
+          .from('redeem_codes')
+          .update({ status: 'disabled' })
+          .eq('id', id);
+      } else {
+        throw error;
+      }
     }
-    return c;
-  });
-  saveRedeemCodes(updated);
-}
-
-export function deleteRedeemCode(id: string) {
-  const codes = getRedeemCodes();
-  saveRedeemCodes(codes.filter((c) => c.id !== id));
+    
+    window.dispatchEvent(new Event('admin_codes_updated'));
+  } catch (e) {
+    console.error('[AdminStore] Delete code failed:', e);
+  }
 }
 
 // ─── Plan Configurations ─────────────────────────────────────────────────────
@@ -173,28 +237,33 @@ export async function getAdminStats(): Promise<AdminStats> {
   if (typeof window === 'undefined') return { totalUsers: 0, planCounts: { Free: 0, Pro: 0, Studio: 0 }, activeUpgrades: 0, totalRedeems: 0 };
 
   try {
-    const { data: profiles, error } = await supabase
+    // 1. Fetch user stats
+    const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('plan');
 
-    if (error || !profiles) {
-      throw error || new Error('No profiles found');
-    }
+    if (profileError) throw profileError;
 
     const planCounts: Record<PlanType, number> = { Free: 0, Pro: 0, Studio: 0 };
     let activeUpgrades = 0;
 
-    profiles.forEach((p) => {
+    (profiles || []).forEach((p) => {
       const plan = normalizePlan(p.plan);
       if (planCounts[plan] !== undefined) planCounts[plan]++;
       if (plan !== 'Free') activeUpgrades++;
     });
 
-    const codes = getRedeemCodes();
-    const totalRedeems = codes.reduce((sum, c) => sum + (c.usedCount || 0), 0);
+    // 2. Fetch redeem stats from Supabase
+    const { data: codes, error: codeError } = await supabase
+      .from('redeem_codes')
+      .select('used_count');
+
+    if (codeError) throw codeError;
+
+    const totalRedeems = (codes || []).reduce((sum, c) => sum + (c.used_count || 0), 0);
 
     return {
-      totalUsers: profiles.length,
+      totalUsers: profiles?.length || 0,
       planCounts,
       activeUpgrades,
       totalRedeems,

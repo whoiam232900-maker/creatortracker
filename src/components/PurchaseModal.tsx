@@ -66,7 +66,7 @@ export default function PurchaseModal() {
     // Simulate slight network delay for premium feel
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    const result = redeemCode(code, targetPlan);
+    const result = await redeemCode(code, targetPlan);
 
     if (result.success) {
       setStatus('success');

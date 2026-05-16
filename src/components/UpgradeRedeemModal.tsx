@@ -21,15 +21,19 @@ export function UpgradeRedeemModal({ isOpen, onClose, targetPlan }: UpgradeRedee
   useEffect(() => {
     setMounted(true);
     if (isOpen) {
-      console.log('[UpgradeRedeemModal] System Diagnostics on Open:');
-      console.log(' - Target Plan:', targetPlan);
-      console.log(' - Dynamic Codes in Store:', getRedeemCodes().length);
+      const runDiagnostics = async () => {
+        console.log('[UpgradeRedeemModal] System Diagnostics on Open:');
+        console.log(' - Target Plan:', targetPlan);
+        const codes = await getRedeemCodes();
+        console.log(' - Dynamic Codes in Store:', codes.length);
+      };
+      runDiagnostics();
     }
   }, [isOpen, targetPlan]);
 
   if (!isOpen || !mounted) return null;
 
-  const handleRedeem = () => {
+  const handleRedeem = async () => {
     setError('');
     
     const rawInput = code.trim();
@@ -41,41 +45,41 @@ export function UpgradeRedeemModal({ isOpen, onClose, targetPlan }: UpgradeRedee
     setIsSubmitting(true);
     console.log(`[UpgradeRedeemModal] User triggered redemption for: "${rawInput}"`);
 
-    // Simulated network delay
-    setTimeout(() => {
-      try {
-        // Resolve user email from session
-        const sessionRaw = localStorage.getItem('userSession') || '{}';
-        const session = JSON.parse(sessionRaw);
-        const userEmail = session.email || 'anonymous';
+    try {
+      // Simulated network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Execute unified validation & activation pipeline
-        const result = validateAndRedeemCode(rawInput, userEmail);
+      // Resolve user email from session
+      const sessionRaw = localStorage.getItem('userSession') || '{}';
+      const session = JSON.parse(sessionRaw);
+      const userEmail = session.email || 'anonymous';
 
-        if (!result.success) {
-          console.warn(`[UpgradeRedeemModal] Redemption Failed: ${result.error}`);
-          setError(result.error || 'Invalid access code.');
-          setIsSubmitting(false);
-          return;
-        }
+      // Execute unified validation & activation pipeline
+      const result = await validateAndRedeemCode(rawInput, userEmail);
 
-        const activatedPlan = result.plan as PlanType;
-        console.log(`[UpgradeRedeemModal] Success! Activated: ${activatedPlan}`);
-
-        showToast({
-          type: 'success',
-          title: 'Access Unlocked',
-          description: `Welcome to the ${activatedPlan} plan. All features are now available.`,
-        });
-        
-        onClose();
-      } catch (err) {
-        console.error('[UpgradeRedeemModal] CRITICAL ERROR:', err);
-        setError('System error: Failed to process redemption.');
+      if (!result.success) {
+        console.warn(`[UpgradeRedeemModal] Redemption Failed: ${result.error}`);
+        setError(result.error || 'Invalid access code.');
+        setIsSubmitting(false);
+        return;
       }
+
+      const activatedPlan = result.plan as PlanType;
+      console.log(`[UpgradeRedeemModal] Success! Activated: ${activatedPlan}`);
+
+      showToast({
+        type: 'success',
+        title: 'Access Unlocked',
+        description: `Welcome to the ${activatedPlan} plan. All features are now available.`,
+      });
       
+      onClose();
+    } catch (err) {
+      console.error('[UpgradeRedeemModal] CRITICAL ERROR:', err);
+      setError('System error: Failed to process redemption.');
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return createPortal(
