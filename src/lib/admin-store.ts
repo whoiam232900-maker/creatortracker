@@ -10,10 +10,11 @@
  * 4. Plan Activation Pipeline (updating session + subscription records)
  */
 
-import { PlanType } from './subscription';
+import { PlanType, normalizePlan } from './subscription';
 export type { PlanType };
 
 import { RedeemCode as CentralRedeemCode, redeemCode as centralRedeemCode, REDEEM_CODES_KEY, Plan } from './subscription';
+import { supabase } from './supabase/client';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -168,54 +169,64 @@ export interface AdminStats {
   totalRedeems: number;
 }
 
-export function getAdminStats(): AdminStats {
+export async function getAdminStats(): Promise<AdminStats> {
   if (typeof window === 'undefined') return { totalUsers: 0, planCounts: { Free: 0, Pro: 0, Studio: 0 }, activeUpgrades: 0, totalRedeems: 0 };
 
-  const usersRaw = localStorage.getItem('users');
-  const users = usersRaw ? JSON.parse(usersRaw) : {};
-  const userEmails = Object.keys(users);
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('plan');
 
-  const planCounts: Record<PlanType, number> = { Free: 0, Pro: 0, Studio: 0 };
-  let activeUpgrades = 0;
+    if (error || !profiles) {
+      throw error || new Error('No profiles found');
+    }
 
-  userEmails.forEach((email) => {
-    const subRaw = localStorage.getItem(`${SUB_PREFIX}${email}`);
-    if (subRaw) {
-      const sub = JSON.parse(subRaw);
-      const plan = (sub.planId as PlanType) || 'Free';
+    const planCounts: Record<PlanType, number> = { Free: 0, Pro: 0, Studio: 0 };
+    let activeUpgrades = 0;
+
+    profiles.forEach((p) => {
+      const plan = normalizePlan(p.plan);
       if (planCounts[plan] !== undefined) planCounts[plan]++;
       if (plan !== 'Free') activeUpgrades++;
-    } else {
-      planCounts['Free']++;
-    }
-  });
+    });
 
-  const codes = getRedeemCodes();
-  const totalRedeems = codes.reduce((sum, c) => sum + (c.usedCount || 0), 0);
+    const codes = getRedeemCodes();
+    const totalRedeems = codes.reduce((sum, c) => sum + (c.usedCount || 0), 0);
 
-  return {
-    totalUsers: userEmails.length,
-    planCounts,
-    activeUpgrades,
-    totalRedeems,
-  };
+    return {
+      totalUsers: profiles.length,
+      planCounts,
+      activeUpgrades,
+      totalRedeems,
+    };
+  } catch (err) {
+    console.error('[AdminStore] Stats sync failed:', err);
+    return { totalUsers: 0, planCounts: { Free: 0, Pro: 0, Studio: 0 }, activeUpgrades: 0, totalRedeems: 0 };
+  }
 }
 
-export function getAllUsers() {
+export async function getAllUsers() {
   if (typeof window === 'undefined') return [];
-  const usersRaw = localStorage.getItem('users');
-  const users: Record<string, any> = usersRaw ? JSON.parse(usersRaw) : {};
   
-  return Object.entries(users).map(([email, data]) => {
-    const subRaw = localStorage.getItem(`${SUB_PREFIX}${email}`);
-    const sub = subRaw ? JSON.parse(subRaw) : { planId: 'Free' };
-    
-    return {
-      email,
-      fullName: data.fullName,
-      role: data.role,
-      createdAt: data.createdAt,
-      plan: sub.planId || 'Free',
-    };
-  });
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !profiles) {
+      throw error || new Error('No profiles found');
+    }
+
+    return profiles.map((p) => ({
+      email: p.email,
+      fullName: p.full_name || p.email?.split('@')[0] || 'User',
+      role: p.role || 'user',
+      createdAt: p.created_at,
+      plan: normalizePlan(p.plan),
+    }));
+  } catch (err) {
+    console.error('[AdminStore] User sync failed:', err);
+    return [];
+  }
 }

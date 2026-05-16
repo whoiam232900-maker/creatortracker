@@ -119,9 +119,10 @@ if (typeof window !== 'undefined') {
 
 export function normalizePlan(input: any): PlanType {
   if (!input || typeof input !== 'string') return 'Free';
-  const s = input.toLowerCase();
+  const s = input.trim().toLowerCase();
   if (s === 'pro') return 'Pro';
   if (s === 'studio') return 'Studio';
+  if (s === 'free') return 'Free';
   return 'Free';
 }
 
@@ -138,7 +139,9 @@ export function hasFeature(plan: PlanType, feature: keyof PlanFeatures): boolean
 }
 
 export function hasPlan(currentPlan: PlanType, requiredPlan: PlanType): boolean {
-  return PLAN_HIERARCHY[normalizePlan(currentPlan)] >= PLAN_HIERARCHY[normalizePlan(requiredPlan)];
+  const current = normalizePlan(currentPlan);
+  const required = normalizePlan(requiredPlan);
+  return PLAN_HIERARCHY[current] >= PLAN_HIERARCHY[required];
 }
 
 export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, currentCount: number): boolean {
@@ -158,15 +161,29 @@ export function getCurrentPlan(): PlanType {
     const sessionRaw = localStorage.getItem('userSession');
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw);
-      if (parsed?.plan) return normalizePlan(parsed.plan);
+      if (parsed?.plan) {
+        const p = normalizePlan(parsed.plan);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[subscription] getCurrentPlan from userSession:', p);
+        }
+        return p;
+      }
     }
     
     // 2. localStorage.creatortracker_current_plan
     const raw = localStorage.getItem(CURRENT_PLAN_KEY);
-    if (raw) return normalizePlan(raw);
+    if (raw) {
+      const p = normalizePlan(raw);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[subscription] getCurrentPlan from CURRENT_PLAN_KEY:', p);
+      }
+      return p;
+    }
 
-  } catch {
-    // ignore
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[subscription] getCurrentPlan failure:', e);
+    }
   }
   return 'Free';
 }
@@ -175,8 +192,7 @@ export function setCurrentPlan(plan: PlanType) {
   if (typeof window === 'undefined') return;
   const normalized = normalizePlan(plan);
   
-  // Consistency: keep CURRENT_PLAN_KEY lowercase if it was before, 
-  // but normalizePlan handles reading it.
+  // Consistency: write normalized plan to both places
   localStorage.setItem(CURRENT_PLAN_KEY, normalized.toLowerCase());
 
   try {
@@ -187,14 +203,16 @@ export function setCurrentPlan(plan: PlanType) {
       parsed.plan = normalized; 
       localStorage.setItem('userSession', JSON.stringify(parsed));
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[subscription] setCurrentPlan session update failure:', e);
+    }
   }
 
   // Notify listeners
   window.dispatchEvent(new Event('userSessionUpdated'));
   window.dispatchEvent(new Event('subscriptionUpdated'));
-  window.dispatchEvent(new Event('creatortracker-plan-updated'));
+  window.dispatchEvent(new Event('creatortracker-plan-updated')); // legacy
   window.dispatchEvent(new Event('plan-updated')); // legacy
   window.dispatchEvent(new Event('storage'));
 }

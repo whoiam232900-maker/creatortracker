@@ -8,6 +8,9 @@ export function useSubscription() {
 
   const refreshPlan = useCallback(() => {
     const currentPlan = getCurrentPlan();
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[useSubscription] Refreshing plan state:', currentPlan);
+    }
     setPlan(currentPlan);
     setFeatures(getPlanFeatures(currentPlan));
   }, []);

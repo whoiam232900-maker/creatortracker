@@ -16,10 +16,21 @@ import { getAllUsers } from '@/lib/admin-store';
 
 export default function AccessControl() {
   const [admins, setAdmins] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const allUsers = getAllUsers();
-    setAdmins(allUsers.filter(u => u.role === 'admin'));
+    async function loadAdmins() {
+      setIsLoading(true);
+      try {
+        const allUsers = await getAllUsers();
+        setAdmins(allUsers.filter((u: any) => u.role === 'admin'));
+      } catch (err) {
+        console.error('Failed to load admins:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadAdmins();
   }, []);
 
   return (
@@ -50,29 +61,44 @@ export default function AccessControl() {
             <ShieldCheck size={12} />
             Authorized Personnel
           </p>
-          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] overflow-hidden">
-            {admins.map((admin) => (
-              <div key={admin.email} className="flex items-center justify-between p-6 border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors group">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold shadow-[inset_0_0_20px_rgba(37,99,235,0.1)]">
-                    {admin.fullName.charAt(0)}
-                  </div>
-                  <div className="space-y-0.5">
-                    <h4 className="text-[14px] font-bold text-white/90">{admin.fullName}</h4>
-                    <p className="text-[11px] text-muted-foreground/40 font-medium">{admin.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Full Access</p>
-                    <p className="text-[10px] text-muted-foreground/30 font-medium">Provisioned {new Date(admin.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <button className="p-2 rounded-xl hover:bg-white/5 text-muted-foreground/20 hover:text-white transition-all">
-                    <MoreVertical size={18} />
-                  </button>
-                </div>
+          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] overflow-hidden min-h-[200px]">
+            {isLoading ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-4">
+                <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/40">Verifying access protocols...</p>
               </div>
-            ))}
+            ) : (
+              <>
+                {admins.map((admin) => (
+                  <div key={admin.email} className="flex items-center justify-between p-6 border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold shadow-[inset_0_0_20px_rgba(37,99,235,0.1)]">
+                        {admin.fullName.charAt(0)}
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-[14px] font-bold text-white/90">{admin.fullName}</h4>
+                        <p className="text-[11px] text-muted-foreground/40 font-medium">{admin.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Full Access</p>
+                        <p className="text-[10px] text-muted-foreground/30 font-medium">Provisioned {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                      <button className="p-2 rounded-xl hover:bg-white/5 text-muted-foreground/20 hover:text-white transition-all">
+                        <MoreVertical size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {admins.length === 0 && (
+                  <div className="py-20 flex flex-col items-center justify-center gap-4 opacity-20">
+                    <ShieldCheck size={40} strokeWidth={1} />
+                    <p className="text-xs font-bold uppercase tracking-[0.2em]">No admin records found</p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 

@@ -26,12 +26,31 @@ import {
 
 export default function AdminOverview() {
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setStats(getAdminStats());
+    async function loadStats() {
+      setIsLoading(true);
+      try {
+        const data = await getAdminStats();
+        setStats(data);
+      } catch (err) {
+        console.error('Failed to load admin stats:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadStats();
   }, []);
 
-  if (!stats) return null;
+  if (isLoading || !stats) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 animate-pulse">
+        <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/40">Aggregating system intelligence...</p>
+      </div>
+    );
+  }
 
   const planData = [
     { name: 'Free', value: stats.planCounts.Free },

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase/client';
 import { ADMIN_EMAIL } from '@/lib/auth-utils';
-import { normalizePlan } from './subscription';
+import { normalizePlan, PLAN_HIERARCHY } from './subscription';
 
 export interface UserProfile {
   id: string;
@@ -116,10 +116,11 @@ export async function syncUserSessionFromSupabase(
     console.warn('[profile] Profile fetch failed or timed out, using fallback:', error);
   }
 
-  // 2. Determine existing onboarding state if any
+  // 2. Determine existing onboarding state and current local plan if sync fails
   let isNewAccount = overrides?.isNewAccount ?? false;
   let onboardingPath = overrides?.onboardingPath ?? null;
   let keepMeSignedIn = overrides?.remember ?? true;
+  let localSessionPlan: string | null = null;
   
   if (!overrides) {
     try {
@@ -129,20 +130,28 @@ export async function syncUserSessionFromSupabase(
         isNewAccount = existingSession.isNewAccount ?? false;
         onboardingPath = existingSession.onboardingPath ?? null;
         keepMeSignedIn = existingSession.remember ?? true;
+        localSessionPlan = existingSession.plan;
       }
     } catch (e) {}
   }
 
-  // 3. Check for persistent local subscription upgrade
-  let currentPlan = normalizePlan(profile?.plan || 'free');
+  // 3. Check for persistent local subscription upgrade and merge with profile plan
+  // Priority: 1. Profile from DB, 2. Local Session Plan (if DB fail), 3. local sub record, 4. 'free'
+  let currentPlan = normalizePlan(profile?.plan || localSessionPlan || 'free');
+  
   const email = profile?.email || user.email || '';
   const subKey = `subscription_${email}`;
   try {
     const existingSubRaw = localStorage.getItem(subKey);
     if (existingSubRaw) {
       const subData = JSON.parse(existingSubRaw);
-      if (subData.plan && subData.plan !== 'free' && subData.plan !== 'Free') {
-        currentPlan = normalizePlan(subData.plan);
+      const subPlan = subData.plan || subData.planId; // support both keys
+      if (subPlan && subPlan !== 'free' && subPlan !== 'Free') {
+        const normalizedSub = normalizePlan(subPlan);
+        // Only upgrade if local sub record is higher than current
+        if (PLAN_HIERARCHY[normalizedSub] > PLAN_HIERARCHY[currentPlan]) {
+          currentPlan = normalizedSub;
+        }
       }
     }
   } catch (e) {}
@@ -162,8 +171,17 @@ export async function syncUserSessionFromSupabase(
     remember: keepMeSignedIn
   };
 
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[profile] Supabase profile plan:', profile?.plan);
+    console.log('[profile] Normalized plan being written:', currentPlan);
+  }
+
   // 5. Write back to localStorage
   localStorage.setItem('userSession', JSON.stringify(sessionData));
+  
+  // Consistency: also write to CURRENT_PLAN_KEY (from subscription.ts)
+  // We use the lowercase version for CURRENT_PLAN_KEY as per subscription.ts convention
+  localStorage.setItem('creatortracker_current_plan', currentPlan.toLowerCase());
   
   // Dispatch update events
   window.dispatchEvent(new Event('userSessionUpdated'));

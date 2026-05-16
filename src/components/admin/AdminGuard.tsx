@@ -20,10 +20,28 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
     async function checkAuth() {
       try {
-        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-        if (supabaseSession) {
-          await syncUserSessionFromSupabase(supabaseSession.user);
-        }
+        const authPromise = (async () => {
+          const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+          if (supabaseSession) {
+            try {
+              const syncPromise = syncUserSessionFromSupabase(supabaseSession.user);
+              const syncTimeout = new Promise(resolve => setTimeout(resolve, 3000));
+              await Promise.race([syncPromise, syncTimeout]);
+            } catch (syncError) {
+              console.error('[AdminGuard] Profile sync failed:', syncError);
+            }
+          }
+          return supabaseSession;
+        })();
+
+        const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => {
+            console.warn('[AdminGuard] Admin auth check timed out');
+            resolve(null);
+          }, 5000)
+        );
+
+        const supabaseSession = await Promise.race([authPromise, timeoutPromise]);
         
         const sessionString = localStorage.getItem('userSession');
         let legacySession = null;
@@ -42,10 +60,10 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
         }
 
         console.debug('[AdminGuard] Not authorized — redirecting away');
-        router.replace('/dashboard');
+        if (mounted) router.replace('/dashboard');
       } catch (error) {
         console.error('[AdminGuard] Error checking session:', error);
-        router.replace('/dashboard');
+        if (mounted) router.replace('/dashboard');
       }
     }
 
