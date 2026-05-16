@@ -20,17 +20,21 @@ import {
   generateRedeemCode, 
   toggleCodeStatus, 
   deleteRedeemCode,
+  deleteRedeemCodeWithOptionalRevoke,
   RedeemCode,
   PlanType
 } from '@/lib/admin-store';
 import { showToast } from '@/components/ui/Toast';
+import DeleteCodeModal from '@/components/admin/DeleteCodeModal';
 
 export default function RedeemCodeManagement() {
   const [codes, setCodes] = useState<RedeemCode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteModalCode, setDeleteModalCode] = useState<RedeemCode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Form state
   const [newCode, setNewCode] = useState({
@@ -101,14 +105,61 @@ export default function RedeemCodeManagement() {
     }
   };
 
-  const handleDeleteCode = async (id: string) => {
-    if (!confirm('Permanently delete this operational code?')) return;
-    
+  const handleDeleteCode = (code: RedeemCode) => {
+    setDeleteModalCode(code);
+  };
+
+  const handleDeleteOnly = async (id: string) => {
+    setIsDeleting(true);
     try {
       await deleteRedeemCode(id);
       showToast({ type: 'success', title: 'Code Removed', description: 'The code has been deleted or disabled.' });
+      setDeleteModalCode(null);
     } catch (err) {
       showToast({ type: 'error', title: 'Delete Failed', description: 'Could not remove the code.' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAndRevoke = async (id: string, plan: 'pro' | 'studio') => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteRedeemCodeWithOptionalRevoke(id, true, plan);
+      
+      if (result.revokedCount > 0) {
+        showToast({ 
+          type: 'success', 
+          title: 'Revoke Successful', 
+          description: `Code removed and access revoked for ${result.revokedCount} user(s).` 
+        });
+      } else if (result.redemptionRecordsFound === 0) {
+        showToast({ 
+          type: 'warning', 
+          title: 'Code Removed', 
+          description: 'Code removed, but no redemption records were found. Existing access could not be revoked for old/local redemptions.' 
+        });
+      } else if (result.skippedCount > 0) {
+        showToast({ 
+          type: 'warning', 
+          title: 'Code Removed', 
+          description: `Code removed, but ${result.skippedCount} users were skipped (current plan mismatch).` 
+        });
+      } else {
+        showToast({ 
+          type: 'success', 
+          title: 'Code Removed', 
+          description: 'The code was removed. No active matching redemptions were found to revoke.' 
+        });
+      }
+      
+      setDeleteModalCode(null);
+    } catch (err: any) {
+      console.error('[AdminCodes] Revoke action failed:', err);
+      const message = err.message || 'Could not complete the delete and revoke operation.';
+      showToast({ type: 'error', title: 'Action Failed', description: message });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -198,7 +249,7 @@ export default function RedeemCodeManagement() {
                       <Power size={14} />
                     </button>
                     <button 
-                      onClick={() => handleDeleteCode(code.id)}
+                      onClick={() => handleDeleteCode(code)}
                       className="p-2 rounded-xl border border-white/5 text-muted-foreground/20 hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/10 transition-all"
                     >
                       <Trash2 size={14} />
@@ -362,6 +413,17 @@ export default function RedeemCodeManagement() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalCode && (
+        <DeleteCodeModal 
+          code={deleteModalCode}
+          onClose={() => setDeleteModalCode(null)}
+          onDeleteOnly={handleDeleteOnly}
+          onDeleteAndRevoke={handleDeleteAndRevoke}
+          isSubmitting={isDeleting}
+        />
       )}
     </div>
   );

@@ -136,25 +136,49 @@ export async function syncUserSessionFromSupabase(
   }
 
   // 3. Check for persistent local subscription upgrade and merge with profile plan
-  // Priority: 1. Profile from DB, 2. Local Session Plan (if DB fail), 3. local sub record, 4. 'free'
-  let currentPlan = normalizePlan(profile?.plan || localSessionPlan || 'free');
+  // Priority: 1. Profile from DB (Source of Truth if exists)
+  //           2. Local Session Plan (Fallback if DB fail)
+  //           3. Local sub record (Secondary Fallback)
   
+  let currentPlan = normalizePlan(profile?.plan || localSessionPlan || 'free');
   const email = profile?.email || user.email || '';
   const subKey = `subscription_${email}`;
-  try {
-    const existingSubRaw = localStorage.getItem(subKey);
-    if (existingSubRaw) {
-      const subData = JSON.parse(existingSubRaw);
-      const subPlan = subData.plan || subData.planId; // support both keys
-      if (subPlan && subPlan !== 'free' && subPlan !== 'Free') {
-        const normalizedSub = normalizePlan(subPlan);
-        // Only upgrade if local sub record is higher than current
-        if (PLAN_HIERARCHY[normalizedSub] > PLAN_HIERARCHY[currentPlan]) {
-          currentPlan = normalizedSub;
+
+  if (profile) {
+    // DB Success: Profile is the source of truth. 
+    // If DB says "free" but local says "pro", the DB WINS.
+    currentPlan = normalizePlan(profile.plan);
+    
+    // Safety: If local sub record contradicts DB, we should ideally clear it or ignore it
+    // to prevent it from "rescuing" a revoked plan on next refresh if DB fetch fails.
+    try {
+      const existingSubRaw = localStorage.getItem(subKey);
+      if (existingSubRaw) {
+        const subData = JSON.parse(existingSubRaw);
+        const subPlan = normalizePlan(subData.plan || subData.planId);
+        if (PLAN_HIERARCHY[subPlan] > PLAN_HIERARCHY[currentPlan]) {
+          console.warn(`[profile] Local storage ${subPlan} ignored; DB plan ${currentPlan} is source of truth.`);
+          // Optionally clear it to prevent stale state:
+          // localStorage.removeItem(subKey);
         }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  } else {
+    // DB Fail/Timeout: Use local fallbacks
+    try {
+      const existingSubRaw = localStorage.getItem(subKey);
+      if (existingSubRaw) {
+        const subData = JSON.parse(existingSubRaw);
+        const subPlan = subData.plan || subData.planId;
+        if (subPlan && subPlan !== 'free' && subPlan !== 'Free') {
+          const normalizedSub = normalizePlan(subPlan);
+          if (PLAN_HIERARCHY[normalizedSub] > PLAN_HIERARCHY[currentPlan]) {
+            currentPlan = normalizedSub;
+          }
+        }
+      }
+    } catch (e) {}
+  }
 
   // 4. Build user session (with fallback if profile fetch failed)
   const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();

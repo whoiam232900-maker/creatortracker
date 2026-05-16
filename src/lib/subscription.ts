@@ -290,19 +290,23 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
     }
 
     // 4. Check for duplicate redemption by this user
-    const { data: existingRedemption } = await supabase
+    // ONLY check by code_id + user_id as other columns do not exist
+    const { data: existingRedemption, error: duplicateError } = await supabase
       .from('redeem_redemptions')
       .select('id')
       .eq('user_id', user.id)
       .eq('code_id', dbCode.id)
       .maybeSingle();
 
+    if (duplicateError) {
+      console.error('[Redeem] Duplicate check error:', duplicateError);
+    }
+
     if (existingRedemption) {
       return { success: false, message: 'You have already redeemed this code.' };
     }
 
     // 5. Process Redemption
-    const currentPlan = getCurrentPlan();
     const newPlanNormalized = normalizePlan(dbCodePlan);
     
     // A) Update Profile
@@ -320,17 +324,25 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
     }
 
     // B) Insert Redemption Record
-    await supabase
+    // DO NOT insert user_email, code, new_plan, or previous_plan as they do not exist
+    const { error: redemptionInsertError } = await supabase
       .from('redeem_redemptions')
       .insert({
         code_id: dbCode.id,
-        code: dbCode.code,
         user_id: user.id,
-        user_email: user.email,
-        previous_plan: currentPlan.toLowerCase(),
-        new_plan: newPlanNormalized.toLowerCase(),
         redeemed_at: new Date().toISOString()
       });
+
+    if (redemptionInsertError) {
+      console.error('[Redeem] Failed to insert redemption record:', {
+        message: redemptionInsertError.message,
+        code: redemptionInsertError.code,
+        details: redemptionInsertError.details,
+        hint: redemptionInsertError.hint
+      });
+      // We throw because without this row, admin revoke cannot work
+      throw new Error("Redeem succeeded but redemption record failed: " + redemptionInsertError.message);
+    }
 
     // C) Increment used_count
     await supabase

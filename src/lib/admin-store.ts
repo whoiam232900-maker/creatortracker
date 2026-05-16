@@ -152,7 +152,10 @@ export async function deleteRedeemCode(id: string) {
         console.warn('[AdminStore] Code has history, disabling instead of deleting');
         await supabase
           .from('redeem_codes')
-          .update({ status: 'disabled' })
+          .update({ 
+            status: 'disabled',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', id);
       } else {
         throw error;
@@ -162,6 +165,144 @@ export async function deleteRedeemCode(id: string) {
     window.dispatchEvent(new Event('admin_codes_updated'));
   } catch (e) {
     console.error('[AdminStore] Delete code failed:', e);
+    throw e;
+  }
+}
+
+export async function deleteRedeemCodeWithOptionalRevoke(id: string, shouldRevoke: boolean, plan: 'pro' | 'studio') {
+  console.log(`[AdminStore] Deleting code ${id} with revoke=${shouldRevoke}`);
+  
+  let revokedCount = 0;
+  let skippedCount = 0;
+  let affectedUserIds: string[] = [];
+  let deletedOrDisabled = false;
+  let redemptionRecordsFound = 0;
+
+  try {
+    // 1. Fetch the redeem code row first from Supabase to ensure UUID is valid and get latest state
+    const { data: selectedCode, error: codeError } = await supabase
+      .from('redeem_codes')
+      .select('id, code, plan, used_count, max_uses, status')
+      .eq('id', id)
+      .single();
+    
+    if (codeError) {
+      console.error('[AdminStore] Failed to load code:', codeError);
+      throw new Error('Failed to load code: ' + codeError.message);
+    }
+
+    if (shouldRevoke) {
+      // 2. Query redemptions using ONLY minimal confirmed columns
+      // DO NOT select user_email, code, or new_plan as they do not exist
+      const { data: redemptions, error: redemptionError } = await supabase
+        .from('redeem_redemptions')
+        .select('id, code_id, user_id, redeemed_at')
+        .eq('code_id', selectedCode.id);
+
+      if (redemptionError) {
+        console.error('[AdminStore] Redemption load failed:', {
+          message: redemptionError.message,
+          code: redemptionError.code,
+          details: redemptionError.details,
+          hint: redemptionError.hint
+        });
+        throw new Error('Failed to load redemption records: ' + redemptionError.message);
+      }
+
+      redemptionRecordsFound = redemptions?.length || 0;
+
+      if (redemptions && redemptions.length > 0) {
+        const uniqueUserIds = Array.from(new Set(redemptions.map(r => r.user_id).filter(Boolean)));
+        
+        // 3. For each user, fetch profile and check plan (since new_plan is gone from redemptions)
+        const targetPlan = normalizePlan(selectedCode.plan).toLowerCase();
+        
+        for (const userId of uniqueUserIds) {
+          try {
+            const { data: profile, error: profileFetchError } = await supabase
+              .from('profiles')
+              .select('id, plan')
+              .eq('id', userId)
+              .single();
+            
+            if (profileFetchError) {
+              console.warn(`[AdminStore] Could not fetch profile for user ${userId}:`, profileFetchError);
+              skippedCount++;
+              continue;
+            }
+
+            if (normalizePlan(profile.plan).toLowerCase() === targetPlan) {
+              const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ 
+                  plan: 'free',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', userId);
+
+              if (updateError) {
+                console.error(`[AdminStore] Revoke failed for user ${userId}:`, updateError);
+                if (updateError.code === '42501') {
+                  throw new Error('Revoke failed: admin does not have permission to update profiles.');
+                }
+                skippedCount++;
+              } else {
+                revokedCount++;
+                affectedUserIds.push(userId);
+              }
+            } else {
+              console.log(`[AdminStore] Skipping user ${userId}: current plan ${profile.plan} != code plan ${targetPlan}`);
+              skippedCount++;
+            }
+          } catch (err) {
+            console.error(`[AdminStore] Error processing user ${userId}:`, err);
+            skippedCount++;
+          }
+        }
+        
+        console.log(`[AdminStore] Revoke summary: ${revokedCount} revoked, ${skippedCount} skipped.`);
+      }
+    }
+
+    // 4. Attempt to delete the code
+    const { error: deleteError } = await supabase
+      .from('redeem_codes')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      // If delete fails due to foreign key (redemption history), fallback to disabled status
+      if (deleteError.code === '23503') {
+        console.warn('[AdminStore] FK Constraint: Disabling instead of deleting');
+        const { error: updateError } = await supabase
+          .from('redeem_codes')
+          .update({ 
+            status: 'disabled',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+        
+        if (updateError) throw updateError;
+        deletedOrDisabled = true;
+      } else {
+        throw deleteError;
+      }
+    } else {
+      deletedOrDisabled = true;
+    }
+    
+    window.dispatchEvent(new Event('admin_codes_updated'));
+    return { 
+      success: true,
+      deletedOrDisabled,
+      revokedCount,
+      skippedCount,
+      affectedUserIds,
+      redemptionRecordsFound
+    };
+  } catch (e: any) {
+    console.error('[AdminStore] Delete with optional revoke failed', e);
+    throw e;
   }
 }
 
