@@ -2,7 +2,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSettings } from '@/contexts/SettingsContext';
-import { Eye, EyeOff, Loader2, Check, X, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Check, X, ShieldCheck, ShieldAlert } from 'lucide-react';
 import {
   seedAdminAccount,
   validateCredentials,
@@ -30,6 +30,7 @@ function AuthForm() {
   const [keepMeSignedIn, setKeepMeSignedIn] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
   const { settings } = useSettings();
 
   const getLandingRoute = () => {
@@ -44,6 +45,7 @@ function AuthForm() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     // Ensure admin account exists on load - DISABLED for Phase 2E-1
     // seedAdminAccount();
 
@@ -201,6 +203,25 @@ function AuthForm() {
     }
   };
 
+  const isTerminated = searchParams?.get('terminated') === '1';
+  const isSuspended = searchParams?.get('suspended') === '1';
+  const suspendedUntil = searchParams?.get('until');
+
+  const formatSuspendedUntil = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
@@ -231,6 +252,42 @@ function AuthForm() {
                   : 'Enter your credentials to access your dashboard'}
             </p>
           </div>
+
+          {isTerminated && (
+            <div className="p-3 rounded-xl text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2">
+                < ShieldAlert size={14} />
+                Your account has been terminated. Contact support if this was a mistake.
+              </div>
+            </div>
+          )}
+
+          {isSuspended && (
+            <div className="p-4 rounded-xl text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-300 space-y-3">
+              <div className="flex items-start gap-2">
+                <ShieldAlert size={14} className="mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-bold uppercase tracking-wider">Account Under Review</p>
+                  <p className="leading-relaxed opacity-80">
+                    Your access has been temporarily restricted. 
+                    {suspendedUntil && isMounted ? (
+                      <> Access will be restored after <span className="underline decoration-amber-500/30">{formatSuspendedUntil(suspendedUntil)}</span>.</>
+                    ) : (
+                      <> Access will be restored after the review period.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button 
+                  onClick={() => window.location.href = 'mailto:support@creatortracker.com?subject=Account Review Request'}
+                  className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 transition-colors text-[10px] font-bold uppercase tracking-widest"
+                >
+                  Contact Support
+                </button>
+              </div>
+            </div>
+          )}
 
           {isForgotPassword ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-500">

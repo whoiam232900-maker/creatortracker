@@ -26,6 +26,7 @@ import {
 } from '@/lib/admin-store';
 import { showToast } from '@/components/ui/Toast';
 import DeleteCodeModal from '@/components/admin/DeleteCodeModal';
+import { formatDeterministic } from '@/lib/date-utils';
 
 export default function RedeemCodeManagement() {
   const [codes, setCodes] = useState<RedeemCode[]>([]);
@@ -42,6 +43,8 @@ export default function RedeemCodeManagement() {
     planType: 'Pro' as PlanType,
     maxUses: 100,
     expiresAt: '',
+    durationType: 'lifetime',
+    durationDays: 30,
     notes: ''
   });
 
@@ -78,12 +81,22 @@ export default function RedeemCodeManagement() {
         maxUses: newCode.maxUses,
         expiresAt: newCode.expiresAt || null,
         isActive: true,
+        durationType: newCode.durationType,
+        durationDays: newCode.durationType === 'custom_days' ? newCode.durationDays : undefined,
         notes: newCode.notes
       });
 
       if (result) {
         setIsModalOpen(false);
-        setNewCode({ code: '', planType: 'Pro', maxUses: 100, expiresAt: '', notes: '' });
+        setNewCode({ 
+          code: '', 
+          planType: 'Pro', 
+          maxUses: 100, 
+          expiresAt: '', 
+          durationType: 'lifetime', 
+          durationDays: 30, 
+          notes: '' 
+        });
         showToast({ type: 'success', title: 'Code Generated', description: `Successfully created ${newCode.code}` });
       } else {
         showToast({ type: 'error', title: 'Generation Failed', description: 'Could not create the code in Supabase.' });
@@ -174,6 +187,17 @@ export default function RedeemCodeManagement() {
     (c.notes || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getDurationLabel = (code: RedeemCode) => {
+    switch (code.durationType) {
+      case 'trial_7_days': return '7 Days Trial';
+      case 'monthly': return '1 Month Premium';
+      case 'yearly': return '1 Year Premium';
+      case 'lifetime': return 'Lifetime Access';
+      case 'custom_days': return `${code.durationDays} Days Premium`;
+      default: return 'Permanent Upgrade';
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       {/* Header */}
@@ -235,6 +259,7 @@ export default function RedeemCodeManagement() {
                       </span>
                     </div>
                     <h3 className="text-xl font-bold tracking-tight text-white/90 group-hover:text-primary transition-colors">{code.code}</h3>
+                    <p className="text-[9px] font-bold text-primary/60 uppercase tracking-widest">{getDurationLabel(code)}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button 
@@ -269,7 +294,7 @@ export default function RedeemCodeManagement() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">Expiration</p>
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
                       <Clock size={12} className="opacity-40" />
-                      {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
+                      {code.expiresAt ? formatDeterministic(code.expiresAt) : 'Never'}
                     </div>
                   </div>
                 </div>
@@ -333,6 +358,55 @@ export default function RedeemCodeManagement() {
                       onChange={(e) => setNewCode({ ...newCode, maxUses: parseInt(e.target.value) })}
                       disabled={isSubmitting}
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 ml-1">Subscription Duration</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { label: '7 Days', value: 'trial_7_days' },
+                      { label: '1 Month', value: 'monthly' },
+                      { label: '1 Year', value: 'yearly' },
+                      { label: 'Lifetime', value: 'lifetime' }
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewCode({ ...newCode, durationType: opt.value })}
+                        className={`py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                          newCode.durationType === opt.value 
+                            ? 'bg-primary/10 border-primary/40 text-primary' 
+                            : 'bg-white/[0.02] border-white/5 text-muted-foreground/40 hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Custom Days Option */}
+                  <div className="flex items-center gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewCode({ ...newCode, durationType: 'custom_days' })}
+                      className={`px-4 py-2.5 rounded-xl text-[10px] font-bold transition-all border whitespace-nowrap ${
+                        newCode.durationType === 'custom_days' 
+                          ? 'bg-primary/10 border-primary/40 text-primary' 
+                          : 'bg-white/[0.02] border-white/5 text-muted-foreground/40 hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      Custom Days
+                    </button>
+                    {newCode.durationType === 'custom_days' && (
+                      <input 
+                        type="number" 
+                        placeholder="30"
+                        className="w-20 bg-white/[0.02] border border-white/5 rounded-xl py-2 px-3 text-xs focus:outline-none focus:border-primary/30 transition-all"
+                        value={newCode.durationDays}
+                        onChange={(e) => setNewCode({ ...newCode, durationDays: parseInt(e.target.value) || 1 })}
+                      />
+                    )}
                   </div>
                 </div>
 

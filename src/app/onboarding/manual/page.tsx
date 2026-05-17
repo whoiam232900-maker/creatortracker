@@ -129,7 +129,7 @@ export default function ManualOnboardingPage() {
     }
   }, [router]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1) {
       const selected = availableTrackers.filter((t) => selectedTrackerIds.includes(t.id));
       setCustomizedTrackers(JSON.parse(JSON.stringify(selected)));
@@ -174,9 +174,9 @@ export default function ManualOnboardingPage() {
         });
 
         // Load existing (empty for new user) and apply fields only
-        const existingState = loadState(userId);
+        const existingState = await loadState(userId);
         const newState = { ...existingState, fields: fieldsToSave };
-        saveState(newState, userId);
+        await saveState(newState, userId);
 
         // Save tracker structure scoped to user
         const manualSetup = {

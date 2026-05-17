@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Plan, redeemCode } from '@/lib/subscription';
+import { getPlanConfigs, PlanConfig } from '@/lib/admin-store';
 
 function normalizePlan(input: unknown): Plan {
   if (input === 'pro' || input === 'studio' || input === 'free') return input;

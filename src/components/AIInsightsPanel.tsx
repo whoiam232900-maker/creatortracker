@@ -12,6 +12,15 @@ export default function AIInsightsPanel({ state }: { state: AppState }) {
   const [showUnlockModal, setShowUnlockModal] = React.useState(false);
   const recommendations = generateAIRecommendations(state);
 
+  // Deduplicate recommendations by type + title
+  const seenRecKeys = new Set<string>();
+  const deduplicatedRecommendations = recommendations.filter(rec => {
+    const key = `${rec.type}:${rec.title}`;
+    if (seenRecKeys.has(key)) return false;
+    seenRecKeys.add(key);
+    return true;
+  });
+
   const isLocked = !canUseFeature('hasPremiumAI');
 
   // If locked, we show placeholder data to give a "peek" at the value
@@ -21,9 +30,9 @@ export default function AIInsightsPanel({ state }: { state: AppState }) {
         { id: 'p2', title: 'Burnout Risk Analysis', description: 'Early detection of declining consistency patterns before they impact your delivery pipeline.', type: 'burnout', impact: 'normal' },
         { id: 'p3', title: 'Operational Consistency', description: 'Correlation between your sleep cycles and daily task completion efficiency.', type: 'consistency', impact: 'normal' }
       ] as Recommendation[]
-    : recommendations;
+    : deduplicatedRecommendations;
 
-  if (!isLocked && recommendations.length === 0) {
+  if (!isLocked && deduplicatedRecommendations.length === 0) {
     return (
       <div className="card p-8 border border-border/40 bg-card/20 backdrop-blur-md relative overflow-hidden group">
         <div className="flex items-center gap-5 mb-2">

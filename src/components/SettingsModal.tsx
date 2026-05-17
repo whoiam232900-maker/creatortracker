@@ -31,6 +31,7 @@ import AccountTab from './AccountTab';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanType, PLAN_HIERARCHY } from '@/lib/subscription';
 import { UpgradePrompt } from './UpgradePrompt';
+import { getPlanConfigsFromDB, PlanConfig, getPlanPrice, formatPlanPrice } from '@/lib/plan-config';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -49,17 +50,11 @@ const SIDEBAR_ITEMS = [
   { label: 'Help & Support', icon: HelpCircle },
 ];
 
-const PLANS = [
+const PLANS_UI = [
   {
     name: 'Free',
     icon: Shield,
     description: 'Perfect for getting started with basic tracking.',
-    features: [
-      'Up to 3 active trackers',
-      'Basic analytics dashboard',
-      '7-day data history',
-      'Community support',
-    ],
     cta: 'Current Plan',
     ctaPrimary: false,
     color: 'var(--muted-foreground)',
@@ -71,13 +66,6 @@ const PLANS = [
     icon: Zap,
     description: 'Advanced analytics and unlimited tracking for creators.',
     isRecommended: true,
-    features: [
-      'Unlimited trackers & targets',
-      'Advanced AI behavioral insights',
-      'Unlimited data history',
-      'Custom dashboard layouts',
-      'Priority email support',
-    ],
     cta: 'Upgrade to Pro',
     ctaPrimary: true,
     color: 'var(--primary)',
@@ -89,13 +77,6 @@ const PLANS = [
     name: 'Studio',
     icon: Sparkles,
     description: 'The ultimate toolkit for agency teams and power users.',
-    features: [
-      'Everything in Pro',
-      'Multiple workspaces',
-      'Team collaboration',
-      'API access & webhooks',
-      'Dedicated account manager',
-    ],
     cta: 'Upgrade to Studio',
     ctaPrimary: false,
     color: '#8b5cf6', // purple
@@ -104,21 +85,6 @@ const PLANS = [
     borderHighlight: 'rgba(139, 92, 246, 0.2)',
   },
 ];
-
-const PRICING_DATA = {
-  Global: {
-    symbol: '$',
-    Free: { monthly: 0, yearly: 0, originalMonthly: 0, originalYearly: 0 },
-    Pro: { monthly: 4.99, yearly: 3.49, originalMonthly: 8.99, originalYearly: 6.99 },
-    Studio: { monthly: 9.99, yearly: 6.99, originalMonthly: 16.99, originalYearly: 12.99 },
-  },
-  India: {
-    symbol: '₹',
-    Free: { monthly: 0, yearly: 0, originalMonthly: 0, originalYearly: 0 },
-    Pro: { monthly: 199, yearly: 149, originalMonthly: 399, originalYearly: 299 },
-    Studio: { monthly: 399, yearly: 299, originalMonthly: 799, originalYearly: 599 },
-  },
-};
 
 const COMPARISON_FEATURES = [
   { name: 'Active Trackers', free: '3', pro: 'Unlimited', studio: 'Unlimited' },
@@ -229,11 +195,13 @@ export default function SettingsModal({
   const [activeTab, setActiveTab] = useState(initialTab);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
   const [region, setRegion] = useState<'Global' | 'India'>('Global');
+  const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([]);
   const [session, setSession] = useState<{
     email?: string;
     isAdmin?: boolean;
     plan?: string;
     role?: string;
+    premiumExpiresAt?: string | null;
   } | null>(null);
 
   // Combined sidebar items based on role
@@ -241,12 +209,18 @@ export default function SettingsModal({
 
   // Sync initial tab when modal opens
   React.useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
+    async function loadData() {
       try {
+        const configs = await getPlanConfigsFromDB();
+        setPlanConfigs(configs);
+        
         const raw = localStorage.getItem('userSession');
         if (raw) setSession(JSON.parse(raw));
       } catch (e) {}
+    }
+    if (isOpen) {
+      setActiveTab(initialTab);
+      loadData();
     }
   }, [isOpen, initialTab]);
 
@@ -261,6 +235,16 @@ export default function SettingsModal({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     });
+  };
+
+  const formatExpiry = (isoString: string | null | undefined) => {
+    if (!isoString) return 'Lifetime access';
+    try {
+      const date = new Date(isoString);
+      return `Expires on ${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    } catch (e) {
+      return 'Timed access';
+    }
   };
 
   return (
@@ -352,12 +336,17 @@ export default function SettingsModal({
                         {currentPlan} Plan
                       </h2>
                       {currentPlan.toLowerCase() !== 'free' && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/[0.03] border border-primary/10">
-                          <span className="w-1 h-1 rounded-full bg-primary/40" />
-                          <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-widest">
-                            Active
+                        <>
+                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/[0.03] border border-primary/10">
+                            <span className="w-1 h-1 rounded-full bg-primary/40" />
+                            <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-widest">
+                              Active
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest ml-1">
+                            • {formatExpiry(session?.premiumExpiresAt)}
                           </span>
-                        </div>
+                        </>
                       )}
                     </div>
                   </div>
@@ -394,17 +383,15 @@ export default function SettingsModal({
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {PLANS.map((plan) => {
+                    {PLANS_UI.map((plan) => {
                       const isCurrent = currentPlan.toLowerCase() === plan.name.toLowerCase();
                       const Icon = plan.icon;
-                      const pricing = PRICING_DATA[region][plan.name as 'Free' | 'Pro' | 'Studio'];
+                      const config = planConfigs.find(c => c.plan.toLowerCase() === plan.name.toLowerCase());
                       const isYearly = billingInterval === 'Yearly';
+                      const currency = region === 'India' ? 'INR' : 'USD';
 
-                      const displayPrice = isYearly ? pricing.yearly : pricing.monthly;
-                      const originalPrice = isYearly
-                        ? pricing.originalYearly
-                        : pricing.originalMonthly;
-                      const hasDiscount = originalPrice > displayPrice;
+                      const displayPrice = config ? getPlanPrice(config, currency, billingInterval) : 0;
+                      const formattedPrice = formatPlanPrice(displayPrice, currency, billingInterval);
 
                       return (
                         <div
@@ -442,29 +429,17 @@ export default function SettingsModal({
                             <div className="mb-5">
                               <div className="flex items-baseline gap-1.5 min-h-[32px]">
                                 <span className="text-2xl font-semibold text-white">
-                                  {PRICING_DATA[region].symbol}
-                                  {displayPrice}
+                                  {formattedPrice.split(' ')[0]}
                                 </span>
                                 <span className="text-[11px] font-medium text-muted-foreground/60">
-                                  /{plan.name === 'Free' ? 'forever' : 'mo'}
+                                  {formattedPrice.split(' ')[1] || (plan.name === 'Free' ? '/forever' : (isYearly ? '/yr' : '/mo'))}
                                 </span>
-                                {hasDiscount && (
-                                  <span className="ml-1 text-[11px] font-medium text-muted-foreground/30 line-through">
-                                    {PRICING_DATA[region].symbol}
-                                    {originalPrice}
-                                  </span>
-                                )}
                               </div>
 
                               <div className="flex items-center gap-2 mt-1">
                                 {isYearly && plan.name !== 'Free' && (
                                   <span className="text-[9px] font-bold text-emerald-500/60 uppercase tracking-wider">
                                     Billed yearly
-                                  </span>
-                                )}
-                                {hasDiscount && (
-                                  <span className="text-[9px] font-bold text-primary/60 uppercase tracking-wider">
-                                    {isYearly && '• '}Launch price
                                   </span>
                                 )}
                               </div>
@@ -476,7 +451,7 @@ export default function SettingsModal({
 
                             <div className="flex-1">
                               <ul className="space-y-2.5 mb-8">
-                                {plan.features.map((feature, i) => (
+                                {(config?.features || []).map((feature, i) => (
                                   <li
                                     key={i}
                                     className="flex items-start gap-2.5 text-[12px] group/feat"

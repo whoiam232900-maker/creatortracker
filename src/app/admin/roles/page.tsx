@@ -13,6 +13,7 @@ import {
   Activity
 } from 'lucide-react';
 import { getAllUsers } from '@/lib/admin-store';
+import { formatDeterministic } from '@/lib/date-utils';
 
 export default function AccessControl() {
   const [admins, setAdmins] = useState<any[]>([]);
@@ -83,7 +84,7 @@ export default function AccessControl() {
                     <div className="flex items-center gap-3">
                       <div className="text-right hidden sm:block">
                         <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Full Access</p>
-                        <p className="text-[10px] text-muted-foreground/30 font-medium">Provisioned {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-[10px] text-muted-foreground/30 font-medium">Provisioned {admin.createdAt ? formatDeterministic(admin.createdAt) : 'N/A'}</p>
                       </div>
                       <button className="p-2 rounded-xl hover:bg-white/5 text-muted-foreground/20 hover:text-white transition-all">
                         <MoreVertical size={18} />

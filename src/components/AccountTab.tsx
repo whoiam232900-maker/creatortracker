@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ADMIN_EMAIL, validateCredentials } from '@/lib/auth-utils';
 import bcrypt from 'bcryptjs';
+import { supabase } from '@/lib/supabase/client';
 
 // --- Types ---
 interface SecurityCardProps {
@@ -97,6 +98,8 @@ export default function AccountTab() {
     passwordLastChanged: null as string | null,
     twoFactorEnabled: false,
     role: 'user',
+    plan: 'free',
+    premiumExpiresAt: null as string | null,
   });
 
   // --- Profile State ---
@@ -147,14 +150,26 @@ export default function AccountTab() {
           passwordLastChanged: session.passwordLastChanged || null,
           twoFactorEnabled: session.twoFactorEnabled === true,
           role: session.role || 'user',
+          plan: session.plan || 'free',
+          premiumExpiresAt: session.premiumExpiresAt || null,
         };
         setUser(initialUser);
         setEditUsername(initialUser.username);
       }
       const savedAlerts = localStorage.getItem('security_alerts_v3');
       if (savedAlerts) setSecurityAlerts(JSON.parse(savedAlerts));
-    } catch (e) {}
+    } catch (e) { }
   }, []);
+
+  const formatExpiry = (isoString: string | null) => {
+    if (!isoString) return 'Lifetime Access';
+    try {
+      const date = new Date(isoString);
+      return `Expires on ${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    } catch (e) {
+      return 'Timed access';
+    }
+  };
 
   const persistUser = (updates: Partial<typeof user>) => {
     const updated = { ...user, ...updates };
@@ -165,7 +180,7 @@ export default function AccountTab() {
         const session = JSON.parse(raw);
         localStorage.setItem('userSession', JSON.stringify({ ...session, ...updates }));
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // --- Handlers ---
@@ -358,9 +373,13 @@ export default function AccountTab() {
 
     setIsDeleting(true);
     try {
-      // Simulate verification of password before delete
-      const userData = await validateCredentials(user.email, deletePassword);
-      if (!userData) {
+      // 1. Verify password using Supabase Auth
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: deletePassword,
+      });
+
+      if (verifyError) {
         showToast({
           type: 'error',
           title: 'Verification Failed',
@@ -370,27 +389,48 @@ export default function AccountTab() {
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // 2. Update profile status in Supabase
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('User not found');
 
-      // Remove specific user instead of nuclear localStorage.clear()
-      const usersRaw = localStorage.getItem('users');
-      if (usersRaw) {
-        const users = JSON.parse(usersRaw);
-        delete users[user.email];
-        localStorage.setItem('users', JSON.stringify(users));
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          status: 'terminated',
+          terminated_at: new Date().toISOString(),
+          termination_reason: 'User requested account termination',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', authUser.id);
+
+      if (updateError) {
+        console.error('[AccountTab] Termination update error:', updateError);
+        showToast({
+          type: 'error',
+          title: 'Termination Failed',
+          description: 'Could not update account status.',
+        });
+        setIsDeleting(false);
+        return;
       }
 
-      // Also clear their specific tracker data
+      // 3. Clear local session data
+      localStorage.removeItem('userSession');
+      localStorage.removeItem('creatortracker_current_plan');
       localStorage.removeItem(`creator_tracker_${user.email}`);
-      if(typeof window !== 'undefined') { import('@/lib/supabase/client').then(m => m.supabase.auth.signOut().catch(console.error)); } localStorage.removeItem('userSession');
 
+      // 4. Sign out and redirect
+      await supabase.auth.signOut();
+      
       showToast({
         type: 'success',
         title: 'Account Terminated',
-        description: 'Your data has been erased.',
+        description: 'Your account has been deactivated.',
       });
-      window.location.href = '/auth';
+      
+      window.location.href = '/auth?terminated=1';
     } catch (e) {
+      console.error('[AccountTab] Delete error:', e);
       showToast({
         type: 'error',
         title: 'Deletion Failed',
@@ -488,6 +528,15 @@ export default function AccountTab() {
               )}
             </div>
             <p className="text-xs text-muted-foreground/50 font-medium">{user.email}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">
+                {user.plan} Plan
+              </p>
+              <span className="text-[10px] font-bold text-muted-foreground/20">•</span>
+              <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">
+                {formatExpiry(user.premiumExpiresAt)}
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex gap-2">

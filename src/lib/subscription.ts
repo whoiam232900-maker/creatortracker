@@ -56,9 +56,7 @@ export const PLAN_HIERARCHY: Record<PlanType, number> = {
   Studio: 2,
 };
 
-export const REDEEM_CODES_KEY = 'creatortracker_redeem_codes';
 export const CURRENT_PLAN_KEY = 'creatortracker_current_plan';
-export const REDEEM_HISTORY_KEY = 'creatortracker_redeem_history';
 
 export type Plan = 'free' | 'pro' | 'studio';
 
@@ -70,53 +68,11 @@ export interface RedeemCode {
   maxUses: number;
   usedCount: number;
   expiresAt?: string | null;
+  durationType?: string | null;
+  durationDays?: number | null;
   createdAt: string;
   usedBy?: string[];
   notes?: string;
-}
-
-// Ensure migration happens if needed
-function migrateOldCodes() {
-  if (typeof window === 'undefined') return;
-  const rawCodes = localStorage.getItem(REDEEM_CODES_KEY);
-  if (rawCodes && JSON.parse(rawCodes).length > 0) return; // already migrated
-
-  const OLD_KEYS = [
-    'redeemCodes',
-    'creatortracker_codes',
-    'admin_redeem_codes',
-    'promo_codes',
-    'creatortracker_access_codes'
-  ];
-
-  for (const key of OLD_KEYS) {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Normalize to new shape
-          const migrated: RedeemCode[] = parsed.map(c => ({
-            id: c.id || `code-${Date.now()}`,
-            code: c.code,
-            plan: (c.plan?.toLowerCase() || 'pro') as 'pro' | 'studio',
-            status: c.status === 'active' || c.isActive ? 'active' : (c.status || 'disabled'),
-            maxUses: c.maxUses || 100,
-            usedCount: c.usedCount || c.currentUses || 0,
-            expiresAt: c.expiresAt || null,
-            createdAt: c.createdAt || new Date().toISOString(),
-            notes: c.notes
-          }));
-          localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(migrated));
-          break;
-        }
-      } catch (e) {}
-    }
-  }
-}
-
-if (typeof window !== 'undefined') {
-  migrateOldCodes();
 }
 
 export function normalizePlan(input: any): PlanType {
@@ -156,6 +112,59 @@ export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, curren
   return false;
 }
 
+export function isPremiumExpired(profileOrSession: any): boolean {
+  if (!profileOrSession?.premiumExpiresAt && !profileOrSession?.premium_expires_at) return false;
+  const expiryStr = profileOrSession.premiumExpiresAt || profileOrSession.premium_expires_at;
+  if (!expiryStr) return false;
+  
+  try {
+    const expiry = new Date(expiryStr).getTime();
+    return expiry < Date.now();
+  } catch (e) {
+    return false;
+  }
+}
+
+export function normalizeDurationType(input: string): string {
+  const s = input.toLowerCase();
+  if (s.includes('trial') || s.includes('7')) return 'trial_7_days';
+  if (s.includes('month') || s === 'monthly') return 'monthly';
+  if (s.includes('year') || s === 'yearly') return 'yearly';
+  if (s.includes('lifetime')) return 'lifetime';
+  if (s.includes('custom')) return 'custom_days';
+  return 'monthly';
+}
+
+export function calculatePremiumExpiry(durationType: string, durationDays?: number): string | null {
+  const normalized = normalizeDurationType(durationType);
+  const now = new Date();
+  
+  switch (normalized) {
+    case 'trial_7_days':
+      now.setDate(now.getDate() + 7);
+      break;
+    case 'monthly':
+      now.setDate(now.getDate() + 30);
+      break;
+    case 'yearly':
+      now.setDate(now.getDate() + 365);
+      break;
+    case 'lifetime':
+      return null;
+    case 'custom_days':
+      if (durationDays) {
+        now.setDate(now.getDate() + durationDays);
+      } else {
+        now.setDate(now.getDate() + 30); // fallback
+      }
+      break;
+    default:
+      now.setDate(now.getDate() + 30);
+  }
+  
+  return now.toISOString();
+}
+
 export function getCurrentPlan(): PlanType {
   if (typeof window === 'undefined') return 'Free';
   try {
@@ -164,6 +173,14 @@ export function getCurrentPlan(): PlanType {
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw);
       if (parsed?.plan) {
+        // --- EXPIRATION CHECK ---
+        if (parsed.plan !== 'Free' && isPremiumExpired(parsed)) {
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('[subscription] Plan expired in session, treating as Free');
+          }
+          return 'Free';
+        }
+
         const p = normalizePlan(parsed.plan);
         if (process.env.NODE_ENV === 'development') {
           console.debug('[subscription] getCurrentPlan from userSession:', p);
@@ -176,9 +193,7 @@ export function getCurrentPlan(): PlanType {
     const raw = localStorage.getItem(CURRENT_PLAN_KEY);
     if (raw) {
       const p = normalizePlan(raw);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[subscription] getCurrentPlan from CURRENT_PLAN_KEY:', p);
-      }
+      // NOTE: We don't have expiration info here, so we rely on userSession if available
       return p;
     }
 
@@ -260,8 +275,8 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
       .maybeSingle();
 
     if (codeError) {
-      console.warn('[Redeem] Supabase error, trying localStorage fallback:', codeError);
-      return syncRedeemCodeFallback(normalizedInput, targetPlan, user.email || 'unknown');
+      console.error('[Redeem] Supabase query failed:', codeError);
+      return { success: false, message: 'Unable to verify code right now. Please try again online.' };
     }
 
     if (!dbCode) {
@@ -292,7 +307,7 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
     // Fetch user profile to get previous_plan
     const { data: userProfile, error: profileFetchError } = await supabase
       .from('profiles')
-      .select('plan')
+      .select('plan, premium_started_at, premium_expires_at, premium_source')
       .eq('id', user.id)
       .single();
 
@@ -304,7 +319,6 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
     const previousPlan = normalizePlan(userProfile?.plan || 'Free').toLowerCase();
 
     // 4. Check for duplicate redemption by this user
-    // ONLY check by code_id + user_id as other columns do not exist
     const { data: existingRedemption, error: duplicateError } = await supabase
       .from('redeem_redemptions')
       .select('id')
@@ -320,11 +334,15 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
       return { success: false, message: 'You have already redeemed this code.' };
     }
 
-    // 5. Process Redemption
+    // 5. Process Redemption (Atomic sequence)
     const newPlanNormalized = normalizePlan(dbCodePlan);
-    
-    // A) Insert Redemption Record FIRST to ensure tracking works
     const grantedPlan = newPlanNormalized.toLowerCase();
+    
+    // Calculate Expiry
+    const premiumStartedAt = new Date().toISOString();
+    const premiumExpiresAt = calculatePremiumExpiry(dbCode.duration_type || 'lifetime', dbCode.duration_days);
+
+    // A) Insert Redemption Record
     const redemptionPayload: Record<string, any> = {
       code_id: dbCode.id,
       user_id: user.id,
@@ -333,24 +351,21 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
       plan: grantedPlan,
       code_snapshot: dbCode.code,
       user_email_snapshot: user.email,
-      redeemed_at: new Date().toISOString()
+      redeemed_at: premiumStartedAt,
+      premium_started_at: premiumStartedAt,
+      premium_expires_at: premiumExpiresAt,
+      duration_type: dbCode.duration_type || 'lifetime',
+      duration_days: dbCode.duration_days || null
     };
 
-    console.log('[Redeem] Attempting redemption insert payload', redemptionPayload);
-
-    const { error: redemptionInsertError } = await supabase
+    const { data: redemptionRecord, error: redemptionInsertError } = await supabase
       .from('redeem_redemptions')
-      .insert(redemptionPayload);
+      .insert(redemptionPayload)
+      .select()
+      .single();
 
     if (redemptionInsertError) {
-      console.error('[Redeem] Failed to insert redemption record FULL ERROR', {
-        message: redemptionInsertError.message,
-        code: redemptionInsertError.code,
-        details: redemptionInsertError.details,
-        hint: redemptionInsertError.hint,
-        raw: JSON.stringify(redemptionInsertError, null, 2),
-        attemptedPayload: redemptionPayload
-      });
+      console.error('[Redeem] Failed to insert redemption record:', redemptionInsertError);
       return { 
         success: false, 
         message: `Redemption tracking failed: ${redemptionInsertError.message || redemptionInsertError.code || 'Unknown Supabase error'}` 
@@ -361,20 +376,23 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
     const { error: profileError } = await supabase
       .from('profiles')
       .update({ 
-        plan: newPlanNormalized.toLowerCase(),
+        plan: grantedPlan,
+        premium_started_at: premiumStartedAt,
+        premium_expires_at: premiumExpiresAt,
+        premium_source: 'redeem_code',
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id);
 
     if (profileError) {
       console.error('[Redeem] Profile update error:', profileError);
-      // NOTE: We don't necessarily delete the redemption record here, 
-      // but the user will likely try again which will trigger the duplicate check.
+      // ROLLBACK: Delete redemption record
+      await supabase.from('redeem_redemptions').delete().eq('id', redemptionRecord.id);
       return { success: false, message: 'Could not update your plan. Please try again.' };
     }
 
     // C) Increment used_count
-    await supabase
+    const { error: countError } = await supabase
       .from('redeem_codes')
       .update({ 
         used_count: (dbCode.used_count || 0) + 1,
@@ -382,11 +400,31 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
       })
       .eq('id', dbCode.id);
 
-    // 6. Update Local State
-    const capitalPlan = newPlanNormalized;
-    upgradeToPlan(capitalPlan);
+    if (countError) {
+      console.error('[Redeem] Count increment error:', countError);
+      // ROLLBACK: Reset profile plan and delete redemption record
+      await supabase.from('profiles').update({ 
+        plan: previousPlan,
+        premium_started_at: userProfile.premium_started_at || null,
+        premium_expires_at: userProfile.premium_expires_at || null,
+        premium_source: userProfile.premium_source || null
+      }).eq('id', user.id);
+      await supabase.from('redeem_redemptions').delete().eq('id', redemptionRecord.id);
+      return { success: false, message: 'Redemption failed during finalization. Please try again.' };
+    }
 
-    return { success: true, message: `${capitalPlan} activated successfully`, plan: dbCodePlan as Plan };
+    // 6. Update Local State (Only after full database success)
+    upgradeToPlan(newPlanNormalized);
+
+    let successMsg = `${newPlanNormalized} activated successfully`;
+    if (premiumExpiresAt) {
+      const datePart = premiumExpiresAt.split('T')[0];
+      successMsg += ` until ${datePart}`;
+    } else {
+      successMsg += ` (Lifetime)`;
+    }
+
+    return { success: true, message: successMsg, plan: dbCodePlan as Plan };
 
   } catch (error) {
     console.error('Redeem error:', error);
@@ -394,35 +432,3 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
   }
 }
 
-/**
- * Legacy/Fallback logic for offline/network issues
- */
-function syncRedeemCodeFallback(normalizedInput: string, targetPlan: Plan | undefined, userEmail: string): { success: boolean; message: string; plan?: Plan } {
-  try {
-    const rawCodes = localStorage.getItem(REDEEM_CODES_KEY);
-    const codes: RedeemCode[] = rawCodes ? JSON.parse(rawCodes) : [];
-    const codeIndex = codes.findIndex(c => String(c.code).trim().toUpperCase() === normalizedInput);
-    
-    if (codeIndex === -1) return { success: false, message: 'Code not found' };
-
-    const code = codes[codeIndex];
-    if (code.status !== 'active') return { success: false, message: `Code ${code.status}` };
-    if (code.usedCount >= code.maxUses) return { success: false, message: 'Code usage limit reached' };
-
-    if (targetPlan && code.plan !== targetPlan) {
-      return { success: false, message: `This code is for ${code.plan === 'studio' ? 'Studio' : 'Pro'}, not ${targetPlan === 'studio' ? 'Studio' : 'Pro'}` };
-    }
-
-    code.usedCount += 1;
-    code.usedBy = code.usedBy || [];
-    code.usedBy.push(userEmail);
-    codes[codeIndex] = code;
-    localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(codes));
-
-    const capitalPlan = code.plan === 'studio' ? 'Studio' : 'Pro';
-    upgradeToPlan(capitalPlan);
-    return { success: true, message: `${capitalPlan} activated successfully (local fallback)`, plan: code.plan };
-  } catch (e) {
-    return { success: false, message: 'Local redemption failed' };
-  }
-}

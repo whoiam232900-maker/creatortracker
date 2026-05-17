@@ -8,6 +8,15 @@ export interface UserProfile {
   full_name: string | null;
   role: 'user' | 'admin';
   plan: 'free' | 'pro' | 'studio';
+  status: 'active' | 'suspended' | 'terminated';
+  terminated_at?: string | null;
+  termination_reason?: string | null;
+  suspended_at?: string | null;
+  suspended_until?: string | null;
+  suspension_reason?: string | null;
+  premium_started_at?: string | null;
+  premium_expires_at?: string | null;
+  premium_source?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -25,7 +34,10 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
   if (error || !data) {
     return null;
   }
-  return data as UserProfile;
+  return {
+    ...data,
+    status: data.status || 'active'
+  } as UserProfile;
 }
 
 /**
@@ -51,7 +63,10 @@ export async function ensureProfile(user: { id: string; email?: string; user_met
         .single();
       
       if (!error && data) {
-        return data as UserProfile;
+        return {
+          ...data,
+          status: data.status || 'active'
+        } as UserProfile;
       }
     }
     return existingProfile;
@@ -71,7 +86,8 @@ export async function ensureProfile(user: { id: string; email?: string; user_met
       email: user.email,
       full_name: fullName,
       role: initialRole,
-      plan: initialPlan
+      plan: initialPlan,
+      status: 'active'
     }])
     .select()
     .single();
@@ -84,7 +100,8 @@ export async function ensureProfile(user: { id: string; email?: string; user_met
       email: user.email || '',
       full_name: fullName,
       role: initialRole,
-      plan: initialPlan
+      plan: initialPlan,
+      status: 'active'
     };
   }
 
@@ -102,11 +119,11 @@ export async function syncUserSessionFromSupabase(
   if (typeof window === 'undefined') return null;
 
   let profile: UserProfile | null = null;
-  
+
   try {
     // 1. Attempt to ensure profile exists with a timeout
     const profilePromise = ensureProfile(user);
-    const timeoutPromise = new Promise<null>((_, reject) => 
+    const timeoutPromise = new Promise<null>((_, reject) =>
       setTimeout(() => reject(new Error('Profile sync timeout')), 4000)
     );
 
@@ -121,7 +138,7 @@ export async function syncUserSessionFromSupabase(
   let onboardingPath = overrides?.onboardingPath ?? null;
   let keepMeSignedIn = overrides?.remember ?? true;
   let localSessionPlan: string | null = null;
-  
+
   if (!overrides) {
     try {
       const raw = localStorage.getItem('userSession');
@@ -132,14 +149,14 @@ export async function syncUserSessionFromSupabase(
         keepMeSignedIn = existingSession.remember ?? true;
         localSessionPlan = existingSession.plan;
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // 3. Check for persistent local subscription upgrade and merge with profile plan
   // Priority: 1. Profile from DB (Source of Truth if exists)
   //           2. Local Session Plan (Fallback if DB fail)
   //           3. Local sub record (Secondary Fallback)
-  
+
   let currentPlan = normalizePlan(profile?.plan || localSessionPlan || 'free');
   const email = profile?.email || user.email || '';
   const subKey = `subscription_${email}`;
@@ -148,7 +165,30 @@ export async function syncUserSessionFromSupabase(
     // DB Success: Profile is the source of truth. 
     // If DB says "free" but local says "pro", the DB WINS.
     currentPlan = normalizePlan(profile.plan);
-    
+
+    // --- PREMIUM EXPIRATION CHECK ---
+    if (currentPlan !== 'Free' && profile.premium_expires_at) {
+      const expiry = new Date(profile.premium_expires_at).getTime();
+      if (expiry < Date.now()) {
+        console.warn(`[profile] Premium expired on ${profile.premium_expires_at} — Downgrading to Free`);
+        currentPlan = 'Free';
+        
+        // Update DB in background
+        supabase.from('profiles').update({
+          plan: 'free',
+          premium_started_at: null,
+          premium_expires_at: null,
+          premium_source: null,
+          updated_at: new Date().toISOString()
+        }).eq('id', profile.id).then(({ error }) => {
+          if (error) console.error('[profile] Background downgrade failed:', error);
+          else {
+            window.dispatchEvent(new Event('subscriptionUpdated'));
+          }
+        });
+      }
+    }
+
     // Safety: If local sub record contradicts DB, we should ideally clear it or ignore it
     // to prevent it from "rescuing" a revoked plan on next refresh if DB fetch fails.
     try {
@@ -162,7 +202,7 @@ export async function syncUserSessionFromSupabase(
           // localStorage.removeItem(subKey);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   } else {
     // DB Fail/Timeout: Use local fallbacks
     try {
@@ -177,17 +217,47 @@ export async function syncUserSessionFromSupabase(
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // 4. Build user session (with fallback if profile fetch failed)
   const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  
+  // Handle auto-unsuspend for expired suspensions
+  let effectiveStatus = profile?.status || 'active';
+  if (effectiveStatus === 'suspended' && profile?.suspended_until) {
+    const until = new Date(profile.suspended_until).getTime();
+    if (until < Date.now()) {
+      console.log('[profile] Suspension expired — auto-unsuspending locally');
+      effectiveStatus = 'active';
+      // Background update to Supabase
+      supabase.from('profiles').update({ 
+        status: 'active', 
+        suspended_until: null,
+        suspended_at: null,
+        suspension_reason: null,
+        updated_at: new Date().toISOString()
+      }).eq('id', profile.id).then(({ error }) => {
+        if (error) console.error('[profile] Auto-unsuspend update failed:', error);
+      });
+    }
+  }
+
   const sessionData = {
     id: profile?.id || user.id,
     email: email,
     fullName: profile?.full_name || user.user_metadata?.full_name || email.split('@')[0] || 'User',
     role: profile?.role || (isAdmin ? 'admin' : 'user'),
     plan: currentPlan,
+    status: effectiveStatus,
+    terminatedAt: profile?.terminated_at,
+    terminationReason: profile?.termination_reason,
+    suspendedAt: profile?.suspended_at,
+    suspendedUntil: profile?.suspended_until,
+    suspensionReason: profile?.suspension_reason,
+    premiumStartedAt: profile?.premium_started_at,
+    premiumExpiresAt: profile?.premium_expires_at,
+    premiumSource: profile?.premium_source,
     provider: 'supabase',
     isLoggedIn: true,
     isNewAccount,
@@ -202,16 +272,16 @@ export async function syncUserSessionFromSupabase(
 
   // 5. Write back to localStorage
   localStorage.setItem('userSession', JSON.stringify(sessionData));
-  
+
   // Consistency: also write to CURRENT_PLAN_KEY (from subscription.ts)
   // We use the lowercase version for CURRENT_PLAN_KEY as per subscription.ts convention
   localStorage.setItem('creatortracker_current_plan', currentPlan.toLowerCase());
-  
+
   // Dispatch update events
   window.dispatchEvent(new Event('userSessionUpdated'));
   window.dispatchEvent(new Event('subscriptionUpdated'));
   window.dispatchEvent(new Event('storage'));
-  
+
   console.debug('[profile] Synced userSession from Supabase profiles', sessionData);
   return sessionData;
 }

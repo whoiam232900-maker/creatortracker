@@ -66,7 +66,7 @@ export default function TrackerDashboardContent() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load state — per user, with new-account seeding
-  const loadAppState = useCallback((resolvedUserId?: string) => {
+  const loadAppState = useCallback(async (resolvedUserId?: string) => {
     try {
       const raw = localStorage.getItem('userSession');
       if (raw) {
@@ -74,13 +74,13 @@ export default function TrackerDashboardContent() {
         const email = resolvedUserId || session?.email;
 
         if (session?.isNewAccount && email) {
-          const seeded = initializeStarterData(email);
+          const seeded = await initializeStarterData(email);
           setState(seeded);
           const updatedSession = { ...session, isNewAccount: false };
           localStorage.setItem('userSession', JSON.stringify(updatedSession));
           return seeded;
         } else {
-          const s = loadState(email);
+          const s = await loadState(email);
           setState(s);
           return s;
         }
@@ -88,7 +88,7 @@ export default function TrackerDashboardContent() {
     } catch (e) {
       console.error('[dashboard] State load failure:', e);
     }
-    const fallback = loadState();
+    const fallback = await loadState();
     setState(fallback);
     return fallback;
   }, []);
@@ -106,11 +106,12 @@ export default function TrackerDashboardContent() {
       }
     } catch (e) {}
 
-    const loadedState = loadAppState(resolvedUserId);
-    if (loadedState && loadedState.fields.length > 0) {
-      const numField = loadedState.fields.find((f) => f.type === 'number');
-      if (numField) setAddToFieldId(numField.id);
-    }
+    loadAppState(resolvedUserId).then(loadedState => {
+      if (loadedState && loadedState.fields.length > 0) {
+        const numField = loadedState.fields.find((f) => f.type === 'number');
+        if (numField) setAddToFieldId(numField.id);
+      }
+    });
 
     // Sync state across tabs / after settings changes
     const handleStorageSync = (e: StorageEvent) => {
@@ -215,7 +216,7 @@ export default function TrackerDashboardContent() {
     setTimerStartedAt(null);
   }, []);
 
-  const handleAddTimerToField = useCallback(() => {
+  const handleAddTimerToField = useCallback(async () => {
     if (!state || !addToFieldId || timerElapsed === 0) return;
     const hours = timerElapsed / 3600;
     const roundedHours = Math.round(hours * 100) / 100;
@@ -250,94 +251,107 @@ export default function TrackerDashboardContent() {
       });
     }
 
-    saveState(newState, userId);
-    setState(newState);
-    handleTimerReset();
-    showToast({
-      type: 'success',
-      title: 'Time logged',
-      description: `Added ${roundedHours}h to ${state.fields.find((f) => f.id === addToFieldId)?.name}`,
-    });
+    try {
+      await saveState(newState, userId);
+      setState(newState);
+      handleTimerReset();
+      showToast({
+        type: 'success',
+        title: 'Time logged',
+        description: `Added ${roundedHours}h to ${state.fields.find((f) => f.id === addToFieldId)?.name}`,
+      });
+    } catch (e) {
+      showToast({ type: 'error', title: 'Save failed', description: 'Could not sync to database.' });
+    }
   }, [state, addToFieldId, timerElapsed, handleTimerReset, userId]);
 
   const handleDeleteEntry = useCallback(
-    (entryId: string) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const newState = {
-          ...prev,
-          entries: prev.entries.filter((e) => e.id !== entryId),
-        };
-        saveState(newState, userId);
-        return newState;
-      });
-      setDeleteConfirm(null);
-      showToast({ type: 'success', title: 'Entry deleted' });
+    async (entryId: string) => {
+      if (!state) return;
+      const newState = {
+        ...state,
+        entries: state.entries.filter((e) => e.id !== entryId),
+      };
+      try {
+        await saveState(newState, userId);
+        setState(newState);
+        setDeleteConfirm(null);
+        showToast({ type: 'success', title: 'Entry deleted' });
+      } catch (e) {
+        showToast({ type: 'error', title: 'Delete failed', description: 'Could not sync to database.' });
+      }
     },
-    [userId]
+    [state, userId]
   );
 
   const handleSaveEntry = useCallback(
-    (entry: DailyEntry) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const existing = prev.entries.findIndex((e) => e.id === entry.id);
-        let newEntries: DailyEntry[];
-        if (existing >= 0) {
-          newEntries = prev.entries.map((e) => (e.id === entry.id ? entry : e));
-        } else {
-          newEntries = [...prev.entries, entry];
-        }
-        const newState = { ...prev, entries: newEntries };
-        saveState(newState, userId);
-        return newState;
-      });
-      setEntryModalOpen(false);
-      setEditingEntry(null);
-      showToast({ type: 'success', title: editingEntry ? 'Entry updated' : 'Entry logged' });
+    async (entry: DailyEntry) => {
+      if (!state) return;
+      const existing = state.entries.findIndex((e) => e.id === entry.id);
+      let newEntries: DailyEntry[];
+      if (existing >= 0) {
+        newEntries = state.entries.map((e) => (e.id === entry.id ? entry : e));
+      } else {
+        newEntries = [...state.entries, entry];
+      }
+      const newState = { ...state, entries: newEntries };
+      
+      try {
+        await saveState(newState, userId);
+        setState(newState);
+        setEntryModalOpen(false);
+        setEditingEntry(null);
+        showToast({ type: 'success', title: editingEntry ? 'Entry updated' : 'Entry logged' });
+      } catch (e) {
+        showToast({ type: 'error', title: 'Save failed', description: 'Could not sync to database.' });
+      }
     },
-    [editingEntry, userId]
+    [state, editingEntry, userId]
   );
 
   const handleSaveTarget = useCallback(
-    (target: TargetConfig) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const existing = prev.targets.findIndex(
-          (t) => t.fieldId === target.fieldId && t.type === target.type
-        );
-        let newTargets: TargetConfig[];
-        if (existing >= 0) {
-          newTargets = prev.targets.map((t, idx) => (idx === existing ? target : t));
-        } else {
-          if (!withinLimit('targetsLimit', prev.targets.length)) {
-            triggerUpgrade();
-            return prev;
-          }
-          newTargets = [...prev.targets, target];
+    async (target: TargetConfig) => {
+      if (!state) return;
+      const existing = state.targets.findIndex(
+        (t) => t.fieldId === target.fieldId && t.type === target.type
+      );
+      let newTargets: TargetConfig[];
+      if (existing >= 0) {
+        newTargets = state.targets.map((t, idx) => (idx === existing ? target : t));
+      } else {
+        if (!withinLimit('targetsLimit', state.targets.length)) {
+          triggerUpgrade();
+          return;
         }
-        const newState = { ...prev, targets: newTargets };
-        saveState(newState, userId);
-        return newState;
-      });
+        newTargets = [...state.targets, target];
+      }
+      const newState = { ...state, targets: newTargets };
+      try {
+        await saveState(newState, userId);
+        setState(newState);
+      } catch (e) {
+        showToast({ type: 'error', title: 'Save failed', description: 'Could not sync to database.' });
+      }
     },
-    [userId]
+    [state, userId, withinLimit, triggerUpgrade]
   );
 
   const handleDeleteTarget = useCallback(
-    (fieldId: string, type: 'daily' | 'weekly') => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const newState = {
-          ...prev,
-          targets: prev.targets.filter((t) => !(t.fieldId === fieldId && t.type === type)),
-        };
-        saveState(newState, userId);
-        return newState;
-      });
-      showToast({ type: 'info', title: 'Target removed' });
+    async (fieldId: string, type: 'daily' | 'weekly') => {
+      if (!state) return;
+      const newState = {
+        ...state,
+        targets: state.targets.filter((t) => !(t.fieldId === fieldId && t.type === type)),
+      };
+      try {
+        await saveState(newState, userId);
+        setState(newState);
+        showToast({ type: 'info', title: 'Target removed' });
+      } catch (e) {
+        showToast({ type: 'error', title: 'Delete failed', description: 'Could not sync to database.' });
+      }
     },
-    [userId]
+    [state, userId]
   );
 
   if (!state) {
@@ -349,12 +363,38 @@ export default function TrackerDashboardContent() {
   const todayEntry = state.entries.find((e) => e.date === today);
   const recentEntries = [...state.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
 
+  // Deduplicate fields for UI safety (especially Recent Entries table)
+  const seenFieldNames = new Set<string>();
+  const deduplicatedFields = state.fields.filter(f => {
+    const normalized = f.name.trim().toLowerCase();
+    if (seenFieldNames.has(normalized)) {
+      console.warn(`[dashboard] duplicate tracker ignored in UI: "${f.name}"`);
+      return false;
+    }
+    seenFieldNames.add(normalized);
+    return true;
+  });
+
+  // Deduplicate targets for UI safety and robust keys
+  const seenTargetKeys = new Set<string>();
+  const deduplicatedTargets = state.targets.filter(t => {
+    const field = state.fields.find(f => f.id === t.fieldId);
+    const fieldName = field ? field.name.trim().toLowerCase() : t.fieldId;
+    const key = `${fieldName}:${t.type}`;
+    if (seenTargetKeys.has(key)) {
+      console.warn(`[dashboard] duplicate target ignored in UI: ${key}`);
+      return false;
+    }
+    seenTargetKeys.add(key);
+    return true;
+  });
+
   // Streak
   const streak = getCurrentStreak(state.entries);
 
   // Daily completion rate
-  const numFields = state.fields.filter((f) => f.type === 'number');
-  const targetsToday = state.targets.filter((t) => t.type === 'daily');
+  const numFields = deduplicatedFields.filter((f) => f.type === 'number');
+  const targetsToday = deduplicatedTargets.filter((t) => t.type === 'daily');
   const metTargets = targetsToday.filter((t) => {
     const val = getFieldValueForEntry(todayEntry, t.fieldId);
     return val >= t.targetValue;
@@ -866,7 +906,7 @@ export default function TrackerDashboardContent() {
                         >
                           Date
                         </th>
-                        {state.fields.map((f) => (
+                        {deduplicatedFields.map((f) => (
                           <th
                             key={`th-${f.id}`}
                             className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide"
@@ -886,7 +926,7 @@ export default function TrackerDashboardContent() {
                         <EntryRow
                           key={entry.id}
                           entry={entry}
-                          fields={state.fields}
+                          fields={deduplicatedFields}
                           targets={state.targets}
                           isToday={entry.date === today}
                           onEdit={() => {
@@ -908,7 +948,7 @@ export default function TrackerDashboardContent() {
       {/* Entry Modal */}
       {entryModalOpen && (
         <EntryFormModal
-          fields={state.fields}
+          fields={deduplicatedFields}
           existingEntry={editingEntry}
           existingEntryForDate={
             !editingEntry ? state.entries.find((e) => e.date === today) || null : null

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadState, saveState } from '@/lib/store';
 import { LogOut, Target, CheckCircle2 } from 'lucide-react';
 
 type Targets = { dailyTarget: string; weeklyConsistency: string; monthlyGoal: string };

@@ -31,10 +31,11 @@ export default function AnalyticsContent() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
-    const s = loadState();
-    setState(s);
-    const firstNum = s.fields.find((f) => f.type === 'number');
-    if (firstNum) setSelectedFieldId(firstNum.id);
+    loadState().then(s => {
+      setState(s);
+      const firstNum = s.fields.find((f) => f.type === 'number');
+      if (firstNum) setSelectedFieldId(firstNum.id);
+    });
   }, []);
 
   const numberFields = useMemo(

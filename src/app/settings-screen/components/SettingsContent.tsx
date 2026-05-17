@@ -48,11 +48,13 @@ export default function SettingsContent() {
 
   useEffect(() => {
     // Resolve userId from session
+    let resolvedId: string | undefined;
     try {
       const raw = localStorage.getItem('userSession');
       if (raw) {
         const session = JSON.parse(raw);
         if (session?.email) {
+          resolvedId = session.email;
           setUserId(session.email);
           console.debug('[settings] Resolved userId:', session.email);
         }
@@ -61,28 +63,31 @@ export default function SettingsContent() {
       console.warn('[settings] Could not read userSession:', e);
     }
 
-    const s = loadState();
-    setState(s);
-    setTheme(s.theme);
+    loadState(resolvedId).then(s => {
+      setState(s);
+      setTheme(s.theme);
+    });
   }, []);
 
   const persistState = useCallback(
-    (newState: AppState) => {
-      saveState(newState, userId);
-      setState(newState);
+    async (newState: AppState) => {
+      try {
+        await saveState(newState, userId);
+        setState(newState);
+      } catch (e) {
+        showToast({ type: 'error', title: 'Save failed', description: 'Could not sync settings to database.' });
+      }
     },
     [userId]
   );
 
   const handleThemeToggle = useCallback(
-    (checked: boolean) => {
+    async (checked: boolean) => {
       const newTheme: 'light' | 'dark' = checked ? 'dark' : 'light';
       setTheme(newTheme);
-      setState((prev) => {
-        if (!prev) return prev;
-        const newState: AppState = { ...prev, theme: newTheme };
-        saveState(newState, userId);
-        // Apply to DOM
+      if (state) {
+        const newState: AppState = { ...state, theme: newTheme };
+        await persistState(newState);
         if (typeof document !== 'undefined') {
           if (newTheme === 'dark') {
             document.documentElement.classList.add('dark');
@@ -90,28 +95,25 @@ export default function SettingsContent() {
             document.documentElement.classList.remove('dark');
           }
         }
-        return newState;
-      });
+      }
       showToast({ type: 'info', title: `Switched to ${newTheme} mode` });
     },
-    [userId]
+    [userId, state, persistState]
   );
 
   const handleSaveField = useCallback(
-    (field: TrackingField) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const existing = prev.fields.findIndex((f) => f.id === field.id);
-        let newFields: TrackingField[];
-        if (existing >= 0) {
-          newFields = prev.fields.map((f) => (f.id === field.id ? field : f));
-        } else {
-          newFields = [...prev.fields, field];
-        }
-        const newState = { ...prev, fields: newFields };
-        saveState(newState, userId);
-        return newState;
-      });
+    async (field: TrackingField) => {
+      if (!state) return;
+      const existing = state.fields.findIndex((f) => f.id === field.id);
+      let newFields: TrackingField[];
+      if (existing >= 0) {
+        newFields = state.fields.map((f) => (f.id === field.id ? field : f));
+      } else {
+        newFields = [...state.fields, field];
+      }
+      const newState = { ...state, fields: newFields };
+      await persistState(newState);
+
       setShowFieldForm(false);
       setEditingField(null);
       showToast({
@@ -120,28 +122,25 @@ export default function SettingsContent() {
         description: `"${field.name}" is now available for tracking`,
       });
     },
-    [editingField, userId]
+    [state, editingField, persistState]
   );
 
   const handleDeleteField = useCallback(
-    (fieldId: string) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const newFields = prev.fields.filter((f) => f.id !== fieldId);
-        const newTargets = prev.targets.filter((t) => t.fieldId !== fieldId);
-        const newEntries = prev.entries.map((e) => ({
-          ...e,
-          values: e.values.filter((v) => v.fieldId !== fieldId),
-        }));
-        const newState = {
-          ...prev,
-          fields: newFields,
-          targets: newTargets,
-          entries: newEntries,
-        };
-        saveState(newState, userId);
-        return newState;
-      });
+    async (fieldId: string) => {
+      if (!state) return;
+      const newFields = state.fields.filter((f) => f.id !== fieldId);
+      const newTargets = state.targets.filter((t) => t.fieldId !== fieldId);
+      const newEntries = state.entries.map((e) => ({
+        ...e,
+        values: e.values.filter((v) => v.fieldId !== fieldId),
+      }));
+      const newState = {
+        ...state,
+        fields: newFields,
+        targets: newTargets,
+        entries: newEntries,
+      };
+      await persistState(newState);
       setDeleteFieldConfirm(null);
       showToast({
         type: 'success',
@@ -149,65 +148,56 @@ export default function SettingsContent() {
         description: 'All associated entry data was also removed',
       });
     },
-    [userId]
+    [state, persistState]
   );
 
   const handleSaveTarget = useCallback(
-    (target: TargetConfig) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const existing = prev.targets.findIndex(
-          (t) => t.fieldId === target.fieldId && t.type === target.type
-        );
-        let newTargets: TargetConfig[];
-        if (existing >= 0) {
-          newTargets = prev.targets.map((t, idx) => (idx === existing ? target : t));
-        } else {
-          if (!withinLimit('targetsLimit', prev.targets.length)) {
-            triggerUpgrade();
-            return prev; // Or handle error
-          }
-          newTargets = [...prev.targets, target];
+    async (target: TargetConfig) => {
+      if (!state) return;
+      const existing = state.targets.findIndex(
+        (t) => t.fieldId === target.fieldId && t.type === target.type
+      );
+      let newTargets: TargetConfig[];
+      if (existing >= 0) {
+        newTargets = state.targets.map((t, idx) => (idx === existing ? target : t));
+      } else {
+        if (!withinLimit('targetsLimit', state.targets.length)) {
+          triggerUpgrade();
+          return;
         }
-        const newState = { ...prev, targets: newTargets };
-        saveState(newState, userId);
-        return newState;
-      });
+        newTargets = [...state.targets, target];
+      }
+      const newState = { ...state, targets: newTargets };
+      await persistState(newState);
       showToast({ type: 'success', title: 'Target saved' });
     },
-    [userId]
+    [state, persistState, withinLimit, triggerUpgrade]
   );
 
   const handleDeleteTarget = useCallback(
-    (fieldId: string, type: 'daily' | 'weekly') => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const newState = {
-          ...prev,
-          targets: prev.targets.filter((t) => !(t.fieldId === fieldId && t.type === type)),
-        };
-        saveState(newState, userId);
-        return newState;
-      });
+    async (fieldId: string, type: 'daily' | 'weekly') => {
+      if (!state) return;
+      const newState = {
+        ...state,
+        targets: state.targets.filter((t) => !(t.fieldId === fieldId && t.type === type)),
+      };
+      await persistState(newState);
       showToast({ type: 'info', title: 'Target removed' });
     },
-    [userId]
+    [state, persistState]
   );
 
-  const handleClearEntries = useCallback(() => {
-    setState((prev) => {
-      if (!prev) return prev;
-      const newState = { ...prev, entries: [] };
-      saveState(newState, userId);
-      return newState;
-    });
+  const handleClearEntries = useCallback(async () => {
+    if (!state) return;
+    const newState = { ...state, entries: [] };
+    await persistState(newState);
     setClearEntriesConfirm(false);
     showToast({
       type: 'success',
       title: 'All entries cleared',
       description: 'Your fields and targets are still intact',
     });
-  }, [userId]);
+  }, [state, persistState]);
 
   const handleResetAll = useCallback(() => {
     if (typeof window === 'undefined') return;

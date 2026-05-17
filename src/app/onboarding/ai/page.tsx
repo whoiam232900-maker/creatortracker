@@ -134,7 +134,7 @@ export default function AIOnboardingPage() {
     return (val as string) !== '';
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!canProceed()) return;
 
     if (isLastStep) {
@@ -250,13 +250,13 @@ export default function AIOnboardingPage() {
         });
 
         // Load existing state (should be empty for a new user) and set fields
-        const existingState = loadState(userId);
+        const existingState = await loadState(userId);
         const newState = {
           ...existingState,
           fields: fieldsToSave,
           targets: answers.wantsTargets === 'Yes' ? targetsToSave : [],
         };
-        saveState(newState, userId);
+        await saveState(newState, userId);
 
         // Save onboarding answers scoped to user
         localStorage.setItem(`onboarding_${userId}`, JSON.stringify(answers));

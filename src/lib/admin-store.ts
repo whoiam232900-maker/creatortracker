@@ -3,18 +3,37 @@
 /**
  * REDEEM SYSTEM - Centralized Architecture
  * 
- * This file is the SINGLE SOURCE OF TRUTH for:
- * 1. Redeem Code Storage (localStorage: 'admin_redeem_codes')
- * 2. Code Normalization (stripping special chars, uppercase)
- * 3. Validation Logic (checking dynamic + fallback codes)
- * 4. Plan Activation Pipeline (updating session + subscription records)
+ * This file provides admin actions for:
+ * 1. Redeem Code Management (Supabase: 'redeem_codes')
+ * 2. User Profile Management (Supabase: 'profiles')
+ * 3. Stats and Operational Oversight
  */
 
 import { PlanType, normalizePlan } from './subscription';
 export type { PlanType };
 
-import { RedeemCode as CentralRedeemCode, redeemCode as centralRedeemCode, REDEEM_CODES_KEY, Plan } from './subscription';
+import { RedeemCode as CentralRedeemCode, redeemCode as centralRedeemCode, Plan } from './subscription';
 import { supabase } from './supabase/client';
+
+// ─── Plan Configurations ─────────────────────────────────────────────────────
+
+import { PlanConfig as CentralPlanConfig, getPlanConfigsFromDB, updatePlanConfigInDB } from './plan-config';
+export type PlanConfig = CentralPlanConfig;
+
+export async function getPlanConfigs(): Promise<PlanConfig[]> {
+  return getPlanConfigsFromDB();
+}
+
+/** @deprecated Use Supabase dashboard for pricing edits */
+export async function updatePlanConfig(plan: PlanType, updates: Partial<PlanConfig>) {
+  return updatePlanConfigInDB(plan, updates);
+}
+
+/** @deprecated Use Supabase dashboard for pricing edits */
+export async function savePlanConfigs(configs: PlanConfig[]) {
+  console.warn('[AdminStore] savePlanConfigs is deprecated. Manage via Supabase.');
+  return { success: true };
+}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -51,24 +70,15 @@ export async function getRedeemCodes(): Promise<RedeemCode[]> {
       maxUses: c.max_uses,
       usedCount: c.used_count,
       expiresAt: c.expires_at,
+      durationType: c.duration_type,
+      durationDays: c.duration_days,
       createdAt: c.created_at,
       notes: c.notes
     }));
   } catch (e) {
     console.error('[AdminStore] Fetch codes failed:', e);
-    // Legacy fallback ONLY if Supabase fails
-    const raw = localStorage.getItem(REDEEM_CODES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return [];
   }
-}
-
-export function saveRedeemCodes(codes: RedeemCode[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(REDEEM_CODES_KEY, JSON.stringify(codes));
-  
-  // Broadcast updates
-  window.dispatchEvent(new Event('storage'));
-  window.dispatchEvent(new Event('admin_codes_updated'));
 }
 
 // ─── Redemption & Activation ─────────────────────────────────────────────────
@@ -85,7 +95,16 @@ export async function validateAndRedeemCode(rawInput: string, userEmail: string 
 
 // ─── Admin Actions ───────────────────────────────────────────────────────────
 
-export async function generateRedeemCode(data: { code: string; planType: PlanType; maxUses: number; expiresAt: string | null; isActive: boolean; notes: string }): Promise<RedeemCode | null> {
+export async function generateRedeemCode(data: { 
+  code: string; 
+  planType: PlanType; 
+  maxUses: number; 
+  expiresAt: string | null; 
+  isActive: boolean; 
+  notes: string;
+  durationType?: string;
+  durationDays?: number;
+}): Promise<RedeemCode | null> {
   console.log('[AdminStore] Generating new code:', data.code);
   
   try {
@@ -98,6 +117,8 @@ export async function generateRedeemCode(data: { code: string; planType: PlanTyp
         max_uses: data.maxUses,
         used_count: 0,
         expires_at: data.expiresAt,
+        duration_type: data.durationType || 'lifetime',
+        duration_days: data.durationDays || null,
         notes: data.notes
       })
       .select()
@@ -115,6 +136,8 @@ export async function generateRedeemCode(data: { code: string; planType: PlanTyp
       maxUses: newCode.max_uses,
       usedCount: newCode.used_count,
       expiresAt: newCode.expires_at,
+      durationType: newCode.duration_type,
+      durationDays: newCode.duration_days,
       createdAt: newCode.created_at,
       notes: newCode.notes
     };
@@ -311,65 +334,6 @@ export async function deleteRedeemCodeWithOptionalRevoke(id: string, shouldRevok
   }
 }
 
-// ─── Plan Configurations ─────────────────────────────────────────────────────
-
-export interface PlanConfig {
-  id: PlanType;
-  name: string;
-  priceMonthly: number;
-  priceYearly: number;
-  features: string[];
-  limits: {
-    maxFields: number;
-    maxWorkflows: number;
-    maxTargets: number;
-    aiInsights: boolean;
-    advancedAnalytics: boolean;
-  };
-}
-
-const DEFAULT_PLANS: PlanConfig[] = [
-  {
-    id: 'Free',
-    name: 'Free Starter',
-    priceMonthly: 0,
-    priceYearly: 0,
-    features: ['3 Custom Fields', '1 Active Workflow', 'Basic Analytics'],
-    limits: { maxFields: 3, maxWorkflows: 1, maxTargets: 2, aiInsights: false, advancedAnalytics: false },
-  },
-  {
-    id: 'Pro',
-    name: 'Pro Creator',
-    priceMonthly: 12,
-    priceYearly: 120,
-    features: ['Unlimited Fields', '10 Workflows', 'AI Insights', 'Advanced Analytics'],
-    limits: { maxFields: 999, maxWorkflows: 10, maxTargets: 10, aiInsights: true, advancedAnalytics: true },
-  },
-  {
-    id: 'Studio',
-    name: 'Studio Agency',
-    priceMonthly: 29,
-    priceYearly: 290,
-    features: ['Unlimited Everything', 'Custom Branding', 'Priority Support'],
-    limits: { maxFields: 999, maxWorkflows: 999, maxTargets: 999, aiInsights: true, advancedAnalytics: true },
-  },
-];
-
-export function getPlanConfigs(): PlanConfig[] {
-  if (typeof window === 'undefined') return DEFAULT_PLANS;
-  try {
-    const raw = localStorage.getItem('admin_plan_configs');
-    return raw ? JSON.parse(raw) : DEFAULT_PLANS;
-  } catch (e) {
-    return DEFAULT_PLANS;
-  }
-}
-
-export function savePlanConfigs(configs: PlanConfig[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('admin_plan_configs', JSON.stringify(configs));
-}
-
 // ─── Stats & Users ───────────────────────────────────────────────────────────
 
 export interface AdminStats {
@@ -434,14 +398,116 @@ export async function getAllUsers() {
     }
 
     return profiles.map((p) => ({
+      id: p.id,
       email: p.email,
       fullName: p.full_name || p.email?.split('@')[0] || 'User',
       role: p.role || 'user',
       createdAt: p.created_at,
       plan: normalizePlan(p.plan),
+      status: p.status || 'active',
+      suspendedAt: p.suspended_at,
+      suspendedUntil: p.suspended_until,
+      suspensionReason: p.suspension_reason,
+      terminatedAt: p.terminated_at,
+      terminationReason: p.termination_reason
     }));
   } catch (err) {
     console.error('[AdminStore] User sync failed:', err);
     return [];
+  }
+}
+
+export async function suspendUser(userId: string, durationHours: number | null, reason: string) {
+  try {
+    let suspendedUntil = null;
+    if (durationHours !== null) {
+      const date = new Date();
+      date.setHours(date.getHours() + durationHours);
+      suspendedUntil = date.toISOString();
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        status: 'suspended',
+        suspended_at: new Date().toISOString(),
+        suspended_until: suspendedUntil,
+        suspension_reason: reason || 'Account under review',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+    window.dispatchEvent(new Event('admin_users_updated'));
+    return { success: true };
+  } catch (err) {
+    console.error('[AdminStore] Suspend failed:', err);
+    throw err;
+  }
+}
+
+export async function unsuspendUser(userId: string) {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        status: 'active',
+        suspended_at: null,
+        suspended_until: null,
+        suspension_reason: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+    window.dispatchEvent(new Event('admin_users_updated'));
+    return { success: true };
+  } catch (err) {
+    console.error('[AdminStore] Unsuspend failed:', err);
+    throw err;
+  }
+}
+
+export async function updateUserProfile(userId: string, updates: any) {
+  try {
+    // List of allowed fields for security
+    const allowedFields = [
+      'full_name', 
+      'role', 
+      'plan', 
+      'status', 
+      'suspended_at', 
+      'suspended_until', 
+      'suspension_reason',
+      'termination_reason'
+    ];
+    
+    const cleanUpdates: any = {
+      updated_at: new Date().toISOString()
+    };
+    
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key)) {
+        cleanUpdates[key] = updates[key];
+      }
+    });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(cleanUpdates)
+      .eq('id', userId);
+
+    if (error) {
+      if (error.code === '42501') {
+        throw new Error('Admin update blocked by Supabase policy. Check profiles UPDATE policy.');
+      }
+      throw error;
+    }
+    
+    window.dispatchEvent(new Event('admin_users_updated'));
+    return { success: true };
+  } catch (err) {
+    console.error('[AdminStore] Update profile failed:', err);
+    throw err;
   }
 }

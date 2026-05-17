@@ -39,7 +39,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           return supabaseSession;
         })();
 
-        const timeoutPromise = new Promise<null>((resolve) => 
+        const timeoutPromise = new Promise<null>((resolve) =>
           setTimeout(() => {
             console.warn('[AuthGuard] Auth check timed out');
             resolve(null);
@@ -53,10 +53,31 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (sessionString) {
           try {
             legacySession = JSON.parse(sessionString);
-          } catch (e) {}
+          } catch (e) { }
         }
 
         if (supabaseSession || (legacySession && legacySession.isLoggedIn === true)) {
+          // PROTECTION: Block terminated users
+          if (legacySession?.status === 'terminated') {
+            console.warn('[AuthGuard] Terminated user detected — blocking access');
+            localStorage.removeItem('userSession');
+            localStorage.removeItem('creatortracker_current_plan');
+            await supabase.auth.signOut();
+            window.location.href = '/auth?terminated=1';
+            return;
+          }
+
+          // PROTECTION: Block suspended users
+          if (legacySession?.status === 'suspended') {
+            console.warn('[AuthGuard] Suspended user detected — blocking access');
+            const untilParam = legacySession.suspendedUntil ? `&until=${encodeURIComponent(legacySession.suspendedUntil)}` : '';
+            localStorage.removeItem('userSession');
+            localStorage.removeItem('creatortracker_current_plan');
+            await supabase.auth.signOut();
+            window.location.href = `/auth?suspended=1${untilParam}`;
+            return;
+          }
+
           if (legacySession?.isNewAccount === true) {
             console.debug('[AuthGuard] isNewAccount=true — redirecting to onboarding');
             const path = legacySession.onboardingPath ?? 'ai';

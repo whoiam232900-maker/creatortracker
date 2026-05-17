@@ -1,5 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getDashboardSettings, saveDashboardSettings } from '@/lib/user-data-store';
+import { showToast } from '@/components/ui/Toast';
 
 export type ThemeMode = 'Dark' | 'Light' | 'System';
 export type UIDensity = 'Comfortable' | 'Compact';
@@ -91,16 +93,37 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Load from local storage
-    try {
-      const stored = localStorage.getItem('app_settings');
-      if (stored) {
-        setSettings({ ...defaultSettings, ...JSON.parse(stored) });
+    async function loadSettings() {
+      // Load from local storage initially for speed
+      let localData: any = null;
+      try {
+        const stored = localStorage.getItem('app_settings');
+        if (stored) {
+          localData = JSON.parse(stored);
+          setSettings(prev => ({ ...prev, ...localData }));
+        }
+      } catch (err) {
+        console.error('Failed to load local settings', err);
       }
-    } catch (err) {
-      console.error('Failed to load settings', err);
+
+      // Then fetch from Supabase
+      try {
+        const remoteData = await getDashboardSettings();
+        if (remoteData) {
+          setSettings(prev => ({ ...prev, ...remoteData }));
+          // Update local cache
+          localStorage.setItem('app_settings', JSON.stringify(remoteData));
+        } else if (localData) {
+          // If remote is null but we have local, migrate local to remote
+          await saveDashboardSettings(localData);
+        }
+      } catch (err) {
+        console.debug('Supabase settings fetch skipped/failed (possibly unauthenticated):', err);
+      }
+      setMounted(true);
     }
-    setMounted(true);
+    
+    loadSettings();
 
     const handleOpenSettings = (e: any) => {
       if (e.detail?.tab) setActiveSettingsTab(e.detail.tab);
@@ -110,13 +133,31 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('open-settings', handleOpenSettings);
   }, []);
 
+  // We use a ref to track the previous settings so we don't trigger saves on initial load
+  const prevSettingsRef = React.useRef(settings);
+  
   useEffect(() => {
     if (!mounted) return;
+    
+    // Check if settings actually changed deeply
+    const changed = JSON.stringify(prevSettingsRef.current) !== JSON.stringify(settings);
+    if (!changed) return;
+    
+    prevSettingsRef.current = settings;
+
+    // Save to local storage
     try {
       localStorage.setItem('app_settings', JSON.stringify(settings));
     } catch (err) {
-      console.error('Failed to save settings', err);
+      console.error('Failed to save settings to localStorage', err);
     }
+
+    // Save to Supabase (fire and forget for now, but catch errors)
+    saveDashboardSettings(settings).catch(err => {
+       console.error('Failed to save settings to Supabase', err);
+       // We don't want to spam toasts for every slider drag, so we keep it quiet or just show errors
+       // showToast({ type: 'error', title: 'Settings Sync Failed', description: 'Could not sync settings to cloud.' });
+    });
 
     // Apply global CSS variables / DOM manipulations based on settings
     const root = document.documentElement;
@@ -124,14 +165,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     // Theme (Light mode is temporarily disabled for stabilization, except for Cinematic Light)
     if (settings.visualTheme === 'Cinematic Light') {
       root.classList.remove('dark');
-      if (settings.themeMode !== 'Light') {
-        updateSetting('themeMode', 'Light');
-      }
     } else {
       root.classList.add('dark');
-      if (settings.themeMode !== 'Dark') {
-        updateSetting('themeMode', 'Dark');
-      }
     }
 
     // Visual Theme Identity
@@ -167,7 +202,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings, mounted]);
 
-  const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+  const updateSetting = async <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    // Optimistic update
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
