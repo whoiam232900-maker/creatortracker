@@ -192,11 +192,10 @@ export async function deleteRedeemCodeWithOptionalRevoke(id: string, shouldRevok
     }
 
     if (shouldRevoke) {
-      // 2. Query redemptions using ONLY minimal confirmed columns
-      // DO NOT select user_email, code, or new_plan as they do not exist
+      // 2. Query redemptions using the correct schema
       const { data: redemptions, error: redemptionError } = await supabase
         .from('redeem_redemptions')
-        .select('id, code_id, user_id, redeemed_at')
+        .select('id, code_id, user_id, previous_plan, new_plan, plan, code_snapshot, user_email_snapshot, redeemed_at')
         .eq('code_id', selectedCode.id);
 
       if (redemptionError) {
@@ -214,11 +213,17 @@ export async function deleteRedeemCodeWithOptionalRevoke(id: string, shouldRevok
       if (redemptions && redemptions.length > 0) {
         const uniqueUserIds = Array.from(new Set(redemptions.map(r => r.user_id).filter(Boolean)));
         
-        // 3. For each user, fetch profile and check plan (since new_plan is gone from redemptions)
-        const targetPlan = normalizePlan(selectedCode.plan).toLowerCase();
+        // 3. For each user, fetch profile and check plan
         
         for (const userId of uniqueUserIds) {
           try {
+            // Find the specific redemption row for this user to get new_plan
+            const userRedemption: any = redemptions.find(r => r.user_id === userId);
+            if (!userRedemption) continue;
+            
+            // Fallback chain: new_plan -> plan -> code.plan
+            const targetPlan = userRedemption.new_plan || userRedemption.plan || normalizePlan(selectedCode.plan).toLowerCase();
+
             const { data: profile, error: profileFetchError } = await supabase
               .from('profiles')
               .select('id, plan')
@@ -251,7 +256,7 @@ export async function deleteRedeemCodeWithOptionalRevoke(id: string, shouldRevok
                 affectedUserIds.push(userId);
               }
             } else {
-              console.log(`[AdminStore] Skipping user ${userId}: current plan ${profile.plan} != code plan ${targetPlan}`);
+              console.log(`[AdminStore] Skipping user ${userId}: current plan ${profile.plan} != redemption plan ${targetPlan}`);
               skippedCount++;
             }
           } catch (err) {

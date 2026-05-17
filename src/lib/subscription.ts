@@ -289,6 +289,20 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
       };
     }
 
+    // Fetch user profile to get previous_plan
+    const { data: userProfile, error: profileFetchError } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', user.id)
+      .single();
+
+    if (profileFetchError) {
+      console.error('[Redeem] Failed to fetch user profile:', profileFetchError);
+      return { success: false, message: 'Could not fetch your profile data.' };
+    }
+
+    const previousPlan = normalizePlan(userProfile?.plan || 'Free').toLowerCase();
+
     // 4. Check for duplicate redemption by this user
     // ONLY check by code_id + user_id as other columns do not exist
     const { data: existingRedemption, error: duplicateError } = await supabase
@@ -309,7 +323,41 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
     // 5. Process Redemption
     const newPlanNormalized = normalizePlan(dbCodePlan);
     
-    // A) Update Profile
+    // A) Insert Redemption Record FIRST to ensure tracking works
+    const grantedPlan = newPlanNormalized.toLowerCase();
+    const redemptionPayload: Record<string, any> = {
+      code_id: dbCode.id,
+      user_id: user.id,
+      previous_plan: previousPlan,
+      new_plan: grantedPlan,
+      plan: grantedPlan,
+      code_snapshot: dbCode.code,
+      user_email_snapshot: user.email,
+      redeemed_at: new Date().toISOString()
+    };
+
+    console.log('[Redeem] Attempting redemption insert payload', redemptionPayload);
+
+    const { error: redemptionInsertError } = await supabase
+      .from('redeem_redemptions')
+      .insert(redemptionPayload);
+
+    if (redemptionInsertError) {
+      console.error('[Redeem] Failed to insert redemption record FULL ERROR', {
+        message: redemptionInsertError.message,
+        code: redemptionInsertError.code,
+        details: redemptionInsertError.details,
+        hint: redemptionInsertError.hint,
+        raw: JSON.stringify(redemptionInsertError, null, 2),
+        attemptedPayload: redemptionPayload
+      });
+      return { 
+        success: false, 
+        message: `Redemption tracking failed: ${redemptionInsertError.message || redemptionInsertError.code || 'Unknown Supabase error'}` 
+      };
+    }
+
+    // B) Update Profile
     const { error: profileError } = await supabase
       .from('profiles')
       .update({ 
@@ -320,28 +368,9 @@ export async function redeemCode(inputCode: string, targetPlan?: Plan): Promise<
 
     if (profileError) {
       console.error('[Redeem] Profile update error:', profileError);
+      // NOTE: We don't necessarily delete the redemption record here, 
+      // but the user will likely try again which will trigger the duplicate check.
       return { success: false, message: 'Could not update your plan. Please try again.' };
-    }
-
-    // B) Insert Redemption Record
-    // DO NOT insert user_email, code, new_plan, or previous_plan as they do not exist
-    const { error: redemptionInsertError } = await supabase
-      .from('redeem_redemptions')
-      .insert({
-        code_id: dbCode.id,
-        user_id: user.id,
-        redeemed_at: new Date().toISOString()
-      });
-
-    if (redemptionInsertError) {
-      console.error('[Redeem] Failed to insert redemption record:', {
-        message: redemptionInsertError.message,
-        code: redemptionInsertError.code,
-        details: redemptionInsertError.details,
-        hint: redemptionInsertError.hint
-      });
-      // We throw because without this row, admin revoke cannot work
-      throw new Error("Redeem succeeded but redemption record failed: " + redemptionInsertError.message);
     }
 
     // C) Increment used_count

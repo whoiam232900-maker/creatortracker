@@ -137,13 +137,13 @@ export default function RedeemCodeManagement() {
         showToast({ 
           type: 'warning', 
           title: 'Code Removed', 
-          description: 'Code removed, but no redemption records were found. Existing access could not be revoked for old/local redemptions.' 
+          description: 'Code removed, but no redemptions were found.' 
         });
       } else if (result.skippedCount > 0) {
         showToast({ 
           type: 'warning', 
           title: 'Code Removed', 
-          description: `Code removed, but ${result.skippedCount} users were skipped (current plan mismatch).` 
+          description: `Code removed, ${result.skippedCount} users skipped because their plan changed.` 
         });
       } else {
         showToast({ 
