@@ -225,24 +225,22 @@ export default function AnalyticsContent() {
           <div className="relative" style={{ zIndex: 60 }}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center justify-between gap-3 px-4 h-9 bg-white/[0.02] border border-white/[0.06] rounded-xl text-[12px] font-medium backdrop-blur-2xl shadow-[0_2px_16px_-4px_rgba(0,0,0,0.5)] hover:bg-white/[0.04] hover:border-white/[0.10] transition-all duration-500 min-w-[200px] group active:scale-[0.98]"
+              className="flex items-center justify-between gap-3 px-4 h-9 bg-card border border-border/50 rounded-xl text-[12px] font-medium shadow-sm hover:bg-accent/5 hover:border-border transition-all duration-500 min-w-[200px] group active:scale-[0.98]"
             >
-              <span className="truncate text-foreground/50 group-hover:text-foreground/75 transition-colors duration-400 tracking-[-0.01em] font-[450]">
+              <span className="truncate text-foreground/70 group-hover:text-foreground transition-colors duration-400 tracking-[-0.01em] font-[450]">
                 {selectedField?.name ?? 'Choose field'}
               </span>
               <ChevronDown
                 size={11}
-                className={`shrink-0 transition-transform duration-500 text-muted-foreground/20 group-hover:text-muted-foreground/50 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                className={`shrink-0 transition-transform duration-500 text-muted-foreground/50 group-hover:text-muted-foreground ${isDropdownOpen ? 'rotate-180' : ''}`}
               />
             </button>
 
             {isDropdownOpen && (
               <div
-                className="absolute top-[calc(100%+6px)] right-0 w-full overflow-hidden rounded-[14px] border border-white/[0.05] animate-in fade-in slide-in-from-top-1 duration-300 ease-out"
+                className="absolute top-[calc(100%+6px)] right-0 w-full overflow-hidden rounded-[14px] border border-border bg-card shadow-lg animate-in fade-in slide-in-from-top-1 duration-300 ease-out"
                 style={{
                   zIndex: 70,
-                  background: 'rgba(2, 8, 23, 0.92)',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.03)',
                 }}
               >
                 <div className="p-1.5 space-y-px">
@@ -257,25 +255,15 @@ export default function AnalyticsContent() {
                         }}
                         className={`w-full text-left px-3.5 py-2.5 text-[12px] rounded-[10px] flex items-center justify-between group/item relative overflow-hidden transition-colors duration-200 ease-out ${
                           isSelected
-                            ? 'text-foreground/90 font-[500]'
-                            : 'text-muted-foreground/40 font-[450] hover:text-foreground/65'
+                            ? 'text-foreground font-[500] bg-accent/10'
+                            : 'text-muted-foreground font-[450] hover:bg-accent/5 hover:text-foreground'
                         }`}
                       >
-                        <div
-                          className={`absolute inset-0 rounded-[10px] transition-opacity duration-200 ease-out pointer-events-none ${
-                            isSelected ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'
-                          }`}
-                          style={{
-                            background: isSelected
-                              ? 'rgba(255,255,255,0.06)'
-                              : 'rgba(255,255,255,0.03)',
-                          }}
-                        />
                         <span className="relative z-10 truncate pr-4 tracking-[-0.01em]">
                           {f.name}
                         </span>
                         {isSelected && (
-                          <span className="w-[5px] h-[5px] rounded-full bg-foreground/30 relative z-10 shrink-0" />
+                          <span className="w-[5px] h-[5px] rounded-full bg-primary relative z-10 shrink-0" />
                         )}
                       </button>
                     );

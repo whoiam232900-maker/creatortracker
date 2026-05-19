@@ -182,7 +182,10 @@ function mapDashboardSettingsToDb(settings: any, userId: string) {
 
 export async function getUserTrackers() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('Not authenticated');
+  if (authError || !user) {
+    console.debug('[getUserTrackers] User is not authenticated.');
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('user_trackers')
@@ -220,7 +223,11 @@ export async function getUserTrackers() {
 export async function saveUserTrackers(fields: TrackingField[], options?: SaveOptions): Promise<SyncResult<TrackingField[]>> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Not authenticated');
+    if (authError || !user) {
+      console.warn('[saveUserTrackers] Skipped save: user is not authenticated.');
+      if (options?.throwOnError) throw new Error('Not authenticated');
+      return { ok: false, error: { message: 'Not authenticated' } };
+    }
 
     // Fetch existing trackers to ensure idempotency by name
     const { data: existing, error: fetchError } = await supabase
@@ -272,7 +279,10 @@ export async function saveUserTrackers(fields: TrackingField[], options?: SaveOp
 
 export async function deleteUserTracker(id: string) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('Not authenticated');
+  if (authError || !user) {
+    console.warn('[deleteUserTracker] User is not authenticated.');
+    return;
+  }
 
   const { error } = await supabase
     .from('user_trackers')
@@ -288,7 +298,10 @@ export async function deleteUserTracker(id: string) {
 
 export async function getUserEntries() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('Not authenticated');
+  if (authError || !user) {
+    console.debug('[getUserEntries] User is not authenticated.');
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('user_entries')
@@ -329,7 +342,11 @@ export async function getUserEntries() {
 export async function saveUserEntries(entries: DailyEntry[], fields: TrackingField[] = [], options?: SaveOptions): Promise<SyncResult<DailyEntry[]>> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Not authenticated');
+    if (authError || !user) {
+      console.warn('[saveUserEntries] Skipped save: user is not authenticated.');
+      if (options?.throwOnError) throw new Error('Not authenticated');
+      return { ok: false, error: { message: 'Not authenticated' } };
+    }
 
     const { data: trackers } = await supabase.from('user_trackers').select('id, name').eq('user_id', user.id);
     const trackerMap: Record<string, string> = {};
@@ -375,7 +392,10 @@ export async function saveUserEntries(entries: DailyEntry[], fields: TrackingFie
 
 export async function getUserTargets() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('Not authenticated');
+  if (authError || !user) {
+    console.debug('[getUserTargets] User is not authenticated.');
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('user_targets')
@@ -407,7 +427,11 @@ export async function getUserTargets() {
 export async function saveUserTargets(targets: TargetConfig[], fields: TrackingField[] = [], options?: SaveOptions): Promise<SyncResult<TargetConfig[]>> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Not authenticated');
+    if (authError || !user) {
+      console.warn('[saveUserTargets] Skipped save: user is not authenticated.');
+      if (options?.throwOnError) throw new Error('Not authenticated');
+      return { ok: false, error: { message: 'Not authenticated' } };
+    }
 
     // 1. Build tracker name-to-id map
     const { data: trackers } = await supabase.from('user_trackers').select('id, name').eq('user_id', user.id);
@@ -469,7 +493,10 @@ export async function saveUserTargets(targets: TargetConfig[], fields: TrackingF
 
 export async function getDashboardSettings() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('Not authenticated');
+  if (authError || !user) {
+    console.debug('[getDashboardSettings] Skipped fetch: user is not authenticated.');
+    return null;
+  }
 
   const { data, error } = await supabase
     .from('user_dashboard_settings')
@@ -488,7 +515,11 @@ export async function getDashboardSettings() {
 export async function saveDashboardSettings(settings: any, options?: SaveOptions): Promise<SyncResult> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Not authenticated');
+    if (authError || !user) {
+      console.warn('[saveDashboardSettings] Skipped save: user is not authenticated.');
+      if (options?.throwOnError) throw new Error('Not authenticated');
+      return { ok: false, error: { message: 'Not authenticated' } };
+    }
 
     const payload = mapDashboardSettingsToDb(settings, user.id);
 

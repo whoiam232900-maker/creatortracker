@@ -284,20 +284,30 @@ export default function SettingsModal({
                   onClick={() => setActiveTab(item.label)}
                   className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group ${
                     activeTab === item.label
-                      ? 'bg-white/[0.04] text-foreground/90 shadow-[0_1px_2px_rgba(0,0,0,0.1)] border border-white/[0.05]'
-                      : 'text-muted-foreground/40 hover:bg-white/[0.01] hover:text-foreground/70 border border-transparent'
+                      ? 'bg-foreground/[0.04] dark:bg-white/[0.04] text-foreground/90 shadow-[0_1px_2px_rgba(0,0,0,0.1)] border border-foreground/[0.05] dark:border-white/[0.05]'
+                      : 'text-muted-foreground/40 hover:bg-foreground/[0.01] dark:hover:bg-white/[0.01] hover:text-foreground/70 border border-transparent'
                   }`}
                 >
                   <Icon
                     size={14}
-                    className={`transition-colors duration-300 ${activeTab === item.label ? 'text-primary/60' : 'text-muted-foreground/20 group-hover:text-muted-foreground/30'}`}
+                    className={`transition-colors duration-300 ${activeTab === item.label ? 'text-primary/70' : 'text-muted-foreground/20 group-hover:text-muted-foreground/40'}`}
                     strokeWidth={1.5}
                   />
-                  <span
-                    className="tracking-tight"
-                  >
+                  <span className="tracking-tight flex-1 text-left">
                     {item.label}
                   </span>
+                  
+                  {/* Subtle, premium active/hover dot indicator */}
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                      activeTab === item.label
+                        ? 'bg-primary/40 dark:bg-primary/80 scale-100 opacity-100'
+                        : 'bg-primary/0 scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 group-hover:bg-primary/20 dark:group-hover:bg-primary/40'
+                    }`}
+                    style={{
+                      boxShadow: activeTab === item.label ? 'var(--glow-primary)' : 'none',
+                    }}
+                  />
                 </button>
               );
             })}
@@ -738,7 +748,7 @@ export default function SettingsModal({
                             <div className="flex items-center justify-between mt-2">
                               <div>
                                 <p className="text-[12px] font-semibold text-foreground/90">Cinematic</p>
-                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Primary Default</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Primary Default</p>
                               </div>
                               {(settings.visualTheme ?? 'Cinematic') === 'Cinematic' && (
                                 <div
@@ -764,7 +774,7 @@ export default function SettingsModal({
                             <div className="flex items-center justify-between mt-2">
                               <div>
                                 <p className="text-[12px] font-semibold text-foreground/90">Cinematic Light</p>
-                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Daylight paper</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Daylight paper</p>
                               </div>
                               {settings.visualTheme === 'Cinematic Light' && (
                                 <div
@@ -790,7 +800,7 @@ export default function SettingsModal({
                             <div className="flex items-center justify-between mt-2">
                               <div>
                                 <p className="text-[12px] font-semibold text-foreground/90">Original</p>
-                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Legacy Blue</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Legacy Blue</p>
                               </div>
                               {settings.visualTheme === 'Original' && (
                                 <div
@@ -807,9 +817,9 @@ export default function SettingsModal({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             UI Density
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -823,9 +833,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Card Corner Radius
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -840,9 +850,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Blur Intensity
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -865,9 +875,9 @@ export default function SettingsModal({
                       Dashboard Experience
                     </h3>
                     <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Toggle animations
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -880,9 +890,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Smooth transitions
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -895,9 +905,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             AI Insights Section
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -910,9 +920,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Streak Visibility
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -925,9 +935,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Default Landing Page
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -955,9 +965,9 @@ export default function SettingsModal({
                       Sidebar Behavior
                     </h3>
                     <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Auto collapse sidebar
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -970,9 +980,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Hover expand sidebar
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -985,9 +995,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Icon-only minimized mode
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -1008,9 +1018,9 @@ export default function SettingsModal({
                       Productivity
                     </h3>
                     <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Focus timer auto start
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -1023,9 +1033,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Daily reset time
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -1040,9 +1050,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Enable keyboard shortcuts
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -1055,9 +1065,9 @@ export default function SettingsModal({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-accent/10 transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Workflow Tracking
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
