@@ -240,8 +240,9 @@ function SidebarContent({
 
         {/* Premium Upgrade Panel */}
         {isFree && !collapsed && (
-          <div className="mt-auto px-3 pb-4 pt-3 border-t border-white/[0.025]">
+          <div data-premium-upgrade-section className="mt-auto px-3 pb-4 pt-3 border-t border-white/[0.025]">
             <button
+              data-premium-upgrade
               onClick={() => triggerUpgrade()}
               className="w-full text-left px-3.5 py-3 rounded-[8px] bg-white/[0.015] border border-white/[0.04] hover:bg-white/[0.03] hover:border-white/[0.07] transition-all duration-200 group relative overflow-hidden active:scale-[0.985]"
             >

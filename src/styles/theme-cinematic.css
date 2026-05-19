@@ -257,6 +257,52 @@ html[data-visual-theme="cinematic"].dark [data-ct-progress-fill] {
   background-color: rgba(255,255,255,0.92) !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ── SETTINGS MODAL (Dark) ───────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Sidebar active surface — clearly pressed, distinct from hover */
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-item][data-active="true"] {
+  background-color: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.09);
+}
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-item]:hover:not([data-active="true"]) {
+  background-color: rgba(255,255,255,0.02);
+}
+
+/* Sidebar icon tonalities */
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-icon][data-active="true"] {
+  color: rgba(255,255,255,0.65);
+}
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-icon]:not([data-active="true"]) {
+  color: rgba(255,255,255,0.10);
+}
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-item]:hover [data-settings-sidebar-icon]:not([data-active="true"]) {
+  color: rgba(255,255,255,0.20);
+}
+
+/* Sidebar active dot — visible only on selected item, never on hover */
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-dot][data-active="true"] {
+  background-color: rgba(255,255,255,0.60);
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: none;
+}
+html[data-visual-theme="cinematic"].dark [data-settings-sidebar-dot]:not([data-active="true"]) {
+  display: none;
+}
+
+/* Settings ambient cursor-follow glow */
+html[data-visual-theme="cinematic"].dark [data-settings-ambient-glow] {
+  background: radial-gradient(800px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,255,255,0.025), transparent 40%) !important;
+}
+
+/* Pricing / content cards */
+html[data-visual-theme="cinematic"].dark [data-settings-content] [data-settings-card] {
+  background-color: rgba(255,255,255,0.01);
+  border-color: rgba(255,255,255,0.04);
+}
+
 /* ── Theme Switcher Card UI ──────────────────────────────────────── */
 .ct-theme-card {
   position: relative;
@@ -359,7 +405,7 @@ html[data-visual-theme="cinematic"]:not(.dark) {
   --accent:               #DCDAD4;
   --accent-foreground:    #1C1B1A;
   --muted:                #EBE9E4;
-  --muted-foreground:     #787671;
+  --muted-foreground:     #5C5B58;
   --card:                 #FDFCFB;
   --card-foreground:      #2C2B29;
   --border:               rgba(0,0,0,0.06);
@@ -578,4 +624,152 @@ html[data-visual-theme="cinematic"]:not(.dark) *:focus-visible {
 /* ── Progress bars (Light) ───────────────────────────────────────── */
 html[data-visual-theme="cinematic"]:not(.dark) [data-ct-progress-fill] {
   background-color: var(--primary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ── SETTINGS MODAL (Light) ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Sidebar active surface — clearly pressed, distinct from hover */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-item][data-active="true"] {
+  background-color: rgba(0,0,0,0.055);
+  border-color: rgba(0,0,0,0.10);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+/* Sidebar hover surface — just enough to feel interactive */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-item]:hover:not([data-active="true"]) {
+  background-color: rgba(0,0,0,0.025);
+}
+
+/* Sidebar icon tonalities — matched to text hierarchy */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-icon][data-active="true"] {
+  color: rgba(0,0,0,0.60);
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-icon]:not([data-active="true"]) {
+  color: rgba(0,0,0,0.12);
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-item]:hover [data-settings-sidebar-icon]:not([data-active="true"]) {
+  color: rgba(0,0,0,0.35);
+}
+
+/* Sidebar active dot — visible only on selected item, never on hover */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-dot][data-active="true"] {
+  background-color: rgba(0,0,0,0.35);
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: none;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-sidebar-dot]:not([data-active="true"]) {
+  display: none;
+}
+
+/* Settings ambient cursor-follow glow — ultra-subtle atmospheric diffusion */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-ambient-glow] {
+  background: radial-gradient(800px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(0,0,0,0.012), transparent 40%) !important;
+}
+
+/* Pricing / content cards — soft surface separation using black at very low opacity */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-card] {
+  background-color: rgba(0,0,0,0.012) !important;
+  border-color: rgba(0,0,0,0.05) !important;
+}
+
+/* Pricing card headers (icon backgrounds) */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-card-icon] {
+  background-color: rgba(0,0,0,0.03) !important;
+  border-color: rgba(0,0,0,0.05) !important;
+  color: var(--secondary-foreground) !important;
+}
+
+/* Comparison table — clean light surface */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-table] {
+  background-color: rgba(0,0,0,0.008) !important;
+  border-color: rgba(0,0,0,0.05) !important;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-table] thead {
+  background-color: rgba(0,0,0,0.015) !important;
+}
+
+/* Preferences tab row hover — subtle cool-gray */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] .hover\:bg-accent\/10:hover {
+  background-color: rgba(0,0,0,0.02) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ── WORKSPACE DROPDOWN (Light) ──────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+html[data-visual-theme="cinematic"]:not(.dark) [data-workspace-dropdown] {
+  background-color: rgba(255,255,255,0.82) !important;
+  backdrop-filter: blur(60px) saturate(1.8) !important;
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.03),
+    0 32px 64px -16px rgba(0,0,0,0.12),
+    0 0 0 1px rgba(0,0,0,0.04) !important;
+  border-color: rgba(255,255,255,0.3) !important;
+}
+
+/* Dropdown menu item hover — subtle warm-gray */
+html[data-visual-theme="cinematic"]:not(.dark) [data-workspace-dropdown] button:hover {
+  background-color: rgba(0,0,0,0.035) !important;
+}
+
+/* Dropdown dividers */
+html[data-visual-theme="cinematic"]:not(.dark) [data-workspace-dropdown] [class*="border-b"],
+html[data-visual-theme="cinematic"]:not(.dark) [data-workspace-dropdown] [class*="h-px"] {
+  border-color: rgba(0,0,0,0.04) !important;
+  background-color: rgba(0,0,0,0.04) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ── PREMIUM UPGRADE CARD (Light) ────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+html[data-visual-theme="cinematic"]:not(.dark) [data-premium-upgrade] {
+  background-color: rgba(0,0,0,0.03) !important;
+  border-color: rgba(0,0,0,0.08) !important;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-premium-upgrade]:hover {
+  background-color: rgba(0,0,0,0.04) !important;
+  border-color: rgba(0,0,0,0.12) !important;
+}
+
+/* Upgrade card CTA arrow border */
+html[data-visual-theme="cinematic"]:not(.dark) [data-premium-upgrade] [style*="border: 1px solid rgba(255,255,255"] {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-premium-upgrade]:hover [style*="border: 1px solid rgba(255,255,255"] {
+  border-color: rgba(0,0,0,0.14) !important;
+}
+
+/* Upgrade card separator line (above the card) */
+html[data-visual-theme="cinematic"]:not(.dark) [data-premium-upgrade-section] {
+  border-color: rgba(0,0,0,0.04) !important;
+}
+
+/* Upgrade card material depth overlay — lighter in light theme */
+html[data-visual-theme="cinematic"]:not(.dark) [data-premium-upgrade] [class*="bg-neutral-900"] {
+  background-color: rgba(0,0,0,0.025) !important;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-table] tr {
+  border-color: rgba(0,0,0,0.03) !important;
+}
+
+/* Active membership summary card */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-summary-card] {
+  background-color: rgba(0,0,0,0.006) !important;
+  border-color: rgba(0,0,0,0.04) !important;
+}
+
+/* Badge inline (active membership dot + label) */
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-badge] {
+  background-color: rgba(0,0,0,0.02) !important;
+  border-color: rgba(0,0,0,0.06) !important;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-badge] span:first-child {
+  background-color: rgba(0,0,0,0.25) !important;
+}
+html[data-visual-theme="cinematic"]:not(.dark) [data-settings-content] [data-settings-badge] span:last-child {
+  color: var(--secondary-foreground) !important;
 }

@@ -176,6 +176,7 @@ export default function WorkspaceSwitcher({
         createPortal(
           <div
             ref={dropdownRef}
+            data-workspace-dropdown
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             className="fixed z-[100] rounded-2xl overflow-hidden scale-in origin-top-left border border-white/[0.05]"

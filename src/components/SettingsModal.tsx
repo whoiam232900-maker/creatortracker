@@ -257,10 +257,12 @@ export default function SettingsModal({
       >
         {/* Subtle Cursor-Follow Gradient Effect */}
         <div
+          data-settings-ambient-glow
           className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-500 opacity-0 group-hover:opacity-100"
           style={{
-            background: `radial-gradient(800px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.04), transparent 40%)`,
-          }}
+            '--glow-x': `${mousePos.x}px`,
+            '--glow-y': `${mousePos.y}px`,
+          } as React.CSSProperties}
         />
 
         {/* Left Sidebar */}
@@ -282,15 +284,18 @@ export default function SettingsModal({
                 <button
                   key={item.label}
                   onClick={() => setActiveTab(item.label)}
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group ${
+                  data-settings-sidebar-item
+                  data-active={String(activeTab === item.label)}
+                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group border ${
                     activeTab === item.label
-                      ? 'bg-foreground/[0.04] dark:bg-white/[0.04] text-foreground/90 shadow-[0_1px_2px_rgba(0,0,0,0.1)] border border-foreground/[0.05] dark:border-white/[0.05]'
-                      : 'text-muted-foreground/40 hover:bg-foreground/[0.01] dark:hover:bg-white/[0.01] hover:text-foreground/70 border border-transparent'
+                      ? 'text-foreground/90 shadow-[0_1px_2px_rgba(0,0,0,0.1)]'
+                      : 'text-muted-foreground/40 hover:text-foreground/70 border-transparent'
                   }`}
                 >
                   <Icon
                     size={14}
-                    className={`transition-colors duration-300 ${activeTab === item.label ? 'text-primary/70' : 'text-muted-foreground/20 group-hover:text-muted-foreground/40'}`}
+                    data-settings-sidebar-icon
+                    data-active={String(activeTab === item.label)}
                     strokeWidth={1.5}
                   />
                   <span className="tracking-tight flex-1 text-left">
@@ -299,14 +304,9 @@ export default function SettingsModal({
                   
                   {/* Subtle, premium active/hover dot indicator */}
                   <span
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                      activeTab === item.label
-                        ? 'bg-primary/40 dark:bg-primary/80 scale-100 opacity-100'
-                        : 'bg-primary/0 scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 group-hover:bg-primary/20 dark:group-hover:bg-primary/40'
-                    }`}
-                    style={{
-                      boxShadow: activeTab === item.label ? 'var(--glow-primary)' : 'none',
-                    }}
+                    data-settings-sidebar-dot
+                    data-active={String(activeTab === item.label)}
+                    className="w-1.5 h-1.5 rounded-full transition-all duration-300"
                   />
                 </button>
               );
@@ -315,7 +315,7 @@ export default function SettingsModal({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin relative z-10">
+        <div className="flex-1 overflow-y-auto scrollbar-thin relative z-10" data-settings-content>
           <div className="max-w-4xl mx-auto px-8 lg:px-12 py-10">
             {activeTab === 'Billing & Plans' && (
               <>
@@ -331,6 +331,7 @@ export default function SettingsModal({
 
                 {/* Current Plan Summary Card */}
                 <div
+                  data-settings-summary-card
                   className="rounded-[22px] border p-6 mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                   style={{
                     borderColor: 'rgba(255, 255, 255, 0.04)',
@@ -347,7 +348,7 @@ export default function SettingsModal({
                       </h2>
                       {currentPlan.toLowerCase() !== 'free' && (
                         <>
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/[0.03] border border-primary/10">
+                          <div data-settings-badge className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/[0.03] border border-primary/10">
                             <span className="w-1 h-1 rounded-full bg-primary/40" />
                             <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-widest">
                               Active
@@ -406,6 +407,7 @@ export default function SettingsModal({
                       return (
                         <div
                           key={plan.name}
+                          data-settings-card
                           className={`relative flex flex-col rounded-xl border transition-all duration-300 group/card ${
                             plan.isRecommended
                               ? 'border-primary/20 bg-white/[0.02]'
@@ -416,6 +418,7 @@ export default function SettingsModal({
                             <div className="flex items-center justify-between mb-5">
                               <div className="flex items-center gap-2.5">
                                 <div
+                                  data-settings-card-icon
                                   className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                                   style={{
                                     backgroundColor: 'rgba(255,255,255,0.03)',
@@ -427,7 +430,7 @@ export default function SettingsModal({
                                 >
                                   <Icon size={16} strokeWidth={1.5} />
                                 </div>
-                                <h4 className="text-sm font-semibold text-white/90">{plan.name}</h4>
+                                <h4 className="text-sm font-semibold text-foreground/90">{plan.name}</h4>
                               </div>
                               {plan.isRecommended && (
                                 <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest px-1.5 py-0.5 rounded border border-primary/10">
@@ -438,7 +441,7 @@ export default function SettingsModal({
 
                             <div className="mb-5">
                               <div className="flex items-baseline gap-1.5 min-h-[32px]">
-                                <span className="text-2xl font-semibold text-white">
+                                <span className="text-2xl font-semibold text-foreground">
                                   {formattedPrice.split(' ')[0]}
                                 </span>
                                 <span className="text-[11px] font-medium text-muted-foreground/60">
@@ -471,7 +474,7 @@ export default function SettingsModal({
                                     >
                                       <Check size={13} strokeWidth={2.5} />
                                     </div>
-                                    <span className="text-muted-foreground/70 group-hover/feat:text-white/80 transition-colors">
+                                    <span className="text-muted-foreground/70 group-hover/feat:text-foreground/80 transition-colors">
                                       {feature}
                                     </span>
                                   </li>
@@ -488,12 +491,12 @@ export default function SettingsModal({
                               }}
                               className={`w-full py-2 px-4 rounded-lg font-semibold text-[11px] transition-all duration-200 ${
                                 isCurrent
-                                  ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/[0.04]'
+                                  ? 'bg-white/[0.02] text-muted-foreground/40 cursor-not-allowed border border-white/[0.04]'
                                   : PLAN_HIERARCHY[currentPlan as PlanType] > PLAN_HIERARCHY[plan.name as PlanType]
-                                    ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/[0.04]'
+                                    ? 'bg-white/[0.02] text-muted-foreground/40 cursor-not-allowed border border-white/[0.04]'
                                     : plan.isRecommended
                                       ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
-                                      : 'bg-white/5 text-white/80 hover:bg-white/10 border border-white/5'
+                                      : 'bg-white/5 text-foreground/70 hover:bg-white/10 border border-white/5'
                               }`}
                             >
                               {isCurrent ? 'Current Plan' : (PLAN_HIERARCHY[currentPlan as PlanType] > PLAN_HIERARCHY[plan.name as PlanType] ? 'Included' : plan.cta)}
@@ -510,7 +513,7 @@ export default function SettingsModal({
                   <h3 className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-4">
                     Comparison
                   </h3>
-                  <div className="rounded-xl border border-white/[0.05] overflow-hidden bg-white/[0.01]">
+                  <div data-settings-table className="rounded-xl border border-white/[0.05] overflow-hidden bg-white/[0.01]">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-[11px] whitespace-nowrap">
                         <thead>
@@ -518,9 +521,9 @@ export default function SettingsModal({
                             <th className="px-5 py-3 font-semibold text-muted-foreground/40 uppercase tracking-widest text-[9px] w-2/5">
                               Feature
                             </th>
-                            <th className="px-5 py-3 font-semibold text-white/60 w-1/5">Free</th>
+                            <th className="px-5 py-3 font-semibold text-muted-foreground/70 w-1/5">Free</th>
                             <th className="px-5 py-3 font-semibold text-primary/80 w-1/5">Pro</th>
-                            <th className="px-5 py-3 font-semibold text-white/60 w-1/5">Studio</th>
+                            <th className="px-5 py-3 font-semibold text-muted-foreground/70 w-1/5">Studio</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.02]">
@@ -529,12 +532,12 @@ export default function SettingsModal({
                               key={idx}
                               className="hover:bg-white/[0.01] transition-colors group/row"
                             >
-                              <td className="px-5 py-2.5 font-medium text-muted-foreground/60 group-hover/row:text-white/80 transition-colors">
+                              <td className="px-5 py-2.5 font-medium text-muted-foreground/60 group-hover/row:text-foreground/80 transition-colors">
                                 {feat.name}
                               </td>
                               <td className="px-5 py-2.5 text-muted-foreground/40">{feat.free}</td>
-                              <td className="px-5 py-2.5 text-white/70 font-medium">{feat.pro}</td>
-                              <td className="px-5 py-2.5 text-white/70 font-medium">
+                              <td className="px-5 py-2.5 text-foreground/80 font-medium">{feat.pro}</td>
+                              <td className="px-5 py-2.5 text-foreground/80 font-medium">
                                 {feat.studio}
                               </td>
                             </tr>
@@ -564,7 +567,7 @@ export default function SettingsModal({
                     <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 transition-colors">
                             Focus Timer
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -579,7 +582,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Workflow Tracker
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -594,7 +597,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Target Progress
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -609,7 +612,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             AI Insights
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -624,7 +627,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Analytics Cards
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -639,7 +642,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Recent Activity
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -661,7 +664,7 @@ export default function SettingsModal({
                     <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Study Tracker
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -676,7 +679,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Earnings Tracker
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -691,7 +694,7 @@ export default function SettingsModal({
 
                       <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.03] transition-colors group">
                         <div className="pr-4">
-                          <p className="text-sm font-medium text-foreground/90 group-hover:text-white transition-colors">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                             Productivity Summary
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
