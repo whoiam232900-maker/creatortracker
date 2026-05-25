@@ -32,9 +32,12 @@ import {
 } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
 
+import { useSettings } from '@/contexts/SettingsContext';
+
 type SettingsTab = 'fields' | 'targets' | 'danger';
 
 export default function SettingsContent() {
+  const { settings, updateSetting: updateGlobalSetting } = useSettings();
   const [state, setState] = useState<AppState | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('fields');
   const [editingField, setEditingField] = useState<TrackingField | null>(null);
@@ -42,7 +45,6 @@ export default function SettingsContent() {
   const [deleteFieldConfirm, setDeleteFieldConfirm] = useState<string | null>(null);
   const [clearEntriesConfirm, setClearEntriesConfirm] = useState(false);
   const [resetAllConfirm, setResetAllConfirm] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const { withinLimit, triggerUpgrade } = useSubscription();
 
@@ -65,7 +67,6 @@ export default function SettingsContent() {
 
     loadState(resolvedId).then(s => {
       setState(s);
-      setTheme(s.theme);
     });
   }, []);
 
@@ -83,22 +84,11 @@ export default function SettingsContent() {
 
   const handleThemeToggle = useCallback(
     async (checked: boolean) => {
-      const newTheme: 'light' | 'dark' = checked ? 'dark' : 'light';
-      setTheme(newTheme);
-      if (state) {
-        const newState: AppState = { ...state, theme: newTheme };
-        await persistState(newState);
-        if (typeof document !== 'undefined') {
-          if (newTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
-        }
-      }
+      const newTheme = checked ? 'Cinematic' : 'Cinematic Light';
+      updateGlobalSetting('visualTheme', newTheme);
       showToast({ type: 'info', title: `Switched to ${newTheme} mode` });
     },
-    [userId, state, persistState]
+    [updateGlobalSetting]
   );
 
   const handleSaveField = useCallback(
@@ -265,15 +255,15 @@ export default function SettingsContent() {
         {/* Theme toggle */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            {theme === 'light' ? (
+            {settings.visualTheme === 'Cinematic Light' ? (
               <Sun size={15} style={{ color: 'var(--muted-foreground)' }} />
             ) : (
               <Moon size={15} style={{ color: 'var(--muted-foreground)' }} />
             )}
             <Toggle
-              checked={theme === 'dark'}
+              checked={settings.visualTheme !== 'Cinematic Light'}
               onChange={handleThemeToggle}
-              label={theme === 'dark' ? 'Dark mode' : 'Light mode'}
+              label={settings.visualTheme !== 'Cinematic Light' ? 'Dark mode' : 'Light mode'}
             />
           </div>
         </div>

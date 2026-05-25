@@ -59,6 +59,7 @@ export interface AppState {
   entries: DailyEntry[];
   targets: TargetConfig[];
   workflows?: Workflow[];
+  /** @deprecated Use SettingsContext.visualTheme instead */
   theme: 'light' | 'dark';
 }
 
@@ -246,14 +247,14 @@ export function generateSampleEntries(fields: TrackingField[]): DailyEntry[] {
 
 export function loadLocalState(userId?: string): AppState {
   if (typeof window === 'undefined') {
-    return { fields: [], entries: [], targets: [], theme: 'light' };
+    return { fields: [], entries: [], targets: [], theme: 'dark' };
   }
 
   const key = getUserStorageKey(userId);
   try {
     const raw = localStorage.getItem(key);
     if (!raw) {
-      return { fields: [], entries: [], targets: [], theme: 'light' };
+      return { fields: [], entries: [], targets: [], theme: 'dark' };
     }
     const parsed = JSON.parse(raw) as Partial<AppState>;
     const today = getTodayString();
@@ -270,7 +271,7 @@ export function loadLocalState(userId?: string): AppState {
       theme: parsed.theme === 'dark' ? 'dark' : 'light',
     };
   } catch (e) {
-    return { fields: [], entries: [], targets: [], theme: 'light' };
+    return { fields: [], entries: [], targets: [], theme: 'dark' };
   }
 }
 
@@ -283,7 +284,7 @@ export function loadLocalState(userId?: string): AppState {
  */
 export async function loadState(userId?: string): Promise<AppState> {
   if (typeof window === 'undefined') {
-    return { fields: [], entries: [], targets: [], theme: 'light' };
+    return { fields: [], entries: [], targets: [], theme: 'dark' };
   }
 
   // Load localStorage state first
@@ -429,7 +430,7 @@ export async function initializeStarterData(userId?: string): Promise<AppState> 
     entries: generateSampleEntries(DEFAULT_FIELDS),
     targets: DEFAULT_TARGETS,
     workflows: [],
-    theme: 'light',
+    theme: 'dark',
   };
   await saveState(initial, userId);
   return initial;

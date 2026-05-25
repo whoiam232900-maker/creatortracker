@@ -162,20 +162,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     // Apply global CSS variables / DOM manipulations based on settings
     const root = document.documentElement;
 
-    // Theme (Light mode is temporarily disabled for stabilization, except for Cinematic Light)
+    // 1. Dark Class Management
+    // Cinematic Light is the only light mode for now.
     if (settings.visualTheme === 'Cinematic Light') {
       root.classList.remove('dark');
     } else {
       root.classList.add('dark');
     }
 
-    // Visual Theme Identity
-    // data-visual-theme is the only coupling point for the cinematic CSS
-    const visualThemeStr = (settings.visualTheme ?? 'Original').toLowerCase();
-    if (visualThemeStr === 'cinematic light') {
+    // 2. Visual Theme Attribute Management
+    // data-visual-theme is the primary selector for theme-cinematic.css
+    // 'Cinematic' and 'Cinematic Light' both use 'cinematic' attribute, but differ by .dark class
+    const themeValue = settings.visualTheme ?? 'Cinematic';
+    if (themeValue === 'Cinematic' || themeValue === 'Cinematic Light') {
       root.setAttribute('data-visual-theme', 'cinematic');
+    } else if (themeValue === 'Original') {
+      root.setAttribute('data-visual-theme', 'original');
     } else {
-      root.setAttribute('data-visual-theme', visualThemeStr);
+      // Fallback to cinematic
+      root.setAttribute('data-visual-theme', 'cinematic');
     }
 
     // UI Density (We can map Comfortable to padding 1rem, Compact to 0.5rem via CSS vars, if we had them. For now we can just set a data attribute)

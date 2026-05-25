@@ -40,7 +40,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${montserrat.variable} ${inter.variable} dark`}>
+    <html lang="en" className={`${montserrat.variable} ${inter.variable} dark`} data-visual-theme="cinematic" data-density="comfortable">
       <body className={montserrat.className}>
         <SettingsProvider>
           <SplashScreen />
