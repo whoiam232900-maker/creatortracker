@@ -533,7 +533,7 @@ export default function TrackerDashboardContent() {
                       ? 'var(--success-bg)'
                       : completionRate !== null && completionRate < 50
                         ? 'var(--danger-bg)'
-                        : 'rgba(37,99,235,0.06)'
+                        : 'var(--accent-glow)'
                   }
                 />
                 {/* Weekly total for top number field */}
@@ -608,7 +608,7 @@ export default function TrackerDashboardContent() {
                     className="text-4xl font-bold tabular-nums font-numbers text-center py-4 mb-4 rounded-lg"
                     style={{
                       color: timerRunning ? 'var(--primary)' : 'var(--foreground)',
-                      backgroundColor: timerRunning ? 'rgba(37,99,235,0.06)' : 'var(--muted)',
+                      backgroundColor: timerRunning ? 'var(--accent-glow)' : 'var(--muted)',
                       transition: 'all 200ms ease',
                     }}
                   >

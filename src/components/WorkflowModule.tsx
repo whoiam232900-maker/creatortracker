@@ -600,9 +600,9 @@ function WorkflowCard({
   const hint = getOperationalHint(workflow);
 
   // Premium progress colors
-  const progressColor = progressPct === 100 ? '#22c55e' : '#3b82f6';
-  const progressGlow = progressPct === 100 ? 'rgba(34, 197, 94, 0.5)' : 'rgba(59, 130, 246, 0.5)';
-  const ambientGlow = progressPct === 100 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(59, 130, 246, 0.2)';
+  const progressColor = progressPct === 100 ? '#22c55e' : 'var(--primary)';
+  const progressGlow = progressPct === 100 ? 'rgba(34, 197, 94, 0.5)' : 'var(--accent-glow-strong)';
+  const ambientGlow = progressPct === 100 ? 'rgba(34, 197, 94, 0.2)' : 'var(--accent-glow)';
 
   return (
     <div
@@ -877,7 +877,7 @@ function WorkflowCard({
                 background:
                   progressPct === 100
                     ? 'linear-gradient(90deg, #16a34a, #22c55e)'
-                    : 'linear-gradient(90deg, #2563eb, #3b82f6)',
+                    : 'var(--brand-gradient-solid, linear-gradient(90deg, #2563eb, #3b82f6))',
                 opacity: progressPct === 0 ? 0 : 1,
                 boxShadow: `
                   0 0 0 1px rgba(0,0,0,0.1),

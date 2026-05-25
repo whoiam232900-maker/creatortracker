@@ -221,7 +221,7 @@ function SidebarContent({
             {!collapsed && <span className="flex-1 truncate tracking-tight">Admin Control</span>}
 
             {collapsed && (
-              <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-primary/40 rounded-full translate-x-1/3 -translate-y-1/3 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
+              <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-primary/40 rounded-full translate-x-1/3 -translate-y-1/3" />
             )}
 
             {collapsed && !settings.iconOnlyMinimized && (

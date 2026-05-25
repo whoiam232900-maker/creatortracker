@@ -125,7 +125,7 @@ export default function TargetForm({
                   className="flex items-center gap-2 cursor-pointer flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all duration-150"
                   style={{
                     borderColor: watchedType === t ? 'var(--primary)' : 'var(--border)',
-                    backgroundColor: watchedType === t ? 'rgba(37,99,235,0.06)' : 'var(--card)',
+                    backgroundColor: watchedType === t ? 'var(--accent-glow)' : 'var(--card)',
                     color: watchedType === t ? 'var(--primary)' : 'var(--muted-foreground)',
                   }}
                 >

@@ -98,7 +98,7 @@ export default function AIInsightsPanel({ state }: { state: AppState }) {
                 <div className={`p-1.5 rounded-lg ${
                   rec.type === 'performance' ? 'bg-emerald-500/10 text-emerald-400' :
                   rec.type === 'burnout' ? 'bg-amber-500/10 text-amber-400' :
-                  rec.type === 'consistency' ? 'bg-blue-500/10 text-blue-400' :
+                  rec.type === 'consistency' ? 'bg-primary/10 text-primary' :
                   rec.type === 'optimization' ? 'bg-purple-500/10 text-purple-400' :
                   'bg-primary/10 text-primary'
                 }`}>

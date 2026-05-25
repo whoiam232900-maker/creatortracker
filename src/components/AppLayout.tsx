@@ -86,8 +86,7 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
               height: '60vh',
               pointerEvents: 'none',
               zIndex: 0,
-              background:
-                'radial-gradient(ellipse 80% 40% at 50% -5%, rgba(59,130,246,0.05) 0%, transparent 70%)',
+              background: 'var(--atmospheric-glow, radial-gradient(ellipse 80% 40% at 50% -5%, rgba(59,130,246,0.05) 0%, transparent 70%))',
             }}
           />
           <div className="max-w-screen-2xl mx-auto px-4 py-6 lg:px-6 xl:px-8 2xl:px-10 relative" style={{ zIndex: 1 }}>

@@ -19,22 +19,29 @@
 /* ── Scoped to cinematic theme only ──────────────────────────────── */
 html[data-visual-theme="cinematic"].dark {
 
-  /* ── Core token overrides (Premium Graphite System) ────────────── */
-  --background:           #040405;
-  --foreground:           rgba(255,255,255,0.94);
+  /* ── Flagship Palette: Neutral Charcoal ──────────────────────────── */
+  --background:           #050506;
+  --foreground:           #FFFFFF;
   --primary:              rgba(255,255,255,0.95);
-  --primary-foreground:   #040405;
+  --primary-foreground:   #050506;
   --secondary:            #0A0B0C;
-  --secondary-foreground: rgba(255,255,255,0.65);
+  --secondary-foreground: rgba(255,255,255,0.72);
   --accent:               rgba(255,255,255,0.85);
-  --accent-foreground:    #040405;
+  --accent-foreground:    #050506;
   --muted:                #0E0F11;
   --muted-foreground:     rgba(255,255,255,0.45);
-  --card:                 #121315;
-  --card-foreground:      rgba(255,255,255,0.94);
+  --card:                 #111214;
+  --card-foreground:      #FFFFFF;
   --border:               rgba(255,255,255,0.08);
   --input:                #1A1B1D;
   --ring:                 rgba(255,255,255,0.25);
+
+  /* Semantic Accents: Neutral Cinematic Overrides */
+  --accent-glow:          rgba(255, 255, 255, 0.05);
+  --accent-glow-strong:   rgba(255, 255, 255, 0.15);
+  --brand-gradient:       linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+  --brand-gradient-solid: linear-gradient(90deg, #FFFFFF, #E2E2E2);
+  --atmospheric-glow:     radial-gradient(ellipse 140% 80% at 50% 0%, rgba(255, 255, 255, 0.012) 0%, transparent 100%);
 
   /* Status colors — desaturated graphite-friendly */
   --success:              #71a07d;
@@ -45,12 +52,12 @@ html[data-visual-theme="cinematic"].dark {
   --danger-bg:            #0a0606;
 
   /* ── Cinematic surface elevation (Graphite Hierarchy) ─────────── */
-  --surface-base:         #040405;    /* canvas                      */
+  --surface-base:         #050506;    /* canvas                      */
   --surface-raised:       #0A0B0C;    /* sidebar / elevated base      */
-  --surface-panel:        #121315;    /* card / primary surface       */
+  --surface-panel:        #111214;    /* card / primary surface       */
   --surface-overlay:      #1A1B1D;    /* hover / lifted / input       */
-  --surface-float:        #222426;    /* interactive / modal          */
-  --surface-highlight:    #2C2E32;    /* focus / active highlight     */
+  --surface-float:        #242528;    /* interactive / modal          */
+  --surface-highlight:    #2E2F32;    /* focus / active highlight     */
 
   /* ── Cinematic border hierarchy ──────────────────────────────── */
   --border-dim:           rgba(255,255,255,0.04);

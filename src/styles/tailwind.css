@@ -9,7 +9,13 @@
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
   --secondary-foreground: #475569;
-  --accent: #0ea5e9;
+
+  /* Semantic Accents */
+  --accent-glow: rgba(37, 99, 235, 0.1);
+  --accent-glow-strong: rgba(37, 99, 235, 0.4);
+  --brand-gradient: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.01) 100%);
+  --brand-gradient-solid: linear-gradient(90deg, #2563eb, #3b82f6);
+  --atmospheric-glow: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(59, 130, 246, 0.05) 0%, transparent 70%);  --accent: #0ea5e9;
   --accent-foreground: #ffffff;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;

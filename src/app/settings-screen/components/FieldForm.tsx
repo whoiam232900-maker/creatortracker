@@ -102,7 +102,7 @@ export default function FieldForm({ existingField, fieldCount, onSave, onCancel 
               className="flex items-center gap-2 cursor-pointer flex-1 px-3 py-2.5 rounded-lg border transition-all duration-150"
               style={{
                 borderColor: watchedType === t ? 'var(--primary)' : 'var(--border)',
-                backgroundColor: watchedType === t ? 'rgba(37,99,235,0.06)' : 'var(--card)',
+                backgroundColor: watchedType === t ? 'var(--accent-glow)' : 'var(--card)',
               }}
             >
               <input type="radio" value={t} className="sr-only" {...register('type')} />

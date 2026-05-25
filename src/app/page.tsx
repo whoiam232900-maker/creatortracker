@@ -97,7 +97,10 @@ export default function LandingPage() {
         
         {/* Premium Masked Logo Frame */}
         <div className="relative mb-8 flex items-center justify-center group">
-          <div className="pointer-events-none absolute h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
+          <div 
+            className="pointer-events-none absolute h-24 w-24 rounded-full blur-2xl" 
+            style={{ backgroundColor: 'var(--accent-glow-strong, rgba(59, 130, 246, 0.1))' }}
+          />
 
           <div className="relative h-[78px] w-[78px] overflow-hidden rounded-2xl border border-white/20 bg-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_40px_rgba(0,0,0,0.32)] transition-all duration-200 group-hover:border-white/30 group-hover:scale-[1.015]">
             <img

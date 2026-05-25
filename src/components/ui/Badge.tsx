@@ -9,7 +9,7 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
-  default: { backgroundColor: 'rgba(37,99,235,0.1)', color: 'var(--primary)' },
+  default: { backgroundColor: 'var(--accent-glow, rgba(37,99,235,0.1))', color: 'var(--primary)' },
   success: { backgroundColor: 'var(--success-bg)', color: 'var(--success)' },
   warning: { backgroundColor: 'var(--warning-bg)', color: 'var(--warning)' },
   danger: { backgroundColor: 'var(--danger-bg)', color: 'var(--danger)' },

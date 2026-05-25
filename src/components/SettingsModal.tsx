@@ -69,9 +69,8 @@ const PLANS_UI = [
     cta: 'Upgrade to Pro',
     ctaPrimary: true,
     color: 'var(--primary)',
-    bgHighlight:
-      'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.01) 100%)',
-    borderHighlight: 'rgba(37, 99, 235, 0.3)',
+    bgHighlight: 'var(--brand-gradient)',
+    borderHighlight: 'var(--accent-glow-strong)',
   },
   {
     name: 'Studio',
