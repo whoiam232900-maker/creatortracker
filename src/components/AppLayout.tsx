@@ -1,11 +1,12 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { loadState, saveState, AppState } from '@/lib/store';
 
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -15,10 +16,14 @@ interface AppLayoutProps {
 export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
   const router = useRouter();
   const { settings, updateSetting } = useSettings();
+  const scrollRef = useRef<HTMLElement>(null);
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Enable premium smooth scroll on the main content area
+  useSmoothScroll(scrollRef, mounted);
 
   useEffect(() => {
     try {
@@ -73,7 +78,10 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
           theme={settings.themeMode.toLowerCase() as 'light' | 'dark'}
           onThemeToggle={toggleTheme}
         />
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <main 
+          ref={scrollRef as any}
+          className="flex-1 overflow-y-auto scrollbar-thin"
+        >
           {/* Atmospheric depth gradient — radial glow behind content, very subtle */}
           <div
             aria-hidden="true"

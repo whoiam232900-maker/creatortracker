@@ -108,6 +108,8 @@
 
   html {
     scroll-behavior: smooth;
+    /* Prevent bouncing on the whole page */
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -116,6 +118,8 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Smooth scroll feel for modern browsers */
+    text-rendering: optimizeLegibility;
   }
 
   h1,
@@ -226,22 +230,36 @@
     }
   }
 
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+  /* ── Premium Scroll System ───────────────────────────────────── */
+  /* Hidden scrollbars globally for a seamless "edge-to-edge" feel.  */
+  /* Content remains scrollable; accessibility respected.            */
+
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
   }
 
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* Chrome/Safari/Brave */
   }
 
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: var(--border-mid, var(--border));
-    border-radius: 2px;
+  .scrollbar-thin {
+    overscroll-behavior-y: contain;
   }
 
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.15);
+  /* Accessibility: Respect user motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto !important;
+    }
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 

@@ -32,6 +32,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { PlanType, PLAN_HIERARCHY } from '@/lib/subscription';
 import { UpgradePrompt } from './UpgradePrompt';
 import { getPlanConfigsFromDB, PlanConfig, getPlanPrice, formatPlanPrice } from '@/lib/plan-config';
+import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -190,6 +191,9 @@ export default function SettingsModal({
   const { settings, updateSetting } = useSettings();
   const { plan: currentPlan, canUseFeature, triggerUpgrade } = useSubscription();
   const containerRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
@@ -202,6 +206,10 @@ export default function SettingsModal({
     role?: string;
     premiumExpiresAt?: string | null;
   } | null>(null);
+
+  // Premium scroll smoothing for modal panels
+  useSmoothScroll(sidebarRef, isOpen);
+  useSmoothScroll(contentRef, isOpen);
 
   // Combined sidebar items based on role
   const visibleSidebarItems = SIDEBAR_ITEMS;
@@ -276,7 +284,7 @@ export default function SettingsModal({
             <AppLogo size={24} />
             <h2 className="text-[17px] font-light tracking-tight text-foreground/80">Settings</h2>
           </div>
-          <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-thin">
+          <nav ref={sidebarRef as any} className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-thin">
             {visibleSidebarItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -314,7 +322,7 @@ export default function SettingsModal({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin relative z-10" data-settings-content>
+        <div ref={contentRef as any} className="flex-1 overflow-y-auto scrollbar-thin relative z-10" data-settings-content>
           <div className="max-w-4xl mx-auto px-8 lg:px-12 py-10">
             {activeTab === 'Billing & Plans' && (
               <>

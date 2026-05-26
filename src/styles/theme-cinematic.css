@@ -216,14 +216,6 @@ html[data-visual-theme="cinematic"].dark button[role="switch"][aria-pressed="fal
   border-color: var(--border-mid) !important;
 }
 
-/* ── Scrollbar: hairline neutral ─────────────────────────────────── */
-html[data-visual-theme="cinematic"].dark .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.10);
-}
-html[data-visual-theme="cinematic"].dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.20);
-}
-
 /* ── Selection highlight — clean neutral ─────────────────────────── */
 html[data-visual-theme="cinematic"].dark ::selection {
   background-color: rgba(255,255,255,0.18);
@@ -584,14 +576,6 @@ html[data-visual-theme="cinematic"]:not(.dark) button[role="switch"][aria-presse
 html[data-visual-theme="cinematic"]:not(.dark) button[role="switch"][aria-pressed="false"] {
   background-color: var(--surface-raised) !important;
   border-color: var(--border-mid) !important;
-}
-
-/* ── Scrollbar (Light) ───────────────────────────────────────────── */
-html[data-visual-theme="cinematic"]:not(.dark) .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.10);
-}
-html[data-visual-theme="cinematic"]:not(.dark) .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.18);
 }
 
 /* ── Selection (Light) ───────────────────────────────────────────── */
