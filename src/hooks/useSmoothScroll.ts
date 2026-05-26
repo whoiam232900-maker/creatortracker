@@ -5,12 +5,13 @@ export function useSmoothScroll(ref: RefObject<HTMLElement | null>, enabled: boo
     const el = ref.current;
     if (!el || !enabled || typeof window === 'undefined') return;
 
-    // Only for desktop wheel, not mobile/trackpad ideally
-    // prefers-reduced-motion check
-    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+    // Precise device detection: 
+    // (hover: hover) and (pointer: fine) targets mouse/wheel users specifically.
+    // Touchpads and touch screens should use their native high-quality inertia.
+    const isMouse = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     
-    if (!isDesktop || prefersReducedMotion) return;
+    if (!isMouse || prefersReducedMotion) return;
 
     let targetScrollY = el.scrollTop;
     let currentScrollY = el.scrollTop;
@@ -20,8 +21,8 @@ export function useSmoothScroll(ref: RefObject<HTMLElement | null>, enabled: boo
     const smoothScroll = () => {
       const diff = targetScrollY - currentScrollY;
       
-      // Stop if very close
-      if (Math.abs(diff) < 0.2) {
+      // Stop if very close to prevent micro-jank
+      if (Math.abs(diff) < 0.1) {
         currentScrollY = targetScrollY;
         el.scrollTop = currentScrollY;
         isScrolling = false;
@@ -29,7 +30,8 @@ export function useSmoothScroll(ref: RefObject<HTMLElement | null>, enabled: boo
       }
 
       // Premium easing factor (lower = smoother/longer duration)
-      currentScrollY += diff * 0.095;
+      // Refined to 0.085 for a more unhurried, luxury feel
+      currentScrollY += diff * 0.085;
       el.scrollTop = currentScrollY;
       rafId = requestAnimationFrame(smoothScroll);
     };

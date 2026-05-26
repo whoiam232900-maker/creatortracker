@@ -2,14 +2,17 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, AlertCircle, X, Info } from 'lucide-react';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationCategory = 'workspace' | 'task' | 'invoice' | 'subscription' | 'security' | 'system';
 
 export interface ToastMessage {
   id: string;
   type: ToastType;
   title: string;
   description?: string;
+  category?: NotificationCategory;
 }
 
 let toastListeners: Array<(msg: ToastMessage) => void> = [];
@@ -20,12 +23,26 @@ export function showToast(msg: Omit<ToastMessage, 'id'>) {
 }
 
 export function ToastContainer() {
+  const { settings } = useSettings();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     const handler = (msg: ToastMessage) => {
+      // ── Notification Preference Filtering ──────────────────────────
+      if (!settings.enableNotifications) return;
+
+      // Category-specific filtering
+      if (msg.category) {
+        if (msg.category === 'workspace' && !settings.notifyWorkspaceInvites) return;
+        if (msg.category === 'task' && !settings.notifyTaskUpdates) return;
+        if (msg.category === 'invoice' && !settings.notifyInvoicePayments) return;
+        if (msg.category === 'subscription' && !settings.notifySubscriptionWarnings) return;
+        if (msg.category === 'security' && !settings.notifySecurityAlerts) return;
+        // system is usually always allowed if global is on
+      }
+
       setToasts((prev) => [...prev, msg]);
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== msg.id));
@@ -35,7 +52,7 @@ export function ToastContainer() {
     return () => {
       toastListeners = toastListeners.filter((fn) => fn !== handler);
     };
-  }, []);
+  }, [settings]);
 
   const dismiss = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

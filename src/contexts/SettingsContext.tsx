@@ -35,6 +35,13 @@ export interface AppSettings {
   showEarningsTracker: boolean;
   showProductivitySummary: boolean;
   showRecentEntries: boolean;
+  // Notifications
+  enableNotifications: boolean;
+  notifyWorkspaceInvites: boolean;
+  notifyTaskUpdates: boolean;
+  notifyInvoicePayments: boolean;
+  notifySubscriptionWarnings: boolean;
+  notifySecurityAlerts: boolean;
   // Visual Theme Identity
   visualTheme: VisualTheme;
 }
@@ -65,6 +72,13 @@ const defaultSettings: AppSettings = {
   showEarningsTracker: false,
   showProductivitySummary: true,
   showRecentEntries: true,
+  // Notifications Defaults
+  enableNotifications: true,
+  notifyWorkspaceInvites: true,
+  notifyTaskUpdates: true,
+  notifyInvoicePayments: true,
+  notifySubscriptionWarnings: true,
+  notifySecurityAlerts: true,
   visualTheme: 'Cinematic',
 };
 

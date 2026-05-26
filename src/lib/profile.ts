@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase/client';
 import { ADMIN_EMAIL } from '@/lib/auth-utils';
-import { normalizePlan, PLAN_HIERARCHY } from './subscription';
+import { normalizePlan, PLAN_HIERARCHY, getSubscriptionStatus } from './subscription';
 
 export interface UserProfile {
   id: string;
@@ -164,29 +164,26 @@ export async function syncUserSessionFromSupabase(
   if (profile) {
     // DB Success: Profile is the source of truth. 
     // If DB says "free" but local says "pro", the DB WINS.
-    currentPlan = normalizePlan(profile.plan);
+    const status = getSubscriptionStatus(profile);
+    currentPlan = status.effectivePlan;
 
     // --- PREMIUM EXPIRATION CHECK ---
-    if (currentPlan !== 'Free' && profile.premium_expires_at) {
-      const expiry = new Date(profile.premium_expires_at).getTime();
-      if (expiry < Date.now()) {
-        console.warn(`[profile] Premium expired on ${profile.premium_expires_at} — Downgrading to Free`);
-        currentPlan = 'Free';
-        
-        // Update DB in background
-        supabase.from('profiles').update({
-          plan: 'free',
-          premium_started_at: null,
-          premium_expires_at: null,
-          premium_source: null,
-          updated_at: new Date().toISOString()
-        }).eq('id', profile.id).then(({ error }) => {
-          if (error) console.error('[profile] Background downgrade failed:', error);
-          else {
-            window.dispatchEvent(new Event('subscriptionUpdated'));
-          }
-        });
-      }
+    if (status.isExpired) {
+      console.warn(`[profile] Premium expired on ${profile.premium_expires_at} — Downgrading to Free`);
+      
+      // Update DB in background
+      supabase.from('profiles').update({
+        plan: 'free',
+        premium_started_at: null,
+        premium_expires_at: null,
+        premium_source: null,
+        updated_at: new Date().toISOString()
+      }).eq('id', profile.id).then(({ error }) => {
+        if (error) console.error('[profile] Background downgrade failed:', error);
+        else {
+          window.dispatchEvent(new Event('subscriptionUpdated'));
+        }
+      });
     }
 
     // Safety: If local sub record contradicts DB, we should ideally clear it or ignore it

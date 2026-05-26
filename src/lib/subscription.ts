@@ -112,16 +112,85 @@ export function checkLimit(plan: PlanType, limitType: keyof PlanFeatures, curren
   return false;
 }
 
-export function isPremiumExpired(profileOrSession: any): boolean {
-  if (!profileOrSession?.premiumExpiresAt && !profileOrSession?.premium_expires_at) return false;
-  const expiryStr = profileOrSession.premiumExpiresAt || profileOrSession.premium_expires_at;
-  if (!expiryStr) return false;
+export interface SubscriptionStatus {
+  effectivePlan: PlanType;
+  storedPlan: PlanType;
+  isActive: boolean;
+  isExpired: boolean;
+  isLifetime: boolean;
+  expiresAt: string | null;
+  daysLeft: number | null;
+  label: string;
+}
+
+export function getSubscriptionStatus(profileOrSession: any): SubscriptionStatus {
+  const defaultStatus: SubscriptionStatus = {
+    effectivePlan: 'Free',
+    storedPlan: 'Free',
+    isActive: true,
+    isExpired: false,
+    isLifetime: true,
+    expiresAt: null,
+    daysLeft: null,
+    label: 'Free Plan',
+  };
+
+  if (!profileOrSession) return defaultStatus;
   
+  const plan = profileOrSession.plan || profileOrSession.current_plan;
+  const storedPlan = normalizePlan(plan);
+  const expiryStr = profileOrSession.premiumExpiresAt || profileOrSession.premium_expires_at;
+  
+  if (storedPlan === 'Free') {
+    return { ...defaultStatus, storedPlan: 'Free', effectivePlan: 'Free' };
+  }
+
+  // If it's Pro/Studio but no expiry date, it's a Lifetime plan
+  if (!expiryStr) {
+    return {
+      effectivePlan: storedPlan,
+      storedPlan: storedPlan,
+      isActive: true,
+      isExpired: false,
+      isLifetime: true,
+      expiresAt: null,
+      daysLeft: null,
+      label: `${storedPlan} (Lifetime)`,
+    };
+  }
+
   try {
     const expiry = new Date(expiryStr).getTime();
-    return expiry < Date.now();
+    if (!Number.isFinite(expiry)) {
+      return { ...defaultStatus, storedPlan, effectivePlan: 'Free', isExpired: true, expiresAt: expiryStr, label: 'Invalid Expiry' };
+    }
+    
+    const now = Date.now();
+    const isExpired = expiry < now;
+    const diff = expiry - now;
+    const daysLeft = isExpired ? 0 : Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    
+    return {
+      effectivePlan: isExpired ? 'Free' : storedPlan,
+      storedPlan: storedPlan,
+      isActive: !isExpired,
+      isExpired,
+      isLifetime: false,
+      expiresAt: expiryStr,
+      daysLeft: isExpired ? 0 : daysLeft,
+      label: isExpired ? 'Free (Premium Expired)' : `${storedPlan} (${daysLeft} days left)`,
+    };
   } catch (e) {
-    return false;
+    return {
+      effectivePlan: 'Free',
+      storedPlan: storedPlan,
+      isActive: false,
+      isExpired: true,
+      isLifetime: false,
+      expiresAt: expiryStr,
+      daysLeft: 0,
+      label: 'Expired',
+    };
   }
 }
 
@@ -172,30 +241,28 @@ export function getCurrentPlan(): PlanType {
     const sessionRaw = localStorage.getItem('userSession');
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw);
-      if (parsed?.plan) {
+      const plan = parsed?.plan || parsed?.current_plan;
+      
+      if (plan) {
+        const normalized = normalizePlan(plan);
+        if (normalized === 'Free') return 'Free';
+
         // --- EXPIRATION CHECK ---
-        if (parsed.plan !== 'Free' && isPremiumExpired(parsed)) {
+        const status = getSubscriptionStatus(parsed);
+        if (status.isExpired) {
           if (process.env.NODE_ENV === 'development') {
             console.debug('[subscription] Plan expired in session, treating as Free');
           }
           return 'Free';
         }
 
-        const p = normalizePlan(parsed.plan);
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('[subscription] getCurrentPlan from userSession:', p);
-        }
-        return p;
+        return normalized;
       }
     }
     
     // 2. localStorage.creatortracker_current_plan
     const raw = localStorage.getItem(CURRENT_PLAN_KEY);
-    if (raw) {
-      const p = normalizePlan(raw);
-      // NOTE: We don't have expiration info here, so we rely on userSession if available
-      return p;
-    }
+    if (raw) return normalizePlan(raw);
 
   } catch (e) {
     if (process.env.NODE_ENV === 'development') {

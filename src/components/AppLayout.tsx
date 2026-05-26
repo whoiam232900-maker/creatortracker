@@ -7,6 +7,7 @@ import { loadState, saveState, AppState } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
+import { useSubscriptionAlerts } from '@/hooks/useSubscriptionAlerts';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,9 @@ export default function AppLayout({ children, activeRoute }: AppLayoutProps) {
 
   // Enable premium smooth scroll on the main content area
   useSmoothScroll(scrollRef, mounted);
+
+  // Proactive subscription alerts
+  useSubscriptionAlerts();
 
   useEffect(() => {
     try {

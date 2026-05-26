@@ -58,17 +58,17 @@ export default function Modal({
     <div
       ref={overlayRef}
       onMouseDown={handleBackdropClick}
-      className="fixed inset-0 z-[500] flex items-center justify-center fade-in p-4 sm:p-6"
+      className="fixed inset-0 z-[500] flex items-center justify-center fade-in p-0 sm:p-6"
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.4)',
         backdropFilter: 'blur(var(--blur-intensity, 3px))',
       }}
     >
       <div
-        className={`relative w-full ${maxWidth} h-[85vh] max-h-[800px] flex flex-col scale-in rounded-2xl border shadow-2xl overflow-hidden`}
+        className={`relative w-full ${maxWidth} h-full sm:h-[85vh] max-h-full sm:max-h-[800px] flex flex-col scale-in rounded-none sm:rounded-2xl border-0 sm:border shadow-2xl overflow-hidden`}
         style={{
           backgroundColor: 'color-mix(in srgb, var(--card) 98%, transparent)',
-          borderColor: 'color-mix(in srgb, var(--border) 60%, transparent)',
+          borderColor: 'rgba(255, 255, 255, 0.05)',
           boxShadow:
             '0 25px 50px -12px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--border) 50%, transparent)',
         }}
@@ -104,7 +104,7 @@ export default function Modal({
 
         {/* Content */}
         <div
-          className={`flex-1 overflow-hidden flex flex-col relative z-0 ${noPadding ? '' : 'p-4 lg:p-6'}`}
+          className={`flex-1 overflow-y-auto scrollbar-thin flex flex-col relative z-0 ${noPadding ? '' : 'p-4 lg:p-6'}`}
         >
           {children}
         </div>

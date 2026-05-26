@@ -235,18 +235,20 @@
   /* Content remains scrollable; accessibility respected.            */
 
   * {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE/Edge */
+    -webkit-overflow-scrolling: touch; /* Mobile momentum scrolling */
   }
 
   *::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-    display: none; /* Chrome/Safari/Brave */
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important; /* Chrome/Safari/Brave */
   }
 
   .scrollbar-thin {
     overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Accessibility: Respect user motion preferences */

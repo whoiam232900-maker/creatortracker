@@ -14,6 +14,7 @@ import {
   HelpCircle,
   X,
   ChevronRight,
+  ChevronLeft,
   LogOut,
   Trash2,
   Monitor,
@@ -33,6 +34,8 @@ import { PlanType, PLAN_HIERARCHY } from '@/lib/subscription';
 import { UpgradePrompt } from './UpgradePrompt';
 import { getPlanConfigsFromDB, PlanConfig, getPlanPrice, formatPlanPrice } from '@/lib/plan-config';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
+import { showToast } from './ui/Toast';
+import { getSubscriptionStatus } from '@/lib/subscription';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -148,9 +151,9 @@ function Segment<T extends string>({
 }
 
 function CustomSlider({
-  value,
-  min,
-  max,
+  value: rawValue,
+  min: rawMin,
+  max: rawMax,
   onChange,
 }: {
   value: number;
@@ -158,7 +161,16 @@ function CustomSlider({
   max: number;
   onChange: (val: number) => void;
 }) {
-  const percentage = ((value - min) / (max - min)) * 100;
+  const safeNumber = (val: unknown, fallback = 0) =>
+    typeof val === 'number' && Number.isFinite(val) ? val : fallback;
+
+  const value = safeNumber(rawValue);
+  const min = safeNumber(rawMin);
+  const max = safeNumber(rawMax, 100);
+  
+  const range = max - min;
+  const percentage = range > 0 ? Math.min(100, Math.max(0, ((value - min) / range) * 100)) : 0;
+  
   return (
     <div className="relative w-40 sm:w-48 h-6 flex items-center group">
       <input
@@ -196,6 +208,7 @@ export default function SettingsModal({
   
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(true);
   const [billingInterval, setBillingInterval] = useState<'Monthly' | 'Yearly'>('Monthly');
   const [region, setRegion] = useState<'Global' | 'India'>('Global');
   const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([]);
@@ -214,6 +227,9 @@ export default function SettingsModal({
   // Combined sidebar items based on role
   const visibleSidebarItems = SIDEBAR_ITEMS;
 
+  // Subscription Details
+  const subStatus = getSubscriptionStatus(session);
+
   // Sync initial tab when modal opens
   React.useEffect(() => {
     async function loadData() {
@@ -227,6 +243,12 @@ export default function SettingsModal({
     }
     if (isOpen) {
       setActiveTab(initialTab);
+      // On mobile, if we have a specific initialTab that isn't the default, show content directly
+      if (initialTab && initialTab !== 'Billing & Plans') {
+        setMobileMenuOpen(false);
+      } else {
+        setMobileMenuOpen(true);
+      }
       loadData();
     }
   }, [isOpen, initialTab]);
@@ -259,7 +281,7 @@ export default function SettingsModal({
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
-        className="flex h-full w-full relative group"
+        className="flex flex-col lg:flex-row h-full w-full relative group"
         style={{ backgroundColor: 'var(--card)' }}
       >
         {/* Subtle Cursor-Follow Gradient Effect */}
@@ -274,9 +296,8 @@ export default function SettingsModal({
 
         {/* Left Sidebar */}
         <div
-          className="w-64 flex-shrink-0 border-r flex flex-col relative z-10"
+          className={`${mobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-64 flex-shrink-0 border-r border-border/40 lg:border-r flex flex-col relative z-10`}
           style={{
-            borderColor: 'color-mix(in srgb, var(--border) 40%, transparent)',
             backgroundColor: 'color-mix(in srgb, var(--card) 98%, transparent)',
           }}
         >
@@ -290,10 +311,13 @@ export default function SettingsModal({
               return (
                 <button
                   key={item.label}
-                  onClick={() => setActiveTab(item.label)}
+                  onClick={() => {
+                    setActiveTab(item.label);
+                    setMobileMenuOpen(false);
+                  }}
                   data-settings-sidebar-item
                   data-active={String(activeTab === item.label)}
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group border ${
+                  className={`relative w-full flex items-center gap-3 px-3 py-3 lg:py-2.5 rounded-xl text-[14px] lg:text-[13px] font-medium transition-all duration-300 group border ${
                     activeTab === item.label
                       ? 'text-foreground/90 shadow-[0_1px_2px_rgba(0,0,0,0.1)]'
                       : 'text-muted-foreground/40 hover:text-foreground/70 border-transparent'
@@ -322,8 +346,16 @@ export default function SettingsModal({
         </div>
 
         {/* Main Content Area */}
-        <div ref={contentRef as any} className="flex-1 overflow-y-auto scrollbar-thin relative z-10" data-settings-content>
-          <div className="max-w-4xl mx-auto px-8 lg:px-12 py-10">
+        <div ref={contentRef as any} className={`${!mobileMenuOpen ? 'flex' : 'hidden'} lg:flex flex-1 overflow-y-auto scrollbar-thin relative z-10`} data-settings-content>
+          <div className="max-w-4xl mx-auto px-4 md:px-8 lg:px-12 py-6 md:py-10 w-full">
+            {/* Mobile Back Button */}
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden flex items-center gap-2 mb-6 text-muted-foreground hover:text-foreground transition-colors group/back"
+            >
+              <ChevronLeft size={16} className="transition-transform group-hover/back:-translate-x-0.5" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Back to Settings</span>
+            </button>
             {activeTab === 'Billing & Plans' && (
               <>
                 {/* Header / Status Section */}
@@ -358,11 +390,11 @@ export default function SettingsModal({
                           <div data-settings-badge className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/[0.03] border border-primary/10">
                             <span className="w-1 h-1 rounded-full bg-primary/40" />
                             <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-widest">
-                              Active
+                              {subStatus.isExpired ? 'Expired' : 'Active'}
                             </span>
                           </div>
                           <span className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest ml-1">
-                            • {formatExpiry(session?.premiumExpiresAt)}
+                            • {subStatus.isLifetime ? 'Lifetime access' : (subStatus.isExpired ? `Expired on ${subStatus.expiresAt?.split('T')[0]}` : `${subStatus.daysLeft} days left`)}
                           </span>
                         </>
                       )}
@@ -400,7 +432,7 @@ export default function SettingsModal({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {PLANS_UI.map((plan) => {
                       const isCurrent = currentPlan.toLowerCase() === plan.name.toLowerCase();
                       const Icon = plan.icon;
@@ -1122,18 +1154,169 @@ export default function SettingsModal({
 
             {activeTab === 'Help & Support' && <SupportTab />}
 
-            {activeTab !== 'Account' &&
-              activeTab !== 'Billing & Plans' &&
-              activeTab !== 'Preferences' &&
-              activeTab !== 'Help & Support' && (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <Settings size={48} className="text-muted-foreground/30 mb-4" />
-                  <h2 className="text-xl font-bold text-muted-foreground mb-2">{activeTab}</h2>
-                  <p className="text-sm text-muted-foreground/70">
-                    This section is currently under construction.
+            {activeTab === 'Notifications' && (
+              <div className="pb-12 max-w-3xl">
+                <div className="mb-10">
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 text-foreground/90">
+                    Notifications
+                  </h1>
+                  <p className="text-muted-foreground text-base">
+                    Choose how and when you want to be notified about your workspace activity.
                   </p>
                 </div>
-              )}
+
+                <div className="space-y-10">
+                  <section>
+                    <div className="flex items-center justify-between mb-4 pl-1">
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                        Global Controls
+                      </h3>
+                    </div>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.02] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                            Enable all notifications
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Master switch for all system and workspace alerts.
+                          </p>
+                        </div>
+                        <Toggle
+                          active={settings.enableNotifications}
+                          onChange={(val) => updateSetting('enableNotifications', val)}
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className={!settings.enableNotifications ? 'opacity-50 pointer-events-none' : ''}>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">
+                      System & Workspace
+                    </h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.02] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                            Workspace invites
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            When someone invites you to join a workspace.
+                          </p>
+                        </div>
+                        <Toggle
+                          active={settings.notifyWorkspaceInvites}
+                          onChange={(val) => updateSetting('notifyWorkspaceInvites', val)}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.02] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                            Task updates
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            When shared tasks or trackers are modified by team members.
+                          </p>
+                        </div>
+                        <Toggle
+                          active={settings.notifyTaskUpdates}
+                          onChange={(val) => updateSetting('notifyTaskUpdates', val)}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.02] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                            Security & system alerts
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Important account security and maintenance notifications.
+                          </p>
+                        </div>
+                        <Toggle
+                          active={settings.notifySecurityAlerts}
+                          onChange={(val) => updateSetting('notifySecurityAlerts', val)}
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className={!settings.enableNotifications ? 'opacity-50 pointer-events-none' : ''}>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">
+                      Billing & Subscription
+                    </h3>
+                    <div className="bg-card border border-border/60 rounded-2xl shadow-sm divide-y divide-border/40 overflow-hidden">
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.02] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                            Invoices & payment updates
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Receipts and payment confirmation alerts.
+                          </p>
+                        </div>
+                        <Toggle
+                          active={settings.notifyInvoicePayments}
+                          onChange={(val) => updateSetting('notifyInvoicePayments', val)}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 p-5 hover:bg-white/[0.02] transition-colors group">
+                        <div className="pr-4">
+                          <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                            Subscription warnings
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Reminders about plan expiry or limit threshold alerts.
+                          </p>
+                        </div>
+                        <Toggle
+                          active={settings.notifySubscriptionWarnings}
+                          onChange={(val) => updateSetting('notifySubscriptionWarnings', val)}
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* ── Test Notifications ────────────────────────────────────── */}
+                  <section>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 pl-1">
+                      System Verification
+                    </h3>
+                    <div className="bg-card border border-border/60 rounded-2xl p-5">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground/90">
+                            Test System
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Verify that notification popups are working correctly.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!settings.enableNotifications) {
+                              alert('Notifications are currently disabled. Please enable "Enable all notifications" first.');
+                              return;
+                            }
+                            showToast({
+                              type: 'success',
+                              title: 'Notification System Active',
+                              description: 'Your premium notification system is functioning perfectly.',
+                              category: 'system'
+                            });
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 whitespace-nowrap"
+                        >
+                          Send test notification
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
